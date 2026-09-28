@@ -1,0 +1,121 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>BETA — Trilha Paralela pra Doomsday</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Bangers&family=Baloo+2:wght@400;500;600;700;800&family=JetBrains+Mono:wght@500;700&display=swap" rel="stylesheet">
+<style>
+  :root {
+    --ink: #15141b; --ink2: #1e1d27; --paper: #efe4c8; --gold: #d4af37;
+    --crimson: #b3242c; --cobalt: #2b4b8f; --muted: #9a927e; --line: #33313f; --ok: #3fbf56;
+  }
+  * { box-sizing: border-box; }
+  body { margin: 0; font-family: 'Baloo 2', sans-serif; background: var(--ink); color: var(--paper); padding-bottom: 40px; }
+  .beta-tag {
+    background: var(--gold); color: var(--ink); text-align: center; font-family: 'Bangers', cursive;
+    letter-spacing: 2px; padding: 6px; font-size: 0.85rem;
+  }
+  header {
+    padding: 22px 16px 16px; text-align: center; background: linear-gradient(180deg, #2a1418, var(--ink));
+    border-bottom: 3px solid var(--crimson);
+  }
+  h1 {
+    font-family: 'Bangers', cursive; color: var(--paper); font-size: 1.7rem; margin: 0 0 4px;
+    text-shadow: 2px 2px 0 var(--crimson); letter-spacing: 1px;
+  }
+  .subtitle { color: var(--muted); font-size: 0.78rem; }
+  main { max-width: 720px; margin: 0 auto; padding: 18px 16px; }
+  .explain {
+    background: var(--ink2); border: 1px solid var(--line); border-radius: 10px; padding: 14px;
+    font-size: 0.82rem; color: var(--paper); margin-bottom: 18px; line-height: 1.6;
+  }
+  .explain b { color: var(--gold); }
+  .explain .warn { color: var(--muted); font-size: 0.75rem; margin-top: 8px; display: block; }
+  .deadline {
+    display: flex; justify-content: space-between; align-items: center; background: var(--ink2);
+    border: 1px solid var(--crimson); border-radius: 10px; padding: 10px 14px; margin-bottom: 18px; font-size: 0.8rem;
+  }
+  .deadline b { color: var(--gold); }
+  .row {
+    display: flex; align-items: center; gap: 12px; background: var(--ink2); border: 1px solid var(--line);
+    border-radius: 10px; padding: 10px 14px; margin-bottom: 7px;
+  }
+  .row-date {
+    font-family: 'JetBrains Mono', monospace; font-size: 0.72rem; color: var(--gold); flex: 0 0 62px;
+    text-align: center; background: var(--ink); border-radius: 6px; padding: 5px 2px; border: 1px solid var(--line);
+  }
+  .row-title { flex: 1; font-size: 0.88rem; font-weight: 700; }
+  .badge {
+    display: inline-block; font-size: 0.6rem; font-weight: 700; letter-spacing: 0.5px; text-transform: uppercase;
+    padding: 2px 7px; border-radius: 5px; margin-left: 6px; vertical-align: middle;
+  }
+  .badge.filme { background: var(--ok); color: #0d2410; }
+  .badge.serie { background: var(--cobalt); color: var(--paper); }
+  .badge.already { background: var(--muted); color: var(--ink); }
+  .badge.selo { background: var(--gold); color: var(--ink); }
+  .row-date-wrap { display: flex; flex-direction: column; align-items: center; gap: 3px; flex: 0 0 62px; }
+  .selo-tag {
+    font-size: 0.52rem; font-weight: 800; letter-spacing: 0.5px; text-transform: uppercase;
+    color: var(--gold); background: rgba(212,175,55,0.12); border: 1px solid var(--gold);
+    border-radius: 5px; padding: 1px 4px; text-align: center; white-space: nowrap;
+  }
+  .row-note { font-size: 0.68rem; color: var(--muted); margin-top: 2px; }
+  .done-note {
+    background: var(--ink2); border: 1px dashed var(--line); border-radius: 10px; padding: 10px 14px;
+    font-size: 0.75rem; color: var(--muted); margin-bottom: 18px;
+  }
+  .approve-box {
+    margin-top: 22px; text-align: center; background: var(--ink2); border: 1px solid var(--gold);
+    border-radius: 10px; padding: 16px;
+  }
+  .approve-box p { font-size: 0.82rem; margin: 0 0 4px; }
+  .approve-box .small { font-size: 0.7rem; color: var(--muted); }
+</style>
+</head>
+<body>
+
+<div class="beta-tag">⚠️ BETA — NADA AQUI ESTÁ APLICADO NA SUA LISTA DE VERDADE AINDA</div>
+
+<header>
+  <h1>🌀 TRILHA PARALELA — RUMO A DOOMSDAY</h1>
+  <div class="subtitle">Proposta de cronograma "realidade alternativa"</div>
+</header>
+
+<main>
+  <div class="explain">
+    Ajustado do seu jeito: só os títulos que você disse que ainda faltam ficam aqui — o resto da coleção
+    Doomsday do Disney+ você já viu recentemente, então saiu da lista. Esses 7 ficam <b>marcados em verde</b>
+    (ou azul, a série) e com um <span class="badge selo">selo doomsday</span> do lado da data, pra ficarem
+    visualmente "coladinhos" na reta final antes do lançamento.
+    <span class="warn">Sua Cronologia UCM principal continua exatamente como está — isso aqui é só uma trilha extra por fora, sem empurrar nem reordenar nada dela.</span>
+  </div>
+
+  <div class="deadline">
+    <span>🎬 Estreia de Vingadores: Doutor Destino</span>
+    <b>17/12/2026</b>
+  </div>
+
+  <div class="done-note">
+    ✅ Fora da lista porque você já viu recentemente: X-Men, X2, Os Vingadores (2012), Vingadores: Ultimato,
+    Homem-Aranha: Sem Volta Para Casa, Doutor Estranho no Multiverso da Loucura e Quarteto Fantástico.
+    Restam só os 7 que você pediu pra revisar.
+  </div>
+
+  <div class="row"><div class="row-date-wrap"><div class="row-date">10/11</div><div class="selo-tag">🎯 doomsday</div></div><div><div class="row-title">Vingadores: Guerra Infinita <span class="badge filme">filme</span></div></div></div>
+  <div class="row"><div class="row-date-wrap"><div class="row-date">16/11</div><div class="selo-tag">🎯 doomsday</div></div><div><div class="row-title">Loki T2 <span class="badge serie">série · 6 eps</span></div><div class="row-note">Leva uns dias a mais — são 6 episódios, não 1 filme.</div></div></div>
+  <div class="row"><div class="row-date-wrap"><div class="row-date">21/11</div><div class="selo-tag">🎯 doomsday</div></div><div><div class="row-title">Shang-Chi e a Lenda dos Dez Anéis <span class="badge filme">filme</span></div></div></div>
+  <div class="row"><div class="row-date-wrap"><div class="row-date">26/11</div><div class="selo-tag">🎯 doomsday</div></div><div><div class="row-title">Deadpool & Wolverine <span class="badge filme">filme</span></div></div></div>
+  <div class="row"><div class="row-date-wrap"><div class="row-date">01/12</div><div class="selo-tag">🎯 doomsday</div></div><div><div class="row-title">Pantera Negra: Wakanda Para Sempre <span class="badge filme">filme</span></div></div></div>
+  <div class="row"><div class="row-date-wrap"><div class="row-date">06/12</div><div class="selo-tag">🎯 doomsday</div></div><div><div class="row-title">Capitão América: Admirável Mundo Novo <span class="badge filme">filme</span></div></div></div>
+  <div class="row"><div class="row-date-wrap"><div class="row-date">11/12</div><div class="selo-tag">🔥 doomsday</div></div><div><div class="row-title">Thunderbolts* <span class="badge filme">filme</span></div></div></div>
+
+  <div class="approve-box">
+    <p>Ritmo: 1 título a cada ~5 dias, terminando <b>11/12</b> — 6 dias de folga antes da estreia (17/12).</p>
+    <p class="small">Aprova esse ritmo/ordem, quer mais rápido, mais devagar, ou mudar algum título de lugar?</p>
+  </div>
+</main>
+
+</body>
+</html>
