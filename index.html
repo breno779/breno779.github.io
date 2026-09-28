@@ -857,6 +857,7 @@
       <button id="btnJoinSyncCode" style="white-space:nowrap;">Usar</button>
     </div>
     <p id="syncStatus" style="font-size:0.68rem;color:var(--muted);margin:8px 0 0;"></p>
+    <button id="btnForceSyncPush" style="margin-top:8px;font-size:0.68rem;padding:4px 10px;">☁️ Reenviar meus dados agora (sobrescrever nuvem)</button>
   </div>
   <div class="music-player" id="musicPlayer"></div>
   <input type="file" id="importFile" accept="application/json" style="display:none;">
@@ -1258,6 +1259,15 @@ function attachSyncListener(code) {
       return;
     }
     if (!data || !Array.isArray(data.items)) return;
+    if (data.items.length === 0 && items.length > 0) {
+      // nunca aceita um estado vazio vindo da nuvem se este aparelho já tem itens de verdade —
+      // isso é lixo de configuração/teste incompleto, não progresso real de outro aparelho.
+      // Em vez de apagar os dados daqui, reenvia o que já temos pra "consertar" a nuvem.
+      console.warn('sync: ignorando doc remoto vazio, mantendo dados locais');
+      setSyncStatus('⚠️ Nuvem estava vazia — mantive seus dados e reenviei');
+      schedulePushToCloud();
+      return;
+    }
     applyingRemoteUpdate = true;
     items = withOrder(data.items);
     trash = data.trash || [];
@@ -2478,6 +2488,12 @@ document.getElementById('btnJoinSyncCode').addEventListener('click', () => {
   const input = document.getElementById('syncCodeInput');
   joinSyncCode(input.value);
   input.value = '';
+});
+document.getElementById('btnForceSyncPush').addEventListener('click', () => {
+  if (!syncDb) { showToast('⚠️ Sincronização ainda não conectou'); return; }
+  if (!confirm('Isso vai substituir os dados salvos na nuvem pelos deste aparelho. Confirma?')) return;
+  pushToCloudNow();
+  showToast('☁️ Reenviado! Abra o outro aparelho pra puxar essa versão.');
 });
 document.getElementById('modalCloseX').addEventListener('click', closeModal);
 document.getElementById('btnShare').addEventListener('click', shareProgress);
