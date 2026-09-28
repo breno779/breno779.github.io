@@ -12,6 +12,8 @@
 <meta name="mobile-web-app-capable" content="yes">
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link href="https://fonts.googleapis.com/css2?family=Bangers&family=Baloo+2:wght@400;500;600;700;800&family=JetBrains+Mono:wght@500;700&display=swap" rel="stylesheet">
+<script src="https://www.gstatic.com/firebasejs/10.13.0/firebase-app-compat.js"></script>
+<script src="https://www.gstatic.com/firebasejs/10.13.0/firebase-firestore-compat.js"></script>
 <style>
   :root {
     --ink: #15141b;
@@ -837,6 +839,18 @@
     <button id="btnForceSync">🔄 Forçar sincronização (restaura dados originais)</button>
   </div>
   <p id="lastSavedInfo" style="font-size:0.7rem;color:var(--muted);text-align:center;margin-top:-8px;"></p>
+  <div class="sync-box" style="margin:14px 14px 0;padding:12px;border:1px solid var(--line);border-radius:10px;">
+    <p style="font-size:0.78rem;font-weight:700;margin:0 0 6px;">🔗 Sincronizar entre aparelhos</p>
+    <p style="font-size:0.72rem;color:var(--muted);margin:0 0 8px;">Digite o mesmo código nos seus aparelhos (celular + iPad) pra ver o mesmo progresso nos dois. Não compartilhe esse código com mais ninguém.</p>
+    <p style="font-size:0.72rem;margin:0 0 8px;">Seu código: <b id="syncCodeDisplay" style="font-family:'JetBrains Mono',monospace;letter-spacing:1px;">------</b>
+      <button id="btnCopySyncCode" style="font-size:0.65rem;padding:2px 8px;margin-left:6px;">copiar</button>
+    </p>
+    <div style="display:flex;gap:6px;">
+      <input type="text" id="syncCodeInput" placeholder="Colar código de outro aparelho" maxlength="8" style="flex:1;min-width:0;">
+      <button id="btnJoinSyncCode" style="white-space:nowrap;">Usar</button>
+    </div>
+    <p id="syncStatus" style="font-size:0.68rem;color:var(--muted);margin:8px 0 0;"></p>
+  </div>
   <div class="music-player" id="musicPlayer"></div>
   <input type="file" id="importFile" accept="application/json" style="display:none;">
 </div>
@@ -1157,6 +1171,122 @@ function save() {
   } catch (e) {
     console.error('storage error', e);
   }
+  schedulePushToCloud();
+}
+
+// ===== Sincronização entre aparelhos (Firebase Firestore) =====
+// Cada "código" é um documento separado em /syncs/{codigo}. Aparelhos com o mesmo código
+// compartilham o mesmo progresso (items/trash); aparelhos com códigos diferentes não se veem.
+const FIREBASE_CONFIG = {
+  apiKey: "AIzaSyBD8SChYPL_qKrwIsa-9DWfICME1r9V66g",
+  authDomain: "lista-ucm.firebaseapp.com",
+  projectId: "lista-ucm",
+  storageBucket: "lista-ucm.firebasestorage.app",
+  messagingSenderId: "168065399604",
+  appId: "1:168065399604:web:c9dfa1a2e97564609d4361"
+};
+const SYNC_CODE_KEY = 'ucm-sync-code';
+let syncDb = null;
+let syncUnsub = null;
+let applyingRemoteUpdate = false;
+let pushToCloudTimer = null;
+
+function genSyncCode() {
+  const chars = 'ABCDEFGHJKLMNPQRSTUVWXYZ23456789'; // sem O/0/I/1 pra evitar confusão
+  let code = '';
+  for (let i = 0; i < 6; i++) code += chars[Math.floor(Math.random() * chars.length)];
+  return code;
+}
+
+function getSyncCode() {
+  let code = null;
+  try { code = localStorage.getItem(SYNC_CODE_KEY); } catch(e) {}
+  if (!code) {
+    code = genSyncCode();
+    try { localStorage.setItem(SYNC_CODE_KEY, code); } catch(e) {}
+  }
+  return code;
+}
+
+function schedulePushToCloud() {
+  if (!syncDb || applyingRemoteUpdate) return;
+  clearTimeout(pushToCloudTimer);
+  pushToCloudTimer = setTimeout(pushToCloudNow, 700);
+}
+
+function pushToCloudNow() {
+  if (!syncDb) return;
+  const code = getSyncCode();
+  syncDb.collection('syncs').doc(code).set({
+    items: items,
+    trash: trash,
+    listVersion: LIST_VERSION,
+    updatedAt: firebase.firestore.FieldValue.serverTimestamp()
+  }).then(() => {
+    setSyncStatus('✅ Sincronizado agora');
+  }).catch(err => {
+    console.error('sync push error', err);
+    setSyncStatus('⚠️ Erro ao sincronizar: ' + err.message);
+  });
+}
+
+function setSyncStatus(msg) {
+  const el = document.getElementById('syncStatus');
+  if (el) el.textContent = msg;
+}
+
+function attachSyncListener(code) {
+  if (syncUnsub) { syncUnsub(); syncUnsub = null; }
+  setSyncStatus('🔄 Conectando...');
+  syncUnsub = syncDb.collection('syncs').doc(code).onSnapshot(snap => {
+    if (!snap.exists) {
+      // primeiro aparelho com esse código: sobe o estado atual
+      setSyncStatus('✅ Conectado (primeiro aparelho com esse código)');
+      pushToCloudNow();
+      return;
+    }
+    const data = snap.data();
+    if (snap.metadata.hasPendingWrites) {
+      // essa mudança veio deste próprio aparelho (ainda local); ignora
+      return;
+    }
+    if (!data || !Array.isArray(data.items)) return;
+    applyingRemoteUpdate = true;
+    items = withOrder(data.items);
+    trash = data.trash || [];
+    nextId = items.reduce((m,i) => Math.max(m, i.id), 0) + 1;
+    render();
+    applyingRemoteUpdate = false;
+    setSyncStatus('✅ Sincronizado (atualizado de outro aparelho)');
+  }, err => {
+    console.error('sync listen error', err);
+    setSyncStatus('⚠️ Erro ao conectar: ' + err.message);
+  });
+}
+
+function initCloudSync() {
+  try {
+    if (!window.firebase) return;
+    if (!firebase.apps.length) firebase.initializeApp(FIREBASE_CONFIG);
+    syncDb = firebase.firestore();
+    const code = getSyncCode();
+    const disp = document.getElementById('syncCodeDisplay');
+    if (disp) disp.textContent = code;
+    attachSyncListener(code);
+  } catch(e) {
+    console.error('initCloudSync error', e);
+    setSyncStatus('⚠️ Sincronização indisponível');
+  }
+}
+
+function joinSyncCode(newCode) {
+  newCode = (newCode || '').trim().toUpperCase();
+  if (!newCode) return;
+  try { localStorage.setItem(SYNC_CODE_KEY, newCode); } catch(e) {}
+  const disp = document.getElementById('syncCodeDisplay');
+  if (disp) disp.textContent = newCode;
+  attachSyncListener(newCode);
+  showToast('🔗 Código atualizado: ' + newCode);
 }
 
 function forceSync() {
@@ -2330,6 +2460,15 @@ document.getElementById('btnCompact').addEventListener('click', (e) => {
 document.getElementById('btnPalette').addEventListener('click', showPaletteMenu);
 document.getElementById('btnTrash').addEventListener('click', showTrash);
 document.getElementById('btnForceSync').addEventListener('click', forceSync);
+document.getElementById('btnCopySyncCode').addEventListener('click', () => {
+  const code = document.getElementById('syncCodeDisplay').textContent;
+  navigator.clipboard.writeText(code).then(() => showToast('📋 Código copiado!')).catch(() => {});
+});
+document.getElementById('btnJoinSyncCode').addEventListener('click', () => {
+  const input = document.getElementById('syncCodeInput');
+  joinSyncCode(input.value);
+  input.value = '';
+});
 document.getElementById('btnShare').addEventListener('click', shareProgress);
 document.getElementById('btnMarathon').addEventListener('click', openMarathon);
 document.getElementById('btnPace').addEventListener('click', showPaceAdjuster);
@@ -3157,6 +3296,7 @@ load();
 populateMoveSelects();
 populateInsertAfterSelect();
 scrollToTodayItem(false);
+initCloudSync();
 
 </script>
 <div class="toast-container" id="toastContainer"></div>
