@@ -71,8 +71,13 @@
     display: inline-block; font-size: 0.62rem; font-weight: 700; letter-spacing: 0.5px; text-transform: uppercase;
     padding: 2px 7px; border-radius: 5px; margin-left: 8px; vertical-align: middle;
   }
-  .badge.essential { background: var(--crimson); color: var(--paper); }
-  .badge.recommended { background: var(--cobalt); color: var(--paper); }
+  .badge.filme { background: #2e8b3d; color: #eafbe8; }
+  .badge.serie { background: var(--cobalt); color: var(--paper); }
+  .order-num {
+    width: 24px; height: 24px; border-radius: 50%; flex: 0 0 24px; border: 2px solid var(--line);
+    display: flex; align-items: center; justify-content: center; font-size: 0.72rem; font-weight: 700;
+    color: var(--muted); margin-top: 1px;
+  }
   footer { text-align: center; font-size: 0.7rem; color: var(--muted); padding: 20px 16px 0; }
 </style>
 </head>
@@ -80,7 +85,7 @@
 
 <header>
   <h1>🛡️ RUMO A VINGADORES: DOOMSDAY</h1>
-  <div class="subtitle">O essencial pra chegar preparado</div>
+  <div class="subtitle">Coleção oficial Disney+</div>
   <div class="progress-wrap">
     <div class="progress-bar"><div class="progress-fill" id="fill"></div></div>
     <div class="progress-label"><span id="count">0/0</span><span id="pct">0%</span></div>
@@ -89,104 +94,100 @@
 
 <main>
   <div class="note">
-    Essa é uma lista separada da sua Cronologia UCM — não mexe no seu progresso de lá. É só o filtro do
-    que mais importa assistir (ou relembrar) antes de <b>Vingadores: Doomsday</b>, focado em quem aparece
-    no filme e nas pontas que ele deve amarrar: Doutor Destino, os X-Men, o Quarteto Fantástico, os
-    Thunderbolts/Novos Vingadores e a bagunça do multiverso.
+    Essa é uma lista separada da sua Cronologia UCM — não mexe no seu progresso de lá. É a coleção oficial
+    do Disney+ <b>"Contagem regressiva para Doomsday"</b>, na ordem que eles recomendam. Os <span style="color:#3fbf56;font-weight:700;">filmes</span>
+    aparecem marcados em verde, igual lá no app; a única série da lista é o Loki.
   </div>
 
   <div class="group">
-    <p class="group-title">🩸 O time que estreia em Doomsday</p>
     <div class="item" data-id="d1">
       <div class="check">✓</div>
       <div class="item-body">
-        <span class="item-title">🎬 Thunderbolts* <span class="badge essential">essencial</span></span>
-        <div class="item-why">É literalmente como os "Novos Vingadores" se formam — o time que continua pra Doomsday.</div>
+        <span class="item-title">1. X-Men (2000) <span class="badge filme">filme</span></span>
       </div>
     </div>
     <div class="item" data-id="d2">
       <div class="check">✓</div>
       <div class="item-body">
-        <span class="item-title">🎬 Quarteto Fantástico: Primeiros Passos <span class="badge essential">essencial</span></span>
-        <div class="item-why">Apresenta o Quarteto que entra direto em Doomsday, incluindo o Reed Richards que vira peça central do multiverso.</div>
+        <span class="item-title">2. X2 (2003) <span class="badge filme">filme</span></span>
       </div>
     </div>
     <div class="item" data-id="d3">
       <div class="check">✓</div>
       <div class="item-body">
-        <span class="item-title">🎬 Capitão América: Admirável Mundo Novo <span class="badge essential">essencial</span></span>
-        <div class="item-why">Sam Wilson como o novo Capitão América, e o pano de fundo político (Thaddeus Ross) que ecoa em Doomsday.</div>
+        <span class="item-title">3. Capitão América: O Primeiro Vingador (2011) <span class="badge filme">filme</span></span>
       </div>
     </div>
-  </div>
-
-  <div class="group">
-    <p class="group-title">🦾 Doutor Destino e o multiverso</p>
     <div class="item" data-id="d4">
       <div class="check">✓</div>
       <div class="item-body">
-        <span class="item-title">📺 Loki (T1 e T2) <span class="badge essential">essencial</span></span>
-        <div class="item-why">A base de tudo: TVA, ramificações do tempo, Linha Sagrada quebrada — é o motivo do multiverso existir do jeito que existe.</div>
+        <span class="item-title">4. Os Vingadores (2012) <span class="badge filme">filme</span></span>
       </div>
     </div>
     <div class="item" data-id="d5">
       <div class="check">✓</div>
       <div class="item-body">
-        <span class="item-title">🎬 Doutor Estranho no Multiverso da Loucura <span class="badge essential">essencial</span></span>
-        <div class="item-why">Introduz os Illuminati e a ideia de variantes "importantes" cruzando universos — prepara o terreno pra um vilão vindo de outro Earth.</div>
+        <span class="item-title">5. Vingadores: Guerra Infinita (2018) <span class="badge filme">filme</span></span>
       </div>
     </div>
     <div class="item" data-id="d6">
       <div class="check">✓</div>
       <div class="item-body">
-        <span class="item-title">🎨 X-Men '97 <span class="badge essential">essencial</span></span>
-        <div class="item-why">Reaproxima o público dos X-Men clássicos antes deles chegarem "de verdade" ao MCU em Doomsday.</div>
+        <span class="item-title">6. Vingadores: Ultimato (2019) <span class="badge filme">filme</span></span>
       </div>
     </div>
     <div class="item" data-id="d7">
       <div class="check">✓</div>
       <div class="item-body">
-        <span class="item-title">🎬 Deadpool & Wolverine <span class="badge essential">essencial</span></span>
-        <div class="item-why">Traz o Wolverine do Hugh Jackman de vez pro MCU e escancara o multiverso da Fox se misturando com tudo.</div>
+        <span class="item-title">7. Loki (2021) <span class="badge serie">série</span></span>
       </div>
     </div>
-  </div>
-
-  <div class="group">
-    <p class="group-title">🕸️ Contexto que ajuda (recomendado, não obrigatório)</p>
     <div class="item" data-id="d8">
       <div class="check">✓</div>
       <div class="item-body">
-        <span class="item-title">📺 WandaVision <span class="badge recommended">recomendado</span></span>
-        <div class="item-why">Feitiçaria do caos e o começo de tudo relacionado à Wanda — pano de fundo emocional pro multiverso.</div>
+        <span class="item-title">8. Shang-Chi e a Lenda dos Dez Anéis (2021) <span class="badge filme">filme</span></span>
       </div>
     </div>
     <div class="item" data-id="d9">
       <div class="check">✓</div>
       <div class="item-body">
-        <span class="item-title">📺 Agatha Desde Sempre <span class="badge recommended">recomendado</span></span>
-        <div class="item-why">Fecha o arco de magia pós-WandaVision, relevante pro lado místico que Destino também usa.</div>
+        <span class="item-title">9. Homem-Aranha: Sem Volta para Casa (2021) <span class="badge filme">filme</span></span>
       </div>
     </div>
     <div class="item" data-id="d10">
       <div class="check">✓</div>
       <div class="item-body">
-        <span class="item-title">📺 Invasão Secreta <span class="badge recommended">recomendado</span></span>
-        <div class="item-why">Mostra o mundo desconfiado e fragmentado — o tipo de cenário político que Doomsday deve explorar.</div>
+        <span class="item-title">10. Pantera Negra: Wakanda Para Sempre (2022) <span class="badge filme">filme</span></span>
       </div>
     </div>
     <div class="item" data-id="d11">
       <div class="check">✓</div>
       <div class="item-body">
-        <span class="item-title">📺 Demolidor: Renascido (T1 e T2) <span class="badge recommended">recomendado</span></span>
-        <div class="item-why">Kingpin como figura de poder em Nova York — conecta com a política que cerca os heróis em Doomsday.</div>
+        <span class="item-title">11. Capitão América: Admirável Mundo Novo (2025) <span class="badge filme">filme</span></span>
       </div>
     </div>
     <div class="item" data-id="d12">
       <div class="check">✓</div>
       <div class="item-body">
-        <span class="item-title">🎨 What If…? (T1 a T3) <span class="badge recommended">recomendado</span></span>
-        <div class="item-why">Deixa você craque em "isso é só uma variante" antes do filme jogar um monte delas na tela.</div>
+        <span class="item-title">12. Deadpool & Wolverine (2024) <span class="badge filme">filme</span></span>
+      </div>
+    </div>
+    <div class="item" data-id="d13">
+      <div class="check">✓</div>
+      <div class="item-body">
+        <span class="item-title">13. Doutor Estranho no Multiverso da Loucura (2022) <span class="badge filme">filme</span></span>
+      </div>
+    </div>
+    <div class="item" data-id="d14">
+      <div class="check">✓</div>
+      <div class="item-body">
+        <span class="item-title">14. Thunderbolts* (2025) <span class="badge filme">filme</span></span>
+      </div>
+    </div>
+    <div class="item" data-id="d15">
+      <div class="check">✓</div>
+      <div class="item-body">
+        <span class="item-title">15. Quarteto Fantástico: Primeiros Passos (2025) <span class="badge filme">filme</span></span>
       </div>
     </div>
   </div>
@@ -195,7 +196,7 @@
 <footer>Feito pra complementar sua Cronologia UCM — os dois apps não compartilham progresso entre si.</footer>
 
 <script>
-const KEY = 'ucm-doomsday-progress-v1';
+const KEY = 'ucm-doomsday-progress-v2';
 let done = {};
 try { done = JSON.parse(localStorage.getItem(KEY) || '{}'); } catch(e) { done = {}; }
 
