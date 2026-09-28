@@ -1,0 +1,233 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Rumo a Vingadores: Doomsday</title>
+<link rel="manifest" href="manifest-doomsday.json">
+<meta name="theme-color" content="#15141b">
+<link rel="apple-touch-icon" href="icon-192.png">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+<meta name="apple-mobile-web-app-title" content="Rumo a Doomsday">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Bangers&family=Baloo+2:wght@400;500;600;700;800&family=JetBrains+Mono:wght@500;700&display=swap" rel="stylesheet">
+<style>
+  :root {
+    --ink: #15141b;
+    --ink2: #1e1d27;
+    --paper: #efe4c8;
+    --gold: #d4af37;
+    --crimson: #b3242c;
+    --cobalt: #2b4b8f;
+    --muted: #9a927e;
+    --line: #33313f;
+  }
+  * { box-sizing: border-box; }
+  body {
+    margin: 0; font-family: 'Baloo 2', sans-serif; background: var(--ink); color: var(--paper);
+    padding-bottom: 40px;
+  }
+  header {
+    padding: 22px 16px 16px; text-align: center; background: linear-gradient(180deg, #2a1418, var(--ink));
+    border-bottom: 3px solid var(--crimson);
+  }
+  h1 {
+    font-family: 'Bangers', cursive; color: var(--paper); font-size: 1.9rem; margin: 0 0 4px;
+    text-shadow: 2px 2px 0 var(--crimson); letter-spacing: 1px;
+  }
+  .subtitle { color: var(--muted); font-size: 0.8rem; letter-spacing: 1px; text-transform: uppercase; }
+  .progress-wrap { max-width: 720px; margin: 14px auto 0; padding: 0 16px; }
+  .progress-bar { height: 10px; border-radius: 6px; background: var(--ink2); overflow: hidden; border: 1px solid var(--line); }
+  .progress-fill { height: 100%; background: linear-gradient(90deg, var(--crimson), var(--gold)); width: 0%; transition: width .3s; }
+  .progress-label { display: flex; justify-content: space-between; font-size: 0.75rem; color: var(--muted); margin-top: 6px; }
+  main { max-width: 720px; margin: 0 auto; padding: 18px 16px; }
+  .note {
+    background: var(--ink2); border: 1px solid var(--line); border-radius: 10px; padding: 12px 14px;
+    font-size: 0.8rem; color: var(--muted); margin-bottom: 18px; line-height: 1.5;
+  }
+  .group { margin-bottom: 22px; }
+  .group-title {
+    font-family: 'Bangers', cursive; color: var(--gold); font-size: 1.1rem; letter-spacing: 1px;
+    margin: 0 0 8px; padding-bottom: 6px; border-bottom: 2px solid var(--line);
+  }
+  .item {
+    display: flex; align-items: flex-start; gap: 12px; background: var(--ink2); border: 1px solid var(--line);
+    border-radius: 10px; padding: 12px 14px; margin-bottom: 8px; cursor: pointer; transition: border-color .2s, opacity .2s;
+  }
+  .item:hover { border-color: var(--gold); }
+  .item.done { opacity: 0.55; }
+  .item.done .item-title { text-decoration: line-through; }
+  .check {
+    width: 24px; height: 24px; border-radius: 50%; border: 2px solid var(--gold); flex: 0 0 24px;
+    display: flex; align-items: center; justify-content: center; font-size: 0.85rem; margin-top: 1px;
+    background: transparent; color: transparent;
+  }
+  .item.done .check { background: var(--gold); color: var(--ink); }
+  .item-body { flex: 1; }
+  .item-title { font-weight: 700; font-size: 0.95rem; }
+  .item-why { font-size: 0.75rem; color: var(--muted); margin-top: 3px; line-height: 1.4; }
+  .badge {
+    display: inline-block; font-size: 0.62rem; font-weight: 700; letter-spacing: 0.5px; text-transform: uppercase;
+    padding: 2px 7px; border-radius: 5px; margin-left: 8px; vertical-align: middle;
+  }
+  .badge.essential { background: var(--crimson); color: var(--paper); }
+  .badge.recommended { background: var(--cobalt); color: var(--paper); }
+  footer { text-align: center; font-size: 0.7rem; color: var(--muted); padding: 20px 16px 0; }
+</style>
+</head>
+<body>
+
+<header>
+  <h1>🛡️ RUMO A VINGADORES: DOOMSDAY</h1>
+  <div class="subtitle">O essencial pra chegar preparado</div>
+  <div class="progress-wrap">
+    <div class="progress-bar"><div class="progress-fill" id="fill"></div></div>
+    <div class="progress-label"><span id="count">0/0</span><span id="pct">0%</span></div>
+  </div>
+</header>
+
+<main>
+  <div class="note">
+    Essa é uma lista separada da sua Cronologia UCM — não mexe no seu progresso de lá. É só o filtro do
+    que mais importa assistir (ou relembrar) antes de <b>Vingadores: Doomsday</b>, focado em quem aparece
+    no filme e nas pontas que ele deve amarrar: Doutor Destino, os X-Men, o Quarteto Fantástico, os
+    Thunderbolts/Novos Vingadores e a bagunça do multiverso.
+  </div>
+
+  <div class="group">
+    <p class="group-title">🩸 O time que estreia em Doomsday</p>
+    <div class="item" data-id="d1">
+      <div class="check">✓</div>
+      <div class="item-body">
+        <span class="item-title">🎬 Thunderbolts* <span class="badge essential">essencial</span></span>
+        <div class="item-why">É literalmente como os "Novos Vingadores" se formam — o time que continua pra Doomsday.</div>
+      </div>
+    </div>
+    <div class="item" data-id="d2">
+      <div class="check">✓</div>
+      <div class="item-body">
+        <span class="item-title">🎬 Quarteto Fantástico: Primeiros Passos <span class="badge essential">essencial</span></span>
+        <div class="item-why">Apresenta o Quarteto que entra direto em Doomsday, incluindo o Reed Richards que vira peça central do multiverso.</div>
+      </div>
+    </div>
+    <div class="item" data-id="d3">
+      <div class="check">✓</div>
+      <div class="item-body">
+        <span class="item-title">🎬 Capitão América: Admirável Mundo Novo <span class="badge essential">essencial</span></span>
+        <div class="item-why">Sam Wilson como o novo Capitão América, e o pano de fundo político (Thaddeus Ross) que ecoa em Doomsday.</div>
+      </div>
+    </div>
+  </div>
+
+  <div class="group">
+    <p class="group-title">🦾 Doutor Destino e o multiverso</p>
+    <div class="item" data-id="d4">
+      <div class="check">✓</div>
+      <div class="item-body">
+        <span class="item-title">📺 Loki (T1 e T2) <span class="badge essential">essencial</span></span>
+        <div class="item-why">A base de tudo: TVA, ramificações do tempo, Linha Sagrada quebrada — é o motivo do multiverso existir do jeito que existe.</div>
+      </div>
+    </div>
+    <div class="item" data-id="d5">
+      <div class="check">✓</div>
+      <div class="item-body">
+        <span class="item-title">🎬 Doutor Estranho no Multiverso da Loucura <span class="badge essential">essencial</span></span>
+        <div class="item-why">Introduz os Illuminati e a ideia de variantes "importantes" cruzando universos — prepara o terreno pra um vilão vindo de outro Earth.</div>
+      </div>
+    </div>
+    <div class="item" data-id="d6">
+      <div class="check">✓</div>
+      <div class="item-body">
+        <span class="item-title">🎨 X-Men '97 <span class="badge essential">essencial</span></span>
+        <div class="item-why">Reaproxima o público dos X-Men clássicos antes deles chegarem "de verdade" ao MCU em Doomsday.</div>
+      </div>
+    </div>
+    <div class="item" data-id="d7">
+      <div class="check">✓</div>
+      <div class="item-body">
+        <span class="item-title">🎬 Deadpool & Wolverine <span class="badge essential">essencial</span></span>
+        <div class="item-why">Traz o Wolverine do Hugh Jackman de vez pro MCU e escancara o multiverso da Fox se misturando com tudo.</div>
+      </div>
+    </div>
+  </div>
+
+  <div class="group">
+    <p class="group-title">🕸️ Contexto que ajuda (recomendado, não obrigatório)</p>
+    <div class="item" data-id="d8">
+      <div class="check">✓</div>
+      <div class="item-body">
+        <span class="item-title">📺 WandaVision <span class="badge recommended">recomendado</span></span>
+        <div class="item-why">Feitiçaria do caos e o começo de tudo relacionado à Wanda — pano de fundo emocional pro multiverso.</div>
+      </div>
+    </div>
+    <div class="item" data-id="d9">
+      <div class="check">✓</div>
+      <div class="item-body">
+        <span class="item-title">📺 Agatha Desde Sempre <span class="badge recommended">recomendado</span></span>
+        <div class="item-why">Fecha o arco de magia pós-WandaVision, relevante pro lado místico que Destino também usa.</div>
+      </div>
+    </div>
+    <div class="item" data-id="d10">
+      <div class="check">✓</div>
+      <div class="item-body">
+        <span class="item-title">📺 Invasão Secreta <span class="badge recommended">recomendado</span></span>
+        <div class="item-why">Mostra o mundo desconfiado e fragmentado — o tipo de cenário político que Doomsday deve explorar.</div>
+      </div>
+    </div>
+    <div class="item" data-id="d11">
+      <div class="check">✓</div>
+      <div class="item-body">
+        <span class="item-title">📺 Demolidor: Renascido (T1 e T2) <span class="badge recommended">recomendado</span></span>
+        <div class="item-why">Kingpin como figura de poder em Nova York — conecta com a política que cerca os heróis em Doomsday.</div>
+      </div>
+    </div>
+    <div class="item" data-id="d12">
+      <div class="check">✓</div>
+      <div class="item-body">
+        <span class="item-title">🎨 What If…? (T1 a T3) <span class="badge recommended">recomendado</span></span>
+        <div class="item-why">Deixa você craque em "isso é só uma variante" antes do filme jogar um monte delas na tela.</div>
+      </div>
+    </div>
+  </div>
+</main>
+
+<footer>Feito pra complementar sua Cronologia UCM — os dois apps não compartilham progresso entre si.</footer>
+
+<script>
+const KEY = 'ucm-doomsday-progress-v1';
+let done = {};
+try { done = JSON.parse(localStorage.getItem(KEY) || '{}'); } catch(e) { done = {}; }
+
+function save() {
+  try { localStorage.setItem(KEY, JSON.stringify(done)); } catch(e) {}
+}
+
+function render() {
+  const items = document.querySelectorAll('.item');
+  let total = items.length, completed = 0;
+  items.forEach(el => {
+    const id = el.dataset.id;
+    const isDone = !!done[id];
+    el.classList.toggle('done', isDone);
+    if (isDone) completed++;
+  });
+  document.getElementById('count').textContent = completed + '/' + total;
+  const pct = total ? Math.round(100 * completed / total) : 0;
+  document.getElementById('pct').textContent = pct + '%';
+  document.getElementById('fill').style.width = pct + '%';
+}
+
+document.querySelectorAll('.item').forEach(el => {
+  el.addEventListener('click', () => {
+    const id = el.dataset.id;
+    done[id] = !done[id];
+    save();
+    render();
+  });
+});
+
+render();
+</script>
+</body>
+</html>
