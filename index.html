@@ -1132,6 +1132,20 @@ function load() {
     });
     try { localStorage.setItem('ucm-fix-epdone-v2', '1'); } catch(e) {}
   }
+
+  // correção definitiva #3: o recálculo automático (ao marcar itens anteriores como vistos)
+  // estava empurrando a data de início do trio pra frente, mesmo ele já tendo começado de
+  // verdade em 21/09/2026. Restaura a âncora real uma vez; daqui pra frente o próprio
+  // tryInterleaveTrio já protege essa data contra recálculos futuros.
+  let trioAnchorFixed = false;
+  try { trioAnchorFixed = localStorage.getItem('ucm-fix-trio-anchor-v2') === '1'; } catch(e) {}
+  if (!trioAnchorFixed) {
+    const usm = items.find(i => i.text.includes('Ultimate Homem-Aranha'));
+    if (usm && !usm.done && usm.watchStart !== '2026-09-21') {
+      recomputeSchedule(usm.id, '2026-09-21');
+    }
+    try { localStorage.setItem('ucm-fix-trio-anchor-v2', '1'); } catch(e) {}
+  }
   save();
   render();
 }
@@ -2971,6 +2985,17 @@ function tryInterleaveTrio(pending, idx, current, RATE_ANIM) {
   if (!it1 || !it1.text.includes('Vingadores Unidos')) return null;
   if (!it2 || !it2.text.includes('Hulk and the Agents')) return null;
 
+  // o trio já começou de verdade em 21/09/2026 (data real, fora do controle do cronograma).
+  // Se a série já tinha uma data de início e ela já passou (ou é hoje), essa data é fixa e
+  // nunca deve ser empurrada pra frente só porque outros itens da lista foram marcados como
+  // vistos/recalculados — só recalcula a partir do cursor normal se o trio ainda nem tinha
+  // começado.
+  const todayIso = fmtDateISO(new Date());
+  let startCursor = current;
+  if (it0.watchStart && it0.watchStart <= todayIso) {
+    startCursor = new Date(it0.watchStart + 'T12:00:00');
+  }
+
   // ordem exata episódio-a-episódio (283 posições), transcrita e validada contra os totais
   // reais de cada série (US=104, AA=127, HS=52). Ritmo real: 3 episódios/dia combinados.
   const order = TRIO_ORDER;
@@ -2979,7 +3004,7 @@ function tryInterleaveTrio(pending, idx, current, RATE_ANIM) {
   const epDatesPerShow = [[], [], []];
   for (let i = 0; i < order.length; i++) {
     const dayIdx = Math.floor(i / TRIO_RATE);
-    const dt = new Date(current); dt.setDate(dt.getDate() + dayIdx);
+    const dt = new Date(startCursor); dt.setDate(dt.getDate() + dayIdx);
     epDatesPerShow[order[i]].push(fmtDateISO(dt));
   }
   [it0, it1, it2].forEach((it, s) => {
@@ -2988,7 +3013,7 @@ function tryInterleaveTrio(pending, idx, current, RATE_ANIM) {
     it.watchEnd = epDatesPerShow[s][epDatesPerShow[s].length - 1];
     it.watchKind = 'anim';
   });
-  const next = new Date(current);
+  const next = new Date(startCursor);
   next.setDate(next.getDate() + daysNeeded);
   return next;
 }
