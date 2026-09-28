@@ -12,8 +12,6 @@
     <meta name="apple-mobile-web-app-title" content="UCM Watchlist">
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link href="https://fonts.googleapis.com/css2?family=Bangers&family=Baloo+2:wght@400;500;600;700;800&family=JetBrains+Mono:wght@500;700&display=swap" rel="stylesheet">
-<script src="https://www.gstatic.com/firebasejs/10.13.0/firebase-app-compat.js"></script>
-<script src="https://www.gstatic.com/firebasejs/10.13.0/firebase-firestore-compat.js"></script>
 <style>
   :root {
     --ink: #15141b;
@@ -846,22 +844,6 @@
     <button id="btnForceSync">🔄 Forçar sincronização (restaura dados originais)</button>
   </div>
   <p id="lastSavedInfo" style="font-size:0.7rem;color:var(--muted);text-align:center;margin-top:-8px;"></p>
-  <div class="sync-box" style="margin:14px 14px 0;padding:12px;border:1px solid var(--line);border-radius:10px;">
-    <p style="font-size:0.78rem;font-weight:700;margin:0 0 6px;">🔗 Sincronizar entre aparelhos</p>
-    <p style="font-size:0.72rem;color:var(--muted);margin:0 0 8px;">Digite o mesmo código nos seus aparelhos (celular + iPad) pra ver o mesmo progresso nos dois. Não compartilhe esse código com mais ninguém.</p>
-    <p style="font-size:0.72rem;margin:0 0 8px;">Seu código: <b id="syncCodeDisplay" style="font-family:'JetBrains Mono',monospace;letter-spacing:1px;">------</b>
-      <button id="btnCopySyncCode" style="font-size:0.65rem;padding:2px 8px;margin-left:6px;">copiar</button>
-    </p>
-    <div style="display:flex;gap:6px;">
-      <input type="text" id="syncCodeInput" placeholder="Colar código de outro aparelho" maxlength="8" style="flex:1;min-width:0;">
-      <button id="btnJoinSyncCode" style="white-space:nowrap;">Usar</button>
-    </div>
-    <p id="syncStatus" style="font-size:0.68rem;color:var(--muted);margin:8px 0 0;"></p>
-    <div style="display:flex;gap:6px;margin-top:8px;flex-wrap:wrap;">
-      <button id="btnForceSyncPush" style="font-size:0.68rem;padding:4px 10px;">☁️⬆️ Enviar deste aparelho pra nuvem</button>
-      <button id="btnForceSyncPull" style="font-size:0.68rem;padding:4px 10px;">☁️⬇️ Puxar da nuvem pra este aparelho</button>
-    </div>
-  </div>
   <div class="music-player" id="musicPlayer"></div>
   <input type="file" id="importFile" accept="application/json" style="display:none;">
 </div>
@@ -875,6 +857,10 @@
   <button class="tabbar-btn" data-tab="tabConfig">⚙️<span>Config</span></button>
 </div>
 
+<div class="modal-overlay" id="modalOverlay">
+  <button class="modal-close-x" id="modalCloseX" title="Fechar">✕</button>
+  <div class="modal-box" id="modalBox"></div>
+</div>
 
 <script>
 const LIST_VERSION = 26;
@@ -1191,12 +1177,13 @@ function save() {
   } catch (e) {
     console.error('storage error', e);
   }
-  schedulePushToCloud();
 }
 
-// ===== Sincronização entre aparelhos (Firebase Firestore) =====
-// Cada "código" é um documento separado em /syncs/{codigo}. Aparelhos com o mesmo código
-// compartilham o mesmo progresso (items/trash); aparelhos com códigos diferentes não se veem.
+// ===== Sincronização entre aparelhos (Firebase Firestore) — DESATIVADA =====
+// Removida depois de causar perda de progresso em dois incidentes reais. O código abaixo
+// fica desligado (nenhuma função é chamada em lugar nenhum do app); mantido comentado só
+// como referência caso a gente queira reconstruir isso do zero, com mais cuidado, depois.
+/*
 const FIREBASE_CONFIG = {
   apiKey: "AIzaSyBD8SChYPL_qKrwIsa-9DWfICME1r9V66g",
   authDomain: "lista-ucm.firebaseapp.com",
@@ -1332,6 +1319,7 @@ function joinSyncCode(newCode) {
   if (disp) disp.textContent = newCode;
   showToast('🔗 Código atualizado: ' + newCode + ' — use "Enviar"/"Puxar" pra sincronizar');
 }
+*/
 
 function forceSync() {
   if (!confirm('Isso vai apagar seu progresso salvo e recarregar tudo do zero, do jeito mais recente que eu te mandei. Tem certeza?')) return;
@@ -2504,22 +2492,6 @@ document.getElementById('btnCompact').addEventListener('click', (e) => {
 document.getElementById('btnPalette').addEventListener('click', showPaletteMenu);
 document.getElementById('btnTrash').addEventListener('click', showTrash);
 document.getElementById('btnForceSync').addEventListener('click', forceSync);
-document.getElementById('btnCopySyncCode').addEventListener('click', () => {
-  const code = document.getElementById('syncCodeDisplay').textContent;
-  navigator.clipboard.writeText(code).then(() => showToast('📋 Código copiado!')).catch(() => {});
-});
-document.getElementById('btnJoinSyncCode').addEventListener('click', () => {
-  const input = document.getElementById('syncCodeInput');
-  joinSyncCode(input.value);
-  input.value = '';
-});
-document.getElementById('btnForceSyncPush').addEventListener('click', () => {
-  if (!syncDb) { showToast('⚠️ Sincronização ainda não conectou'); return; }
-  if (!confirm('Isso vai substituir os dados salvos na nuvem pelos deste aparelho. Confirma?')) return;
-  pushToCloudNow();
-  showToast('☁️ Enviado! No outro aparelho, use "Puxar da nuvem" pra receber essa versão.');
-});
-document.getElementById('btnForceSyncPull').addEventListener('click', pullFromCloudNow);
 document.getElementById('modalCloseX').addEventListener('click', closeModal);
 document.getElementById('btnShare').addEventListener('click', shareProgress);
 document.getElementById('btnMarathon').addEventListener('click', openMarathon);
@@ -3354,14 +3326,9 @@ load();
 populateMoveSelects();
 populateInsertAfterSelect();
 scrollToTodayItem(false);
-initCloudSync();
 
 </script>
 <div class="toast-container" id="toastContainer"></div>
-<div class="modal-overlay" id="modalOverlay">
-  <button class="modal-close-x" id="modalCloseX" title="Fechar">✕</button>
-  <div class="modal-box" id="modalBox"></div>
-</div>
 <div class="marathon-screen" id="marathonScreen"></div>
 </body>
 </html>
