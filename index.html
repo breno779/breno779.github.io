@@ -1060,6 +1060,15 @@ function load() {
   }
   trash = storedTrash;
 
+  // uma lista salva com 0 itens nunca é um estado real (mesmo excluindo tudo, os itens vão
+  // pra "trash", não somem) — é sinal de dado corrompido (ex.: sincronização puxando um
+  // documento vazio antes da correção). Trata como se não tivesse nada salvo, pra não travar
+  // o app pra sempre com a tela vazia.
+  if (Array.isArray(storedItems) && storedItems.length === 0) {
+    storedItems = null;
+    storedVersion = null;
+  }
+
   if (storedItems && storedVersion === LIST_VERSION) {
     items = withOrder(storedItems);
   } else if (storedItems) {
