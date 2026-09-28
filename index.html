@@ -4,12 +4,12 @@
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>Cronologia UCM — Watchlist</title>
-<link rel="manifest" href="manifest.json">
-<meta name="theme-color" content="#15141b">
-<link rel="apple-touch-icon" href="icon-192.png">
-<meta name="apple-mobile-web-app-capable" content="yes">
-<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
-<meta name="mobile-web-app-capable" content="yes">
+    <link rel="manifest" href="manifest.json">
+    <meta name="theme-color" content="#15141b">
+    <link rel="apple-touch-icon" href="icon-192.png">
+    <meta name="apple-mobile-web-app-capable" content="yes">
+    <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+    <meta name="apple-mobile-web-app-title" content="UCM Watchlist">
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link href="https://fonts.googleapis.com/css2?family=Bangers&family=Baloo+2:wght@400;500;600;700;800&family=JetBrains+Mono:wght@500;700&display=swap" rel="stylesheet">
 <script src="https://www.gstatic.com/firebasejs/10.13.0/firebase-app-compat.js"></script>
@@ -204,6 +204,13 @@
     z-index: 50; align-items: center; justify-content: center; padding: 20px;
   }
   .modal-overlay.open { display: flex; }
+  .modal-close-x {
+    display: none; position: fixed; top: calc(env(safe-area-inset-top, 0px) + 14px); right: 14px;
+    z-index: 60; width: 36px; height: 36px; border-radius: 50%;
+    background: var(--crimson); color: var(--paper); border: 2px solid var(--gold);
+    font-size: 1rem; line-height: 1; font-family: 'Baloo 2', sans-serif;
+  }
+  .modal-overlay.open .modal-close-x { display: block; }
   .modal-box {
     background: var(--ink2); border: 2px solid var(--gold); border-radius: 10px;
     padding: 18px; max-width: 480px; width: 100%; max-height: 80vh; overflow-y: auto;
@@ -1147,21 +1154,21 @@ function load() {
     try { localStorage.setItem('ucm-fix-epdone-v2', '1'); } catch(e) {}
   }
 
-  // correção definitiva #3: o recálculo automático (ao marcar itens anteriores como vistos)
-  // estava empurrando a data de início do trio pra frente, mesmo ele já tendo começado de
-  // verdade em 21/09/2026. Restaura a âncora real uma vez; daqui pra frente o próprio
-  // tryInterleaveTrio já protege essa data contra recálculos futuros.
-  let trioAnchorFixed = false;
-  try { trioAnchorFixed = localStorage.getItem('ucm-fix-trio-anchor-v2') === '1'; } catch(e) {}
-  if (!trioAnchorFixed) {
-    const usm = items.find(i => i.text.includes('Ultimate Homem-Aranha'));
-    if (usm && !usm.done && usm.watchStart !== '2026-09-21') {
-      recomputeSchedule(usm.id, '2026-09-21');
-    }
-    try { localStorage.setItem('ucm-fix-trio-anchor-v2', '1'); } catch(e) {}
-  }
+  // correção definitiva #3: garante que o trio intercalado sempre comece em 21/09/2026 de
+  // verdade. Roda em TODO load (não só uma vez), porque dados vindos de outro aparelho pela
+  // sincronização podem trazer essa data errada de volta — não dá pra confiar só no flag local.
+  enforceTrioAnchor();
   save();
   render();
+}
+
+function enforceTrioAnchor() {
+  const usm = items.find(i => i.text.includes('Ultimate Homem-Aranha'));
+  if (usm && !usm.done && usm.watchStart !== '2026-09-21') {
+    recomputeSchedule(usm.id, '2026-09-21');
+    return true;
+  }
+  return false;
 }
 
 function save() {
@@ -1255,8 +1262,11 @@ function attachSyncListener(code) {
     items = withOrder(data.items);
     trash = data.trash || [];
     nextId = items.reduce((m,i) => Math.max(m, i.id), 0) + 1;
+    const fixedAnchor = enforceTrioAnchor();
+    save();
     render();
     applyingRemoteUpdate = false;
+    if (fixedAnchor) schedulePushToCloud();
     setSyncStatus('✅ Sincronizado (atualizado de outro aparelho)');
   }, err => {
     console.error('sync listen error', err);
@@ -2469,6 +2479,7 @@ document.getElementById('btnJoinSyncCode').addEventListener('click', () => {
   joinSyncCode(input.value);
   input.value = '';
 });
+document.getElementById('modalCloseX').addEventListener('click', closeModal);
 document.getElementById('btnShare').addEventListener('click', shareProgress);
 document.getElementById('btnMarathon').addEventListener('click', openMarathon);
 document.getElementById('btnPace').addEventListener('click', showPaceAdjuster);
@@ -3116,7 +3127,7 @@ function weightedInterleave(counts) {
 
 // intercala Ultimate Homem-Aranha + Vingadores Unidos + Hulk and the Agents of S.M.A.S.H.
 // (mesmo universo animado, 2012-2019), 4 episódios/dia combinados entre as 3.
-function tryInterleaveTrio(pending, idx, current, RATE_ANIM) {
+function tryInterleaveTrio(pending, idx, current, RATE_ANIM, forceAnchor) {
   const it0 = pending[idx];
   if (!it0.text.includes('Ultimate Homem-Aranha')) return null;
   const it1 = pending[idx + 1];
@@ -3128,10 +3139,12 @@ function tryInterleaveTrio(pending, idx, current, RATE_ANIM) {
   // Se a série já tinha uma data de início e ela já passou (ou é hoje), essa data é fixa e
   // nunca deve ser empurrada pra frente só porque outros itens da lista foram marcados como
   // vistos/recalculados — só recalcula a partir do cursor normal se o trio ainda nem tinha
-  // começado.
+  // começado. Excepção: quando essa chamada é uma correção forçada (forceAnchor, ex.:
+  // enforceTrioAnchor corrigindo uma data errada vinda de sync ou de bug antigo), o cursor
+  // recebido (current) é a própria data correta e deve vencer o watchStart antigo/errado.
   const todayIso = fmtDateISO(new Date());
   let startCursor = current;
-  if (it0.watchStart && it0.watchStart <= todayIso) {
+  if (!forceAnchor && it0.watchStart && it0.watchStart <= todayIso) {
     startCursor = new Date(it0.watchStart + 'T12:00:00');
   }
 
@@ -3198,7 +3211,11 @@ function recomputeSchedule(anchorItemId, forceStartDate) {
     const it = pending[idx];
     if (it._skip) { delete it._skip; continue; }
 
-    const trioNext = tryInterleaveTrio(pending, idx, current, RATE_ANIM);
+    // só a primeiríssima iteração, quando ela cai exatamente na âncora forçada, deve ter
+    // permissão de sobrescrever um watchStart antigo/errado do trio — as iterações seguintes
+    // (cascata normal) continuam respeitando a proteção contra avanço indevido.
+    const forceAnchor = !!(forceStartDate && idx === startIdx && anchorItemId === it.id);
+    const trioNext = tryInterleaveTrio(pending, idx, current, RATE_ANIM, forceAnchor);
     if (trioNext) {
       pending[idx + 1]._skip = true;
       pending[idx + 2]._skip = true;
@@ -3301,6 +3318,7 @@ initCloudSync();
 </script>
 <div class="toast-container" id="toastContainer"></div>
 <div class="modal-overlay" id="modalOverlay">
+  <button class="modal-close-x" id="modalCloseX" title="Fechar">✕</button>
   <div class="modal-box" id="modalBox"></div>
 </div>
 <div class="marathon-screen" id="marathonScreen"></div>
