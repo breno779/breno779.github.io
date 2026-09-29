@@ -612,6 +612,7 @@
     background: var(--ink);
     display: flex;
     justify-content: flex-end;
+    gap: 8px;
   }
   .search-icon-btn {
     background: var(--ink2);
@@ -809,6 +810,8 @@
   </div>
   <div class="hero-active-bar" id="heroActiveBar" style="display:none;"></div>
   <div class="search-wrap" id="searchWrap">
+    <button id="btnScrollTop" class="search-icon-btn" style="display:flex;align-items:center;justify-content:center;" title="Voltar ao início da lista">🏠</button>
+    <button id="btnReloadApp" class="search-icon-btn" style="display:flex;align-items:center;justify-content:center;" title="Recarregar">🔄</button>
     <button id="btnGoToday" class="search-icon-btn" style="display:flex;align-items:center;justify-content:center;" title="Ir para o item do dia">🎯</button>
     <button id="searchToggleBtn" class="search-icon-btn">🔍</button>
     <input id="searchInput" type="text" placeholder="Buscar filme ou série..." />
@@ -2752,6 +2755,12 @@ document.querySelectorAll('.tabbar-btn').forEach(btn => {
 document.getElementById('tabLista').classList.add('tab-visible');
 
 document.getElementById('btnGoToday').addEventListener('click', goToTodayItem);
+document.getElementById('btnScrollTop').addEventListener('click', () => {
+  window.scrollTo({ top: 0, behavior: 'smooth' });
+});
+document.getElementById('btnReloadApp').addEventListener('click', () => {
+  location.reload();
+});
 
 document.getElementById('btnWatchNow').addEventListener('click', () => {
   const next = sortItems(items.filter(i => !i.done))[0];
