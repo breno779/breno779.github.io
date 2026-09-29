@@ -224,10 +224,11 @@
   }
   .modal-box table { width: 100%; border-collapse: collapse; font-size: 0.78rem; }
   .modal-box td, .modal-box th { padding: 4px 6px; border-bottom: 1px solid var(--line); text-align: left; }
-  .modal-box .bar-row { display: flex; align-items: center; gap: 6px; margin-bottom: 4px; }
-  .modal-box .bar-label { width: 70px; font-family: 'JetBrains Mono', monospace; font-size: 0.7rem; }
-  .modal-box .bar-track { flex: 1; background: var(--ink); border-radius: 3px; height: 12px; overflow: hidden; }
-  .modal-box .bar-fill { height: 100%; background: var(--gold); }
+  /* sem prefixo .modal-box: essas classes também são usadas fora de modal (aba Stats) */
+  .bar-row { display: flex; align-items: center; gap: 6px; margin-bottom: 4px; }
+  .bar-label { width: 70px; font-family: 'JetBrains Mono', monospace; font-size: 0.7rem; }
+  .bar-track { flex: 1; background: var(--ink); border-radius: 3px; height: 12px; overflow: hidden; }
+  .bar-fill { height: 100%; background: var(--gold); }
   .marathon-screen {
     display: none; position: fixed; inset: 0; background: var(--ink); z-index: 60;
     flex-direction: column; align-items: center; justify-content: center; padding: 24px; text-align: center;
