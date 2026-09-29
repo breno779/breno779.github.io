@@ -783,6 +783,7 @@
     <button id="btnMarathon">🎬 Modo maratona</button>
     <button id="btnPace">⏱ Ajustar ritmo</button>
     <button id="btnShare">📤 Compartilhar progresso</button>
+    <button id="btnReloadHome">🔄 Recarregar</button>
   </div>
 </div>
 
@@ -2791,12 +2792,14 @@ document.getElementById('btnGoToday').addEventListener('click', goToTodayItem);
 document.getElementById('btnScrollTop').addEventListener('click', () => {
   window.scrollTo({ top: 0, behavior: 'smooth' });
 });
-document.getElementById('btnReloadApp').addEventListener('click', () => {
+function reloadAppNoCache() {
   // location.reload() sozinho pode vir do cache do navegador/app instalado e não pegar a
   // versão nova publicada. Força buscar a página de novo do servidor, sem cache nenhum.
   const url = location.pathname + '?nocache=' + Date.now();
   location.replace(url);
-});
+}
+document.getElementById('btnReloadApp').addEventListener('click', reloadAppNoCache);
+document.getElementById('btnReloadHome').addEventListener('click', reloadAppNoCache);
 
 document.getElementById('btnWatchNow').addEventListener('click', () => {
   const next = sortItems(items.filter(i => !i.done))[0];
