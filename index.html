@@ -1161,6 +1161,25 @@ function load() {
     } catch(e) {}
   }
 
+  // ajuste de ritmo (pausa 16–23/01/2027 no lugar da desaceleração do mês inteiro): puxa
+  // as novas datas recalculadas do DEFAULT_ITEMS pra cima do que já tava salvo no aparelho.
+  // Roda uma vez por aparelho — depois disso, respeita qualquer edição manual sua.
+  let paceFixApplied = false;
+  try { paceFixApplied = localStorage.getItem('ucm-fix-pace-jan2027-v1') === '1'; } catch(e) {}
+  if (!paceFixApplied) {
+    items.forEach(it => {
+      if (it.done) return;
+      const def = DEFAULT_ITEMS.find(d => d.text === it.text);
+      if (def && def.watchStart) {
+        it.watchStart = def.watchStart;
+        it.watchEnd = def.watchEnd;
+        it.watchKind = def.watchKind;
+      }
+    });
+    items = withOrder(items);
+    try { localStorage.setItem('ucm-fix-pace-jan2027-v1', '1'); } catch(e) {}
+  }
+
   // correção: marca todos os episódios como vistos nas séries que já estão marcadas
   // como "assistida" (done), pra não ficar mostrando 0%/episódio pendente numa série
   // que você já viu inteira. Roda uma vez por aparelho.
