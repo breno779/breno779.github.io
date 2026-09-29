@@ -1251,6 +1251,29 @@ function load() {
     try { localStorage.setItem('ucm-fix-epdone-v2', '1'); } catch(e) {}
   }
 
+  // correção: o app nunca guardou a data REAL em que cada item foi assistido (só a data
+  // planejada, que era apagada ao marcar como visto pela bolinha) — por isso "Progresso por
+  // mês" mostrava datas erradas/vazias. Agora cada "marcar como visto" grava completedAt.
+  // Pra quem já tinha itens vistos antes dessa correção, estima uma data razoável pra cada
+  // um, espalhando entre o início da maratona (04/08/2026) e hoje. É uma aproximação — não
+  // tem como recuperar a data exata de quem já foi assistido sem esse registro — mas é bem
+  // melhor que mostrar tudo em outubro (que ainda nem começou). Roda uma vez por aparelho.
+  let completedAtFixApplied = false;
+  try { completedAtFixApplied = localStorage.getItem('ucm-fix-completedat-v1') === '1'; } catch(e) {}
+  if (!completedAtFixApplied) {
+    const doneOrdered = sortItems(items.filter(i => i.done && !i.completedAt));
+    const startAnchor = new Date('2026-08-04T12:00:00');
+    const endAnchor = new Date('2026-09-28T12:00:00');
+    const totalDays = Math.max(1, Math.round((endAnchor - startAnchor) / 86400000));
+    const n = doneOrdered.length;
+    doneOrdered.forEach((it, idx) => {
+      const dayOffset = n > 1 ? Math.round(idx * totalDays / (n - 1)) : 0;
+      const d = new Date(startAnchor.getTime() + dayOffset * 86400000);
+      it.completedAt = fmtDateISO(d);
+    });
+    try { localStorage.setItem('ucm-fix-completedat-v1', '1'); } catch(e) {}
+  }
+
   // correção definitiva #3: garante que o trio intercalado sempre comece em 21/09/2026 de
   // verdade. Roda em TODO load (não só uma vez), porque dados vindos de outro aparelho pela
   // sincronização podem trazer essa data errada de volta — não dá pra confiar só no flag local.
@@ -1811,8 +1834,8 @@ function closeModal() {
 
 function showStats() {
   const byMonth = {};
-  items.filter(i => i.done && i.watchEnd).forEach(it => {
-    const key = it.watchEnd.slice(0,7);
+  items.filter(i => i.done && i.completedAt).forEach(it => {
+    const key = it.completedAt.slice(0,7);
     byMonth[key] = (byMonth[key] || 0) + 1;
   });
   const keys = Object.keys(byMonth).sort();
@@ -2071,6 +2094,11 @@ function renderMarathon(pending) {
   `;
   document.getElementById('marathonNext').addEventListener('click', () => {
     it.done = true;
+    it.completedAt = todayIso();
+    markDoneToday();
+    const eps = extractEpsCount(it.text);
+    if (eps) it.epDone = new Array(eps).fill(true);
+    delete it.watchStart; delete it.watchEnd; delete it.watchKind; delete it.epDates;
     save();
     const stillPending = sortItems(items.filter(i => !i.done));
     if (stillPending.length === 0) {
@@ -2328,6 +2356,7 @@ function toggleDone(id, el) {
   it.done = goingDone;
   if (goingDone) {
     markDoneToday();
+    it.completedAt = todayIso();
     const eps = extractEpsCount(it.text);
     if (eps) it.epDone = new Array(eps).fill(true);
     delete it.watchStart; delete it.watchEnd; delete it.watchKind; delete it.epDates;
@@ -2337,6 +2366,8 @@ function toggleDone(id, el) {
       void stamp.offsetWidth;
       stamp.classList.add('show');
     }
+  } else {
+    delete it.completedAt;
   }
   save();
   render();
@@ -2631,7 +2662,12 @@ document.getElementById('btnMultiSelect').addEventListener('click', (e) => {
     document.getElementById('markSelectedBtn').addEventListener('click', () => {
       selectedIds.forEach(id => {
         const it = items.find(i => i.id === id);
-        if (it) it.done = true;
+        if (!it) return;
+        it.done = true;
+        it.completedAt = todayIso();
+        const eps = extractEpsCount(it.text);
+        if (eps) it.epDone = new Array(eps).fill(true);
+        delete it.watchStart; delete it.watchEnd; delete it.watchKind; delete it.epDates;
       });
       if (selectedIds.size > 0) markDoneToday();
       selectedIds.clear();
@@ -2889,8 +2925,8 @@ function renderStatsPage() {
   });
 
   const byMonth = {};
-  items.filter(i => i.done && i.watchEnd).forEach(it => {
-    const key = it.watchEnd.slice(0,7);
+  items.filter(i => i.done && i.completedAt).forEach(it => {
+    const key = it.completedAt.slice(0,7);
     byMonth[key] = (byMonth[key] || 0) + 1;
   });
   const keys = Object.keys(byMonth).sort();
