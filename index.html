@@ -2792,14 +2792,19 @@ document.getElementById('btnGoToday').addEventListener('click', goToTodayItem);
 document.getElementById('btnScrollTop').addEventListener('click', () => {
   window.scrollTo({ top: 0, behavior: 'smooth' });
 });
-function reloadAppNoCache() {
+function reloadAppNoCache(stayTab) {
   // location.reload() sozinho pode vir do cache do navegador/app instalado e não pegar a
   // versão nova publicada. Força buscar a página de novo do servidor, sem cache nenhum.
+  // Guarda em qual aba a pessoa estava, pra reabrir nela em vez de sempre cair na Lista.
+  try {
+    if (stayTab) localStorage.setItem('ucm-reload-tab', stayTab);
+    else localStorage.removeItem('ucm-reload-tab');
+  } catch(e) {}
   const url = location.pathname + '?nocache=' + Date.now();
   location.replace(url);
 }
-document.getElementById('btnReloadApp').addEventListener('click', reloadAppNoCache);
-document.getElementById('btnReloadHome').addEventListener('click', reloadAppNoCache);
+document.getElementById('btnReloadApp').addEventListener('click', () => reloadAppNoCache());
+document.getElementById('btnReloadHome').addEventListener('click', () => reloadAppNoCache('tabInicio'));
 
 document.getElementById('btnWatchNow').addEventListener('click', () => {
   const next = sortItems(items.filter(i => !i.done))[0];
@@ -3482,7 +3487,16 @@ document.getElementById('moveBtn').addEventListener('click', moveItemToPhase);
 load();
 populateMoveSelects();
 populateInsertAfterSelect();
-scrollToTodayItem(false);
+let reloadTab = null;
+try {
+  reloadTab = localStorage.getItem('ucm-reload-tab');
+  if (reloadTab) localStorage.removeItem('ucm-reload-tab');
+} catch(e) {}
+if (reloadTab && document.getElementById(reloadTab)) {
+  switchTab(reloadTab);
+} else {
+  scrollToTodayItem(false);
+}
 
 </script>
 <div class="toast-container" id="toastContainer"></div>
