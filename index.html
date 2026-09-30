@@ -311,20 +311,6 @@ if ('serviceWorker' in navigator) {
     border-radius: 8px; padding: 12px 14px; text-align: left; font-size: 0.85rem;
     font-family: 'Baloo 2', sans-serif;
   }
-  .music-player {
-    background: var(--ink2); border: 2px solid var(--gold); border-radius: 10px;
-    padding: 14px; margin-bottom: 20px;
-  }
-  .music-player h4 { font-family: 'Bangers', cursive; color: var(--gold); margin: 0 0 10px; font-size: 1rem; }
-  .music-track-name { text-align: center; font-size: 0.85rem; margin-bottom: 10px; }
-  .music-controls { display: flex; justify-content: center; align-items: center; gap: 14px; margin-bottom: 10px; }
-  .music-controls button {
-    background: var(--ink); color: var(--paper); border: 1px solid var(--line);
-    border-radius: 50%; width: 40px; height: 40px; font-size: 1rem; cursor: pointer;
-  }
-  .music-controls button.play-btn { width: 52px; height: 52px; background: var(--gold); color: var(--ink); font-size: 1.3rem; }
-  .music-vol { display: flex; align-items: center; gap: 8px; }
-  .music-vol input { flex: 1; }
   .stat-card {
     background: var(--ink2); border: 1px solid var(--line); border-radius: 10px;
     padding: 14px; margin-bottom: 14px;
@@ -447,6 +433,51 @@ if ('serviceWorker' in navigator) {
     cursor: pointer;
     user-select: none;
     border-bottom: 2px solid var(--ink);
+  }
+  .phase-timeline {
+    display: flex;
+    overflow-x: auto;
+    gap: 4px;
+    padding: 10px 4px 14px;
+    margin-bottom: 6px;
+    -webkit-overflow-scrolling: touch;
+  }
+  .phase-timeline::-webkit-scrollbar { height: 4px; }
+  .phase-station {
+    flex: 0 0 auto;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 4px;
+    width: 74px;
+    cursor: pointer;
+    background: none;
+    border: none;
+    padding: 4px 2px;
+  }
+  .phase-station .dot-wrap {
+    width: 22px; height: 22px; border-radius: 50%;
+    display: flex; align-items: center; justify-content: center;
+    border: 2px solid var(--line);
+    background: var(--ink2);
+    font-size: 0.7rem;
+  }
+  .phase-station.done .dot-wrap { border-color: var(--gold); background: var(--gold); color: var(--ink); }
+  .phase-station.current .dot-wrap { border-color: var(--crimson); box-shadow: 0 0 0 3px rgba(230,57,70,0.25); }
+  .phase-station .station-label {
+    font-size: 0.55rem;
+    text-align: center;
+    line-height: 1.15;
+    color: var(--muted);
+    max-height: 2.4em;
+    overflow: hidden;
+  }
+  .phase-station.current .station-label { color: var(--paper); font-weight: bold; }
+  .phase-timeline-line {
+    flex: 0 0 12px;
+    height: 2px;
+    background: var(--line);
+    margin-top: 11px;
   }
   .phase-title {
     font-family: 'Bangers', cursive;
@@ -781,6 +812,7 @@ if ('serviceWorker' in navigator) {
     <div class="progress-track"><div class="progress-fill" id="progressFill" style="width:0%"></div></div>
     <div class="progress-label"><span id="progressText">0/0</span><span id="progressPct">0%</span></div>
   </div>
+  <div class="phase-timeline" id="phaseTimeline"></div>
   <div class="legend">
     <span><span class="dot k-filme"></span>filme/curta</span>
     <span><span class="dot k-anim"></span>série animada</span>
@@ -804,6 +836,7 @@ if ('serviceWorker' in navigator) {
   <div class="dash-actions">
     <button id="btnMarathon">🎬 Modo maratona</button>
     <button id="btnPace">⏱ Ajustar ritmo</button>
+    <button id="btnFitsTime">⌛ O que cabe no meu tempo?</button>
     <button id="btnShare">📤 Compartilhar progresso</button>
     <button id="btnReloadHome">🔄 Recarregar</button>
   </div>
@@ -886,7 +919,6 @@ if ('serviceWorker' in navigator) {
     <p id="syncStatus" style="font-size:0.7rem;color:var(--muted);text-align:center;margin-top:8px;"></p>
   </div>
 
-  <div class="music-player" id="musicPlayer"></div>
   <input type="file" id="importFile" accept="application/json" style="display:none;">
 </div>
 
@@ -1082,6 +1114,8 @@ function reconcileWithNewList(oldItems, oldVersion) {
         if (match.epDates) fresh.epDates = match.epDates;
       }
       if (match.epDone) fresh.epDone = match.epDone;
+      if (match.completedAt) fresh.completedAt = match.completedAt;
+      if (match.note) fresh.note = match.note;
     }
     return fresh;
   });
@@ -1655,7 +1689,19 @@ function buildItemRow(it) {
       starsEl.appendChild(ratingDownBtn);
       starsEl.appendChild(numSpan);
       starsEl.appendChild(ratingUpBtn);
+      const noteBtn = document.createElement('button');
+      noteBtn.textContent = it.note ? '📝' : '📝+';
+      noteBtn.title = 'Anotação';
+      noteBtn.addEventListener('click', (ev) => { ev.stopPropagation(); openNoteEditor(it.id); });
+      starsEl.appendChild(noteBtn);
       mainCol.appendChild(starsEl);
+
+      if (it.note) {
+        const noteDisp = document.createElement('div');
+        noteDisp.style.cssText = 'font-size:0.72rem;color:var(--muted);font-style:italic;margin-top:2px;white-space:pre-wrap;';
+        noteDisp.textContent = '📝 ' + it.note;
+        mainCol.appendChild(noteDisp);
+      }
 
       if (it.watchStart && !it.done) {
         const dateEl = document.createElement('div');
@@ -2042,9 +2088,78 @@ function showTrash() {
   });
 }
 
-function shareProgress() {
+function wrapCanvasText(ctx, text, x, y, maxWidth, lineHeight) {
+  const words = text.split(' ');
+  let line = '';
+  let curY = y;
+  for (let n = 0; n < words.length; n++) {
+    const testLine = line + words[n] + ' ';
+    if (ctx.measureText(testLine).width > maxWidth && n > 0) {
+      ctx.fillText(line, x, curY);
+      line = words[n] + ' ';
+      curY += lineHeight;
+    } else {
+      line = testLine;
+    }
+  }
+  ctx.fillText(line, x, curY);
+  return curY;
+}
+function buildProgressCardCanvas() {
   const doneTotal = items.filter(i => i.done).length;
-  const text = `🎬 Maratona UCM: já vi ${doneTotal}/${items.length} itens (${Math.round(100*doneTotal/items.length)}%)!`;
+  const total = items.length;
+  const pct = total ? Math.round(100 * doneTotal / total) : 0;
+  const nextPending = sortItems(items.filter(i => !i.done))[0];
+  const currentPhase = nextPending ? nextPending.phase : 'Tudo assistido! 🎉';
+  const t = todayIso();
+  const daysLeft = Math.max(0, Math.round((new Date('2027-12-17') - new Date(t)) / 86400000));
+
+  const cssVar = (name, fallback) => (getComputedStyle(document.documentElement).getPropertyValue(name).trim() || fallback);
+  const gold = cssVar('--gold', '#ffd23f');
+  const crimson = cssVar('--crimson', '#e63946');
+  const cobalt = cssVar('--cobalt', '#7fb3ff');
+  const ink = cssVar('--ink', '#15141b');
+  const paper = cssVar('--paper', '#fdfaf3');
+
+  const canvas = document.createElement('canvas');
+  canvas.width = 1080; canvas.height = 1920;
+  const ctx = canvas.getContext('2d');
+
+  const grad = ctx.createLinearGradient(0, 0, 0, canvas.height);
+  grad.addColorStop(0, ink);
+  grad.addColorStop(1, '#000000');
+  ctx.fillStyle = grad;
+  ctx.fillRect(0, 0, canvas.width, canvas.height);
+
+  ctx.textAlign = 'center';
+  ctx.fillStyle = gold;
+  ctx.font = "64px 'Bangers', cursive, sans-serif";
+  ctx.fillText('🎬 CRONOLOGIA UCM', canvas.width / 2, 280);
+
+  ctx.fillStyle = paper;
+  ctx.font = "bold 240px 'Baloo 2', sans-serif";
+  ctx.fillText(pct + '%', canvas.width / 2, 640);
+
+  ctx.font = "44px 'Baloo 2', sans-serif";
+  ctx.fillText(`${doneTotal} de ${total} assistidos`, canvas.width / 2, 720);
+
+  ctx.fillStyle = cobalt;
+  ctx.font = "38px 'Baloo 2', sans-serif";
+  wrapCanvasText(ctx, '📍 ' + currentPhase, canvas.width / 2, 860, 920, 50);
+
+  ctx.fillStyle = crimson;
+  ctx.font = "42px 'Baloo 2', sans-serif";
+  ctx.fillText(daysLeft > 0 ? `⏳ ${daysLeft} dias até Guerras Secretas` : '🎬 Guerras Secretas já estreou!', canvas.width / 2, 1780);
+
+  ctx.globalAlpha = 0.55;
+  ctx.fillStyle = paper;
+  ctx.font = "30px 'Baloo 2', sans-serif";
+  ctx.fillText('breno779.github.io', canvas.width / 2, 1860);
+  ctx.globalAlpha = 1;
+
+  return canvas;
+}
+function shareTextFallback(text) {
   if (navigator.share) {
     navigator.share({ text }).catch(() => {});
   } else if (navigator.clipboard) {
@@ -2053,6 +2168,182 @@ function shareProgress() {
   } else {
     alert(text);
   }
+}
+function shareProgress() {
+  const doneTotal = items.filter(i => i.done).length;
+  const total = items.length;
+  const text = `🎬 Maratona UCM: já vi ${doneTotal}/${total} itens (${Math.round(100 * doneTotal / total)}%)!`;
+  try {
+    const canvas = buildProgressCardCanvas();
+    canvas.toBlob((blob) => {
+      if (!blob) { shareTextFallback(text); return; }
+      const file = new File([blob], 'progresso-ucm.png', { type: 'image/png' });
+      if (navigator.canShare && navigator.canShare({ files: [file] })) {
+        navigator.share({ files: [file], text }).catch(() => {});
+        return;
+      }
+      const url = URL.createObjectURL(blob);
+      const a = document.createElement('a');
+      a.href = url; a.download = 'progresso-ucm.png';
+      document.body.appendChild(a); a.click(); a.remove();
+      setTimeout(() => URL.revokeObjectURL(url), 4000);
+      showToast('🖼️ Imagem salva! Já pode compartilhar.');
+    }, 'image/png');
+  } catch (e) {
+    shareTextFallback(text);
+  }
+}
+
+// ---- Anotação livre por item (diário pessoal, além da nota de estrelas) ----
+function openNoteEditor(id) {
+  const it = items.find(i => i.id === id);
+  if (!it) return;
+  openModal(`
+    <h3>📝 Anotação</h3>
+    <p style="font-size:0.75rem;color:var(--muted);margin-bottom:8px;">${escapeHtml(it.text)}</p>
+    <textarea id="noteInput" rows="5" style="width:100%;padding:8px;background:var(--ink);color:var(--paper);border:1px solid var(--line);border-radius:6px;font-family:'Baloo 2',sans-serif;">${escapeHtml(it.note || '')}</textarea>
+    <div style="display:flex;gap:8px;margin-top:10px;">
+      <button id="noteSaveBtn" style="flex:1;background:var(--gold);color:var(--ink);border:none;border-radius:6px;padding:8px;font-family:'Bangers',cursive;">Salvar</button>
+      <button id="noteClearBtn" style="flex:1;background:var(--ink2);color:var(--paper);border:1px solid var(--line);border-radius:6px;padding:8px;font-family:'Bangers',cursive;">Limpar</button>
+    </div>
+  `);
+  document.getElementById('noteSaveBtn').addEventListener('click', () => {
+    const val = document.getElementById('noteInput').value.trim();
+    if (val) it.note = val; else delete it.note;
+    save();
+    render();
+    closeModal();
+    showToast('📝 Anotação salva!');
+  });
+  document.getElementById('noteClearBtn').addEventListener('click', () => {
+    delete it.note;
+    save();
+    render();
+    closeModal();
+    showToast('🗑️ Anotação removida');
+  });
+}
+
+// ---- "O que cabe no meu tempo?" — sugere algo pendente que caiba nos minutos livres ----
+function estimateNextWatchMinutes(it) {
+  const kind = it.watchKind || scheduleKind(it);
+  if (kind === 'jogo') return null; // jogo não entra nesse filtro, é coisa de dias, não minutos
+  if (isShortItem(it.text)) {
+    const m = it.text.match(/faltam\s*(\d+)\s*min/i);
+    if (m) return parseInt(m[1], 10);
+    return 6;
+  }
+  const eps = extractEpsCount(it.text);
+  if (eps && eps > 1) return perEpisodeMinutes(it); // só o próximo episódio, não a série toda
+  return Math.round((HOURS_PER.filme || 2) * 60);
+}
+function showFitsTimePicker() {
+  openModal(`
+    <h3>⌛ O que cabe no meu tempo?</h3>
+    <p>Quantos minutos livres você tem agora?</p>
+    <div style="display:flex;gap:8px;flex-wrap:wrap;margin-bottom:10px;">
+      <button data-min="15" class="fits-quick">15 min</button>
+      <button data-min="30" class="fits-quick">30 min</button>
+      <button data-min="60" class="fits-quick">1h</button>
+      <button data-min="120" class="fits-quick">2h</button>
+    </div>
+    <input type="number" id="fitsMinutesInput" min="1" placeholder="ou digite os minutos" style="width:100%;padding:8px;margin-bottom:10px;background:var(--ink);color:var(--paper);border:1px solid var(--line);border-radius:6px;">
+    <button id="fitsGoBtn" style="background:var(--gold);color:var(--ink);border:none;border-radius:6px;padding:8px 14px;font-family:'Bangers',cursive;">Ver sugestão</button>
+    <div id="fitsResult" style="margin-top:14px;"></div>
+  `);
+  document.querySelectorAll('.fits-quick').forEach(btn => {
+    btn.addEventListener('click', () => runFitsTime(parseInt(btn.dataset.min, 10)));
+  });
+  document.getElementById('fitsGoBtn').addEventListener('click', () => {
+    const val = parseInt(document.getElementById('fitsMinutesInput').value, 10);
+    if (val > 0) runFitsTime(val);
+  });
+}
+function runFitsTime(minutes) {
+  const pending = sortItems(items.filter(i => !i.done));
+  let best = null, bestEst = null;
+  for (const it of pending) {
+    const est = estimateNextWatchMinutes(it);
+    if (est == null) continue;
+    if (est <= minutes) { best = it; bestEst = est; break; }
+  }
+  const el = document.getElementById('fitsResult');
+  if (!el) return;
+  if (!best) {
+    el.innerHTML = `<p style="color:var(--muted);">Nada da fila cabe em ${minutes} min agora — os próximos pendentes são mais longos que isso.</p>`;
+    return;
+  }
+  el.innerHTML = `
+    <p style="font-size:0.7rem;color:var(--muted);margin-bottom:4px;">~${bestEst} min:</p>
+    <p style="font-family:'Bangers',cursive;letter-spacing:0.5px;">${escapeHtml(best.text)}</p>
+    <button id="fitsGoToItem" style="margin-top:8px;background:var(--cobalt);color:var(--paper);border:none;border-radius:6px;padding:8px 14px;font-family:'Bangers',cursive;">Ir até esse item</button>
+  `;
+  document.getElementById('fitsGoToItem').addEventListener('click', () => {
+    closeModal();
+    switchTab('tabLista');
+    onlyPending = false; showNext7 = false; alphaMode = false; calendarFilter = null; favOnly = false; kindFilter = null; heroFilter = null;
+    updateHeroActiveBar();
+    render();
+    setTimeout(() => {
+      const rows = document.querySelectorAll('.item');
+      for (const row of rows) {
+        if (row.querySelector('.item-text') && row.querySelector('.item-text').textContent.includes(best.text.slice(0,15))) {
+          row.scrollIntoView({ behavior: 'smooth', block: 'center' });
+          row.style.outline = '2px solid var(--gold)';
+          setTimeout(() => row.style.outline = '', 1500);
+          break;
+        }
+      }
+    }, 150);
+  });
+}
+
+// ---- Linha do tempo visual (aba Início) ----
+function renderPhaseTimeline() {
+  const el = document.getElementById('phaseTimeline');
+  if (!el) return;
+  const nextPending = sortItems(items.filter(i => !i.done))[0];
+  const currentPhase = nextPending ? nextPending.phase : null;
+  el.innerHTML = '';
+  PHASE_ORDER.forEach((phase, idx) => {
+    if (idx > 0) {
+      const line = document.createElement('div');
+      line.className = 'phase-timeline-line';
+      el.appendChild(line);
+    }
+    const list = items.filter(i => i.phase === phase);
+    const doneCount = list.filter(i => i.done).length;
+    const isDone = list.length > 0 && doneCount === list.length;
+    const isCurrent = phase === currentPhase;
+    const btn = document.createElement('button');
+    btn.className = 'phase-station' + (isDone ? ' done' : '') + (isCurrent ? ' current' : '');
+    const shortLabel = phase.split('(')[0].trim().slice(0, 30);
+    btn.innerHTML = `<span class="dot-wrap">${isDone ? '✓' : (idx + 1)}</span><span class="station-label">${escapeHtml(shortLabel)}</span>`;
+    btn.title = phase;
+    btn.addEventListener('click', () => goToPhase(phase));
+    el.appendChild(btn);
+  });
+  if (currentPhase) {
+    setTimeout(() => {
+      const activeBtn = el.querySelector('.phase-station.current');
+      if (activeBtn) activeBtn.scrollIntoView({ behavior: 'smooth', inline: 'center', block: 'nearest' });
+    }, 50);
+  }
+}
+function goToPhase(phase) {
+  switchTabSilent('tabLista');
+  onlyPending = false; showNext7 = false; alphaMode = false; calendarFilter = null; favOnly = false; kindFilter = null; heroFilter = null;
+  updateHeroActiveBar();
+  collapsedPhases.delete(phase);
+  render();
+  setTimeout(() => {
+    const target = Array.from(document.querySelectorAll('.phase')).find(d => d.dataset.phase === phase);
+    if (target) {
+      target.scrollIntoView({ behavior: 'smooth', block: 'start' });
+      target.style.outline = '2px solid var(--gold)';
+      setTimeout(() => target.style.outline = '', 1500);
+    }
+  }, 150);
 }
 
 function showPaceAdjuster() {
@@ -2322,6 +2613,7 @@ function render() {
 
       const phaseDiv = document.createElement('div');
       phaseDiv.className = 'phase' + (collapsedPhases.has(phase) ? ' collapsed' : '');
+      phaseDiv.dataset.phase = phase;
 
       const studs = document.createElement('div');
       studs.className = 'studs';
@@ -2372,6 +2664,7 @@ function render() {
   updateCountdown();
   updateCountdownFinal();
   updateCountdownDoomsday();
+  renderPhaseTimeline();
 
   const sel = document.getElementById('phaseSelect');
   sel.innerHTML = '';
@@ -2776,6 +3069,7 @@ document.getElementById('btnSyncJoin').addEventListener('click', () => {
 });
 document.getElementById('modalCloseX').addEventListener('click', closeModal);
 document.getElementById('btnShare').addEventListener('click', shareProgress);
+document.getElementById('btnFitsTime').addEventListener('click', showFitsTimePicker);
 document.getElementById('btnMarathon').addEventListener('click', openMarathon);
 document.getElementById('btnPace').addEventListener('click', showPaceAdjuster);
 document.getElementById('btnMultiSelect').addEventListener('click', (e) => {
@@ -2984,7 +3278,7 @@ function switchTab(name) {
   switchTabSilent(name);
   if (name === 'tabEstatisticas') renderStatsPage();
   if (name === 'tabConquistas') renderAchievementsPage();
-  if (name === 'tabConfig') { renderMusicPlayer(); updateLastSavedInfo(); }
+  if (name === 'tabConfig') { updateLastSavedInfo(); }
   if (name === 'tabLista') {
     scrollToTodayItem(false);
   } else {
@@ -3017,7 +3311,7 @@ function reloadAppNoCache(stayTab) {
 document.getElementById('btnReloadApp').addEventListener('click', () => reloadAppNoCache());
 document.getElementById('btnReloadHome').addEventListener('click', () => reloadAppNoCache('tabInicio'));
 
-document.getElementById('btnWatchNow').addEventListener('click', () => {
+function goToWatchNow() {
   const next = sortItems(items.filter(i => !i.done))[0];
   if (!next) { showToast('🎉 Tudo assistido!'); return; }
   switchTab('tabLista');
@@ -3035,7 +3329,8 @@ document.getElementById('btnWatchNow').addEventListener('click', () => {
       }
     }
   }, 150);
-});
+}
+document.getElementById('btnWatchNow').addEventListener('click', goToWatchNow);
 
 // ---- Estatísticas (agora página, não modal) ----
 function renderStatsPage() {
@@ -3264,83 +3559,6 @@ function renderAchievementsPage() {
     ${sections}
   `;
 }
-
-// ---- Player de música (várias faixas geradas, com controles) ----
-const MUSIC_TRACKS = [
-  { name: '🌙 Drone Noturno', freq: 110, type: 'sine' },
-  { name: '🚀 Espaço Profundo', freq: 80, type: 'triangle' },
-  { name: '🎹 Tom Suave', freq: 220, type: 'sine' },
-  { name: '⚡ Synth Retrô', freq: 146, type: 'sawtooth' },
-];
-let musicIdx = 0;
-let musicPlaying = false;
-let musicVolume = 0.05;
-let musicCtx = null, musicOsc = null, musicGain = null;
-
-function musicStop() {
-  if (musicOsc) { try { musicOsc.stop(); } catch(e) {} musicOsc = null; }
-  if (musicCtx) { musicCtx.close(); musicCtx = null; }
-  musicPlaying = false;
-}
-function musicPlay() {
-  musicStop();
-  musicCtx = new (window.AudioContext || window.webkitAudioContext)();
-  musicOsc = musicCtx.createOscillator();
-  musicGain = musicCtx.createGain();
-  const track = MUSIC_TRACKS[musicIdx];
-  musicOsc.type = track.type;
-  musicOsc.frequency.value = track.freq;
-  musicGain.gain.value = musicVolume;
-  musicOsc.connect(musicGain);
-  musicGain.connect(musicCtx.destination);
-  musicOsc.start();
-  musicPlaying = true;
-}
-function saveMusicPrefs() {
-  try { localStorage.setItem('ucm-music', JSON.stringify({ idx: musicIdx, vol: musicVolume })); } catch(e) {}
-}
-function renderMusicPlayer() {
-  const el = document.getElementById('musicPlayer');
-  const track = MUSIC_TRACKS[musicIdx];
-  el.innerHTML = `
-    <h4>🎵 Som ambiente</h4>
-    <div class="music-track-name">${track.name}</div>
-    <div class="music-controls">
-      <button id="musicPrev">⏮</button>
-      <button id="musicPlayBtn" class="play-btn">${musicPlaying ? '⏸' : '▶️'}</button>
-      <button id="musicNext">⏭</button>
-    </div>
-    <div class="music-vol">
-      🔊 <input type="range" id="musicVol" min="0" max="0.15" step="0.01" value="${musicVolume}">
-    </div>
-    <p style="font-size:0.65rem;color:var(--muted);margin-top:10px;">São tons ambiente gerados na hora — não é uma música real com direitos autorais.</p>
-  `;
-  document.getElementById('musicPlayBtn').addEventListener('click', () => {
-    if (musicPlaying) { musicStop(); } else { musicPlay(); }
-    renderMusicPlayer();
-  });
-  document.getElementById('musicPrev').addEventListener('click', () => {
-    musicIdx = (musicIdx - 1 + MUSIC_TRACKS.length) % MUSIC_TRACKS.length;
-    saveMusicPrefs();
-    if (musicPlaying) musicPlay();
-    renderMusicPlayer();
-  });
-  document.getElementById('musicNext').addEventListener('click', () => {
-    musicIdx = (musicIdx + 1) % MUSIC_TRACKS.length;
-    saveMusicPrefs();
-    if (musicPlaying) musicPlay();
-    renderMusicPlayer();
-  });
-  document.getElementById('musicVol').addEventListener('input', (e) => {
-    musicVolume = parseFloat(e.target.value);
-    if (musicGain) musicGain.gain.value = musicVolume;
-    saveMusicPrefs();
-  });
-}
-try {
-  const saved = JSON.parse(localStorage.getItem('ucm-music') || 'null');
-  if (saved) { musicIdx = saved.idx || 0; musicVolume = saved.vol ?? 0.05; }
-} catch(e) {}
 
 // ---- Recalculo automático do cronograma quando itens mudam ----
 function perEpisodeMinutes(it) {
@@ -3703,7 +3921,11 @@ try {
   reloadTab = localStorage.getItem('ucm-reload-tab');
   if (reloadTab) localStorage.removeItem('ucm-reload-tab');
 } catch(e) {}
-if (reloadTab && document.getElementById(reloadTab)) {
+let shortcutAction = null;
+try { shortcutAction = new URLSearchParams(location.search).get('action'); } catch(e) {}
+if (shortcutAction === 'watchnow') {
+  setTimeout(goToWatchNow, 100);
+} else if (reloadTab && document.getElementById(reloadTab)) {
   switchTab(reloadTab);
 } else {
   scrollToTodayItem(false);
