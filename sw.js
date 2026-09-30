@@ -10,10 +10,11 @@
 //
 // Bump o CACHE_NAME sempre que fizer uma mudança que valha a pena forçar todo mundo a
 // buscar de novo (ele mesmo já limpa o cache antigo quando o nome muda).
-const CACHE_NAME = 'ucm-watchlist-v1';
+const CACHE_NAME = 'ucm-watchlist-v2';
 const CORE_ASSETS = [
   './',
   './index.html',
+  './doomsday.html',
   './manifest.json',
   './icon-192.png',
   './icon-512.png',
@@ -45,13 +46,23 @@ self.addEventListener('fetch', (event) => {
   if (url.searchParams.has('nocache')) return;
 
   if (req.mode === 'navigate') {
+    // fallback por página: se a rede falhar (offline, ou um 404 momentâneo de deploy) e não
+    // tiver essa página específica em cache ainda, cai pro app PRINCIPAL só se for mesmo o
+    // app principal que foi pedido — nunca serve o index.html no lugar de outra página (era
+    // o bug: qualquer navegação com falha caía sempre no index.html, mesmo pedindo
+    // doomsday.html, mostrando a lista errada).
+    const fallbackAsset = url.pathname.endsWith('/doomsday.html') ? './doomsday.html' : './index.html';
     event.respondWith(
       fetch(req)
         .then((res) => {
-          caches.open(CACHE_NAME).then((cache) => cache.put(req, res.clone())).catch(() => {});
+          // só guarda em cache resposta de verdade (200) — um 404 (ex.: página ainda não
+          // propagou no deploy) nunca deve virar cache permanente.
+          if (res && res.ok) {
+            caches.open(CACHE_NAME).then((cache) => cache.put(req, res.clone())).catch(() => {});
+          }
           return res;
         })
-        .catch(() => caches.match(req).then((res) => res || caches.match('./index.html')))
+        .catch(() => caches.match(req).then((res) => res || caches.match(fallbackAsset)))
     );
     return;
   }
