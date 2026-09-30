@@ -2052,7 +2052,11 @@ function updateCountdown() {
 function updateEndBadge() {
   const el = document.getElementById('badgeEnd');
   if (!el) return;
-  const pending = items.filter(i => !i.done && i.watchEnd);
+  // exclui o item do próprio filme final (k166, Vingadores: Guerras Secretas) — a data dele é
+  // fixa na estreia real e já tem o badge "GUERRAS SECRETAS" ao lado mostrando isso; incluir
+  // ele aqui só fazia o TÉRMINO sempre repetir a mesma data do badge de deadline, escondendo a
+  // data de verdade em que o catch-up de tudo o resto termina.
+  const pending = items.filter(i => !i.done && i.watchEnd && i.key !== 'k166');
   if (pending.length === 0) { el.textContent = 'TÉRMINO —'; return; }
   const last = pending.reduce((m, i) => (i.watchEnd > m.watchEnd ? i : m), pending[0]);
   const [y, mo, d] = last.watchEnd.split('-');
@@ -2183,6 +2187,8 @@ function showSingleSeriesModal(it) {
       const idx = parseInt(cb.dataset.ep, 10);
       it.epDone[idx] = cb.checked;
       save();
+      updateDelayCounter();
+      updateEndBadge();
       cb.closest('.interleaved-row').classList.remove('iv-today', 'iv-overdue');
       if (!cb.checked) {
         const dateIso = episodeDateFor(it, idx, eps);
@@ -2250,6 +2256,11 @@ function showInterleavedModal(clickedItem) {
       const epIdx = parseInt(cb.dataset.ep, 10);
       shows[showIdx].epDone[epIdx] = cb.checked;
       save();
+      // atualiza os indicadores da home (dias adiantado/atrasado, "restam N episódios de
+      // hoje") na hora — antes só recalculava no próximo load(), porque esse checkbox nunca
+      // chamava nada disso, só save().
+      updateDelayCounter();
+      updateEndBadge();
       cb.closest('.interleaved-row').classList.remove('iv-today', 'iv-overdue');
       if (!cb.checked) {
         const dateIso = shows[showIdx].epDates ? shows[showIdx].epDates[epIdx] : null;
