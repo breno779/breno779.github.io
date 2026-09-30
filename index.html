@@ -876,6 +876,7 @@ if ('serviceWorker' in navigator) {
     <button id="btnFitsTime">⌛ O que cabe no meu tempo?</button>
     <button id="btnShare">📤 Compartilhar progresso</button>
     <button id="btnReloadHome">🔄 Recarregar</button>
+    <button id="btnInstallApp" style="display:none;">📲 Adicionar à tela inicial</button>
   </div>
 </div>
 
@@ -3549,6 +3550,33 @@ function reloadAppNoCache(stayTab) {
 }
 document.getElementById('btnReloadApp').addEventListener('click', () => reloadAppNoCache());
 document.getElementById('btnReloadHome').addEventListener('click', () => reloadAppNoCache('tabInicio'));
+
+// botão "adicionar à tela inicial" — Android/Chrome dispara beforeinstallprompt quando o site
+// atende os critérios de instalável (manifest + service worker), e a gente guarda esse evento
+// pra disparar via botão (o Chrome não mostra a UI de instalar sozinho em toda situação, e
+// alguns navegadores embutidos escondem o menu de 3 pontos de vez). Sem esse evento (iOS
+// Safari nunca dispara, ou o navegador não suporta), o clique cai no alert com o passo a passo
+// manual em vez de travar sem fazer nada.
+let deferredInstallPrompt = null;
+const installBtn = document.getElementById('btnInstallApp');
+const isStandalone = window.matchMedia('(display-mode: standalone)').matches || window.navigator.standalone === true;
+if (installBtn && !isStandalone) {
+  installBtn.style.display = '';
+  window.addEventListener('beforeinstallprompt', (e) => {
+    e.preventDefault();
+    deferredInstallPrompt = e;
+  });
+  installBtn.addEventListener('click', async () => {
+    if (deferredInstallPrompt) {
+      deferredInstallPrompt.prompt();
+      await deferredInstallPrompt.userChoice;
+      deferredInstallPrompt = null;
+      return;
+    }
+    alert('Seu navegador não ofereceu a instalação automática (comum em navegadores embutidos, tipo dentro de outros apps).\n\nAbra esse link direto no Chrome ou Safari:\n\n• Chrome (Android): toque nos 3 pontinhos no canto ▸ "Adicionar à tela inicial".\n• Safari (iPhone): toque no ícone de compartilhar (quadrado com seta) ▸ "Adicionar à Tela de Início".');
+  });
+  window.addEventListener('appinstalled', () => { installBtn.style.display = 'none'; });
+}
 
 function goToWatchNow() {
   const next = sortItems(items.filter(i => !i.done))[0];
