@@ -974,6 +974,9 @@ const STORAGE_KEY = 'ucm-watchlist-items-v1';
 let items = [];
 let nextId = 1;
 let collapsedPhases = new Set();
+function saveCollapsedPhases() {
+  try { localStorage.setItem('ucm-collapsed-phases', JSON.stringify(Array.from(collapsedPhases))); } catch(e) {}
+}
 let onlyPending = false;
 let showNext7 = false;
 let favOnly = false;
@@ -1386,6 +1389,26 @@ function load() {
       }
     });
     try { localStorage.setItem('ucm-fix-doomsday-rename-v1', '1'); } catch(e) {}
+  }
+
+  try {
+    const savedCollapsed = JSON.parse(localStorage.getItem('ucm-collapsed-phases') || '[]');
+    if (Array.isArray(savedCollapsed)) collapsedPhases = new Set(savedCollapsed);
+  } catch(e) {}
+
+  // correção/novidade: fases 100% completas agora fecham sozinhas. Pra quem já tinha fases
+  // inteiras terminadas antes dessa mudança existir, fecha elas de uma vez aqui também — só
+  // uma vez, depois disso respeita se você reabrir uma fase completa de propósito.
+  let autoCollapseApplied = false;
+  try { autoCollapseApplied = localStorage.getItem('ucm-fix-autocollapse-v1') === '1'; } catch(e) {}
+  if (!autoCollapseApplied) {
+    const phasesSeen = new Set(items.map(i => i.phase));
+    phasesSeen.forEach(p => {
+      const list = items.filter(i => i.phase === p);
+      if (list.length > 0 && list.every(i => i.done)) collapsedPhases.add(p);
+    });
+    saveCollapsedPhases();
+    try { localStorage.setItem('ucm-fix-autocollapse-v1', '1'); } catch(e) {}
   }
 
   // correção: a ordem dos itens dentro de cada fase tinha ficado fora da ordem cronológica
@@ -2386,6 +2409,7 @@ function goToPhase(phase) {
   onlyPending = false; showNext7 = false; alphaMode = false; calendarFilter = null; favOnly = false; kindFilter = null; heroFilter = null;
   updateHeroActiveBar();
   collapsedPhases.delete(phase);
+  saveCollapsedPhases();
   render();
   setTimeout(() => {
     const target = Array.from(document.querySelectorAll('.phase')).find(d => d.dataset.phase === phase);
@@ -2515,6 +2539,7 @@ function renderMarathon(pending) {
     const eps = extractEpsCount(it.text);
     if (eps) it.epDone = new Array(eps).fill(true);
     delete it.watchStart; delete it.watchEnd; delete it.watchKind; delete it.epDates;
+    maybeAutoCollapsePhase(it.phase);
     save();
     showToast('✓ Marcado como visto', () => {
       const idx = items.findIndex(i => i.id === itId);
@@ -2678,6 +2703,7 @@ function render() {
       head.addEventListener('click', () => {
         if (collapsedPhases.has(phase)) collapsedPhases.delete(phase);
         else collapsedPhases.add(phase);
+        saveCollapsedPhases();
         render();
       });
       phaseDiv.appendChild(head);
@@ -2769,6 +2795,18 @@ function startRatingEdit(id, spanEl) {
   input.addEventListener('click', (e) => e.stopPropagation());
 }
 
+// fecha a fase automaticamente assim que o último item dela é marcado como visto — só nesse
+// instante da transição (não força fechado toda vez que renderiza, senão reabrir a fase pra
+// olhar de novo depois nunca ficaria aberto).
+function maybeAutoCollapsePhase(phase) {
+  if (!phase) return;
+  const list = items.filter(i => i.phase === phase);
+  if (list.length > 0 && list.every(i => i.done)) {
+    collapsedPhases.add(phase);
+    saveCollapsedPhases();
+  }
+}
+
 function toggleDone(id, el) {
   const it = items.find(i => i.id === id);
   if (!it) return;
@@ -2790,6 +2828,7 @@ function toggleDone(id, el) {
     const eps = extractEpsCount(it.text);
     if (eps) it.epDone = new Array(eps).fill(true);
     delete it.watchStart; delete it.watchEnd; delete it.watchKind; delete it.epDates;
+    maybeAutoCollapsePhase(it.phase);
     const stamp = el.parentElement.querySelector('.stamp');
     if (stamp) {
       stamp.classList.remove('show');
@@ -3146,6 +3185,8 @@ document.getElementById('btnMultiSelect').addEventListener('click', (e) => {
         delete it.watchStart; delete it.watchEnd; delete it.watchKind; delete it.epDates;
       });
       if (selectedIds.size > 0) markDoneToday();
+      new Set(items.map(i => i.phase)).forEach(maybeAutoCollapsePhase);
+      saveCollapsedPhases();
       selectedIds.clear();
       save();
       render();
