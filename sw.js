@@ -10,8 +10,8 @@
 //
 // Bump o CACHE_NAME sempre que fizer uma mudança que valha a pena forçar todo mundo a
 // buscar de novo (ele mesmo já limpa o cache antigo quando o nome muda).
-const CACHE_NAME = 'ucm-watchlist-v3';
-const PAGES = ['index.html', 'doomsday.html', 'doomsday-essenciais.html'];
+const CACHE_NAME = 'ucm-watchlist-v4';
+const PAGES = ['index.html', 'principal.html', 'doomsday.html', 'doomsday-essenciais.html'];
 const CORE_ASSETS = [
   './',
   './manifest.json',
