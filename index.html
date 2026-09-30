@@ -852,7 +852,7 @@ if ('serviceWorker' in navigator) {
   </div>
   <div class="badges">
     <span class="badge start">INÍCIO 04/08/2026</span>
-    <span class="badge end">TÉRMINO 18/12/2027</span>
+    <span class="badge end" id="badgeEnd">TÉRMINO —</span>
     <span class="badge deadline">GUERRAS SECRETAS 17/12/2027</span>
   </div>
   <div class="delay-counter" id="delayCounter"></div>
@@ -1431,6 +1431,17 @@ function load() {
     try { localStorage.setItem('ucm-fix-order-v1', '1'); } catch(e) {}
   }
 
+  // ajuste: o período do GTA VI/período de prova (19–26/11/2026) deixou de ser uma pausa
+  // total (0 episódios) e virou ritmo reduzido (1 ep/dia) — dá pra continuar vendo o item do
+  // dia enquanto estuda, e depois nas férias joga bastante. Isso muda as datas de tudo que
+  // ainda não foi assistido, então recalcula geral (a partir de amanhã) uma vez por aparelho.
+  let slowGtaFixApplied = false;
+  try { slowGtaFixApplied = localStorage.getItem('ucm-fix-slowgta-v1') === '1'; } catch(e) {}
+  if (!slowGtaFixApplied) {
+    recomputeSchedule();
+    try { localStorage.setItem('ucm-fix-slowgta-v1', '1'); } catch(e) {}
+  }
+
   // correção definitiva #3: garante que o trio intercalado sempre comece em 21/09/2026 de
   // verdade. Roda em TODO load (não só uma vez), porque dados vindos de outro aparelho pela
   // sincronização podem trazer essa data errada de volta — não dá pra confiar só no flag local.
@@ -1964,6 +1975,15 @@ function updateCountdown() {
   el.textContent = `🚀 faltam ${days} dia${days===1?'':'s'} pra ${next.name}`;
 }
 
+function updateEndBadge() {
+  const el = document.getElementById('badgeEnd');
+  if (!el) return;
+  const pending = items.filter(i => !i.done && i.watchEnd);
+  if (pending.length === 0) { el.textContent = 'TÉRMINO —'; return; }
+  const last = pending.reduce((m, i) => (i.watchEnd > m.watchEnd ? i : m), pending[0]);
+  const [y, mo, d] = last.watchEnd.split('-');
+  el.textContent = `TÉRMINO ${d}/${mo}/${y}`;
+}
 function updateCountdownFinal() {
   const el = document.getElementById('countdownFinal');
   if (!el) return;
@@ -2742,6 +2762,7 @@ function render() {
   updateCountdown();
   updateCountdownFinal();
   updateCountdownDoomsday();
+  updateEndBadge();
   renderPhaseTimeline();
 
   const sel = document.getElementById('phaseSelect');
@@ -3722,20 +3743,23 @@ function isShortItem(text) {
 }
 const PAUSE_WINDOWS = [
   ['2026-10-10', '2026-10-14'],
-  ['2026-11-19', '2026-11-26'], // período GTA VI (encurtado)
   ['2027-01-16', '2027-01-23'],
 ];
 function isPauseDay(d) {
-  // únicos dois períodos de "férias": nada avança nesses dias, ritmo normal no resto.
+  // períodos de "férias" de verdade: nada avança nesses dias, ritmo normal no resto.
   const iso = fmtDateISO(d);
   return PAUSE_WINDOWS.some(([start, end]) => iso >= start && iso <= end);
 }
-const SLOW_WINDOW = ['2026-12-26', '2027-01-15'];
+const SLOW_WINDOWS = [
+  ['2026-11-19', '2026-11-26'], // período de prova + começo do GTA VI: não para, só desacelera
+  ['2026-12-26', '2027-01-15'], // "maratona lenta" (Búzios/viagem)
+];
 function isSlowDay(d) {
-  // "maratona lenta" (Búzios/viagem) — não é férias, só reduz o ritmo (1 ep/dia de série) e
-  // separa curtas de filmes (curta não gruda mais no mesmo dia de outro item).
+  // ritmo reduzido (1 ep/dia de série) nesses períodos — não é férias, dá pra manter vendo o
+  // item do dia enquanto estuda/viaja/joga mais. Também separa curtas de filmes (curta não
+  // gruda mais no mesmo dia de outro item) nesses dias.
   const iso = fmtDateISO(d);
-  return iso >= SLOW_WINDOW[0] && iso <= SLOW_WINDOW[1];
+  return SLOW_WINDOWS.some(([start, end]) => iso >= start && iso <= end);
 }
 function fmtDateISO(d) {
   return `${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,'0')}-${String(d.getDate()).padStart(2,'0')}`;
