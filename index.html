@@ -1357,6 +1357,26 @@ function load() {
     try { localStorage.setItem('ucm-fix-doomsday-rename-v1', '1'); } catch(e) {}
   }
 
+  // correção: a ordem dos itens dentro de cada fase tinha ficado fora da ordem cronológica
+  // pretendida (ex.: "Homem de Ferro 2" e "Thor" apareciam DEPOIS do trio intercalado
+  // Ultimate Homem-Aranha/Vingadores Unidos/Hulk, quando deveriam vir antes) — resultado de
+  // migrações antigas que recalculavam a ordem a partir da ordem "atual" do array em vez da
+  // ordem oficial do DEFAULT_ITEMS. Corrige de uma vez, pegando a posição certa de cada item
+  // (pela key) direto do DEFAULT_ITEMS. Só roda uma vez — depois disso, respeita qualquer
+  // reordenação manual sua (🔀 Mover, ▲▼).
+  let orderFixApplied = false;
+  try { orderFixApplied = localStorage.getItem('ucm-fix-order-v1') === '1'; } catch(e) {}
+  if (!orderFixApplied) {
+    const canonicalIndex = new Map();
+    DEFAULT_ITEMS.forEach((d, idx) => { if (d.key) canonicalIndex.set(d.key, idx); });
+    items.forEach(it => {
+      if (it.key && canonicalIndex.has(it.key)) it.order = canonicalIndex.get(it.key);
+      else delete it.order;
+    });
+    items = withOrder(items);
+    try { localStorage.setItem('ucm-fix-order-v1', '1'); } catch(e) {}
+  }
+
   // correção definitiva #3: garante que o trio intercalado sempre comece em 21/09/2026 de
   // verdade. Roda em TODO load (não só uma vez), porque dados vindos de outro aparelho pela
   // sincronização podem trazer essa data errada de volta — não dá pra confiar só no flag local.
