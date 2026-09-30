@@ -1,0 +1,4209 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+<meta charset="UTF-8">
+<meta http-equiv="Cache-Control" content="no-cache, no-store, must-revalidate">
+<meta http-equiv="Pragma" content="no-cache">
+<meta http-equiv="Expires" content="0">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Essenciais pra Doomsday — Watchlist</title>
+<link rel="manifest" href="manifest.json">
+<script>
+// Registra o service worker pra deixar o app funcionar offline depois da primeira vez. Um
+// pedido de recarregar com "?nocache=" (botão 🔄 do app) não passa pelo cache do service
+// worker (ver sw.js) — continua sempre pegando a versão mais nova quando você força isso.
+if ('serviceWorker' in navigator) {
+  window.addEventListener('load', () => {
+    navigator.serviceWorker.register('sw.js').catch(() => {});
+  });
+}
+</script>
+<!-- Firebase (só usado pra sincronizar entre aparelhos, manualmente — ver botões na aba Config).
+     Se estiver offline e isso não carregar, o app inteiro continua funcionando normalmente,
+     só a sincronização fica indisponível até ter internet de novo. -->
+<script src="https://www.gstatic.com/firebasejs/10.13.0/firebase-app-compat.js"></script>
+<script src="https://www.gstatic.com/firebasejs/10.13.0/firebase-firestore-compat.js"></script>
+<meta name="theme-color" content="#15141b">
+<link rel="apple-touch-icon" href="icon-192.png">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+<meta name="apple-mobile-web-app-title" content="UCM Watchlist">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Bangers&family=Baloo+2:wght@400;500;600;700;800&family=JetBrains+Mono:wght@500;700&display=swap" rel="stylesheet">
+<style>
+  :root {
+    --ink: #15141b;
+    --ink2: #1e1d27;
+    --paper: #efe4c8;
+    --paper2: #e6d8b8;
+    --crimson: #b6332c;
+    --crimson-dark: #8a241f;
+    --cobalt: #2b4c8c;
+    --gold: #d9a441;
+    --muted: #746b5c;
+    --line: rgba(21,20,27,0.14);
+  }
+  * { box-sizing: border-box; }
+  body {
+    margin: 0;
+    background:
+      radial-gradient(circle at 1px 1px, rgba(255,255,255,0.05) 1px, transparent 1px) 0 0/16px 16px,
+      var(--ink);
+    color: var(--paper);
+    font-family: 'Baloo 2', sans-serif;
+    min-height: 100vh;
+    padding-bottom: 160px;
+  }
+  .halftone {
+    position: fixed; inset: 0; pointer-events: none; z-index: 0;
+    background-image: radial-gradient(rgba(0,0,0,0.08) 1.5px, transparent 1.5px);
+    background-size: 10px 10px;
+  }
+  .sticky-progress {
+    position: sticky; top: 0; z-index: 40;
+    display: flex; justify-content: space-between; align-items: center;
+    background: var(--ink); border-bottom: 2px solid var(--gold);
+    padding: 6px 16px; font-family: 'JetBrains Mono', monospace;
+    font-size: 0.72rem; color: var(--gold); font-weight: 700;
+  }
+  header {
+    position: relative; z-index: 30;
+    padding: 28px 20px 20px;
+    text-align: center;
+    border-bottom: 4px solid var(--crimson);
+    background: linear-gradient(180deg, rgba(182,51,44,0.12), transparent);
+  }
+  h1 {
+    font-family: 'Bangers', cursive;
+    font-size: 2.6rem;
+    letter-spacing: 1.5px;
+    margin: 0;
+    color: var(--paper);
+    -webkit-text-stroke: 1.5px var(--ink);
+    text-shadow: 3px 3px 0 var(--crimson);
+    transform: rotate(-1deg);
+  }
+  .sub {
+    font-size: 0.8rem;
+    color: var(--muted);
+    letter-spacing: 2px;
+    text-transform: uppercase;
+    margin-top: 4px;
+  }
+  .progress-wrap {
+    max-width: 520px;
+    margin: 18px auto 0;
+    padding: 0 8px;
+  }
+  .progress-track {
+    height: 18px;
+    background: var(--ink2);
+    border: 2px solid var(--ink);
+    border-radius: 3px;
+    overflow: hidden;
+    box-shadow: inset 0 2px 4px rgba(0,0,0,0.4);
+  }
+  .progress-fill {
+    height: 100%;
+    background: repeating-linear-gradient(45deg, var(--crimson), var(--crimson) 8px, var(--crimson-dark) 8px, var(--crimson-dark) 16px);
+    transition: width 0.4s ease;
+  }
+  .progress-label {
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 0.75rem;
+    color: var(--gold);
+    margin-top: 6px;
+    display: flex;
+    justify-content: space-between;
+  }
+  .legend {
+    display: flex;
+    gap: 12px;
+    justify-content: center;
+    flex-wrap: wrap;
+    margin-top: 12px;
+    font-size: 0.68rem;
+    color: var(--muted);
+  }
+  .legend span { display: flex; align-items: center; gap: 4px; }
+  .legend .dot { width: 9px; height: 9px; border-radius: 50%; display: inline-block; }
+  .legend .dot.k-filme { background: var(--gold); }
+  .legend .dot.k-anim { background: var(--cobalt); }
+  .legend .dot.k-live { background: var(--crimson); }
+  .legend .dot.k-jogo { background: #4c8c5a; }
+  .badges {
+    display: flex;
+    gap: 8px;
+    justify-content: center;
+    flex-wrap: wrap;
+    margin-top: 10px;
+  }
+  .badge {
+    font-family: 'JetBrains Mono', monospace; font-size: 0.68rem; padding: 4px 9px;
+    border-radius: 4px; border: 1px solid var(--line); background: rgba(255,255,255,0.03);
+  }
+  .badge.start { color: var(--gold); border-color: var(--gold); }
+  .badge.end { color: #4c8c5a; border-color: #4c8c5a; }
+  .badge.deadline { color: var(--crimson); border-color: var(--crimson); }
+  .toolbar {
+    display: flex; gap: 6px; justify-content: center; flex-wrap: wrap;
+    margin-top: 10px;
+  }
+  .toolbar button {
+    background: var(--ink2); color: var(--paper); border: 1px solid var(--line);
+    border-radius: 14px; padding: 5px 11px; font-size: 0.68rem;
+    font-family: 'Baloo 2', sans-serif; cursor: pointer;
+  }
+  .toolbar button.menu-active { background: var(--gold); color: var(--ink); border-color: var(--gold); }
+  .dropdown { position: relative; }
+  .dropdown-menu {
+    display: flex; flex-direction: column; gap: 2px;
+    position: absolute; top: 100%; left: 50%;
+    transform: translateX(-50%) translateY(-6px) scale(0.96);
+    opacity: 0; visibility: hidden; pointer-events: none;
+    transition: opacity 0.16s ease, transform 0.16s ease, visibility 0.16s;
+    margin-top: 4px; background: var(--ink2); border: 1px solid var(--line);
+    border-radius: 8px; padding: 4px; z-index: 45; min-width: 170px;
+    box-shadow: 0 4px 10px rgba(0,0,0,0.4);
+  }
+  .dropdown-menu.open {
+    opacity: 1; visibility: visible; pointer-events: auto;
+    transform: translateX(-50%) translateY(0) scale(1);
+  }
+  .dropdown-menu button {
+    transition: background 0.12s ease;
+    text-align: left; background: none; border: none; color: var(--paper);
+    padding: 7px 10px; font-size: 0.75rem; border-radius: 5px; white-space: nowrap;
+  }
+  .dropdown-menu button:hover { background: rgba(255,255,255,0.06); }
+  .dropdown-menu button.menu-active {
+    background: var(--gold);
+    color: var(--ink) !important;
+    font-weight: 700;
+  }
+  .hero-active-bar {
+    display: flex; align-items: center; justify-content: center; gap: 8px;
+    max-width: 520px; margin: 8px auto 0; padding: 6px 10px;
+    background: var(--ink2); border: 1px solid var(--gold); border-radius: 20px;
+    font-size: 0.75rem; color: var(--gold);
+  }
+  .hero-active-bar button {
+    background: none; border: none; color: var(--muted); font-size: 0.9rem; cursor: pointer;
+  }
+  .hero-grid {
+    display: grid; grid-template-columns: repeat(auto-fill, minmax(140px, 1fr));
+    gap: 8px; max-height: 65vh; overflow-y: auto; padding: 4px 2px;
+  }
+  .hero-grid button {
+    display: flex; align-items: center; gap: 6px;
+    background: var(--ink2); border: 1px solid var(--line); border-radius: 10px;
+    padding: 10px 8px; color: var(--paper); font-size: 0.78rem; text-align: left;
+    cursor: pointer; font-family: 'Work Sans', sans-serif;
+  }
+  .hero-grid button:hover { border-color: var(--gold); }
+  .hero-grid button.menu-active { border-color: var(--gold); background: rgba(255,215,0,0.12); }
+  .hero-grid .emoji { font-size: 1.1rem; }
+  .date-edit-wrap {
+    display: flex; gap: 6px; align-items: center; margin-top: 4px; flex-wrap: wrap;
+  }
+  .date-edit-wrap input[type="date"] {
+    background: var(--ink2); color: var(--paper); border: 1px solid var(--gold);
+    border-radius: 4px; padding: 4px 6px; font-size: 0.75rem;
+  }
+  .date-edit-wrap button {
+    border-radius: 4px; padding: 4px 8px; font-size: 0.7rem; border: none; cursor: pointer;
+  }
+  .date-edit-wrap .apply-btn { background: var(--gold); color: var(--ink); font-weight: 700; }
+  .date-edit-wrap .cancel-btn { background: transparent; color: var(--muted); border: 1px solid var(--line); }
+  .modal-overlay {
+    display: none; position: fixed; inset: 0; background: rgba(0,0,0,0.7);
+    z-index: 50; align-items: center; justify-content: center; padding: 20px;
+  }
+  .modal-overlay.open { display: flex; }
+  .modal-close-x {
+    display: none; position: fixed; top: calc(env(safe-area-inset-top, 0px) + 14px); right: 14px;
+    z-index: 60; width: 36px; height: 36px; border-radius: 50%;
+    background: var(--crimson); color: var(--paper); border: 2px solid var(--gold);
+    font-size: 1rem; line-height: 1; font-family: 'Baloo 2', sans-serif;
+  }
+  .modal-overlay.open .modal-close-x { display: block; }
+  .modal-box {
+    background: var(--ink2); border: 2px solid var(--gold); border-radius: 10px;
+    padding: 18px; max-width: 480px; width: 100%; max-height: 80vh; overflow-y: auto;
+    font-size: 0.85rem;
+  }
+  .modal-box h3 { font-family: 'Bangers', cursive; color: var(--gold); margin: 0 0 10px; font-size: 1.2rem; }
+  .modal-box button.close-modal {
+    margin-top: 12px; background: var(--crimson); color: var(--paper); border: none;
+    border-radius: 6px; padding: 8px 14px; font-family: 'Bangers', cursive; letter-spacing: 1px;
+  }
+  .modal-box table { width: 100%; border-collapse: collapse; font-size: 0.78rem; }
+  .modal-box td, .modal-box th { padding: 4px 6px; border-bottom: 1px solid var(--line); text-align: left; }
+  /* sem prefixo .modal-box: essas classes também são usadas fora de modal (aba Stats) */
+  .bar-row { display: flex; align-items: center; gap: 6px; margin-bottom: 4px; }
+  .bar-label { width: 70px; font-family: 'JetBrains Mono', monospace; font-size: 0.7rem; }
+  .bar-track { flex: 1; background: var(--ink); border-radius: 3px; height: 12px; overflow: hidden; }
+  .bar-fill { height: 100%; background: var(--gold); }
+  .marathon-screen {
+    display: none; position: fixed; inset: 0; background: var(--ink); z-index: 60;
+    flex-direction: column; align-items: center; justify-content: center; padding: 24px; text-align: center;
+  }
+  .marathon-screen.open { display: flex; }
+  .marathon-screen .m-title { font-family: 'Bangers', cursive; font-size: 1.6rem; color: var(--paper); margin-bottom: 20px; }
+  .marathon-screen .m-date { font-family: 'JetBrains Mono', monospace; color: var(--gold); margin-bottom: 24px; }
+  .marathon-screen button.m-next {
+    background: var(--gold); color: var(--ink); border: none; border-radius: 10px;
+    padding: 18px 30px; font-family: 'Bangers', cursive; font-size: 1.1rem; letter-spacing: 1px;
+  }
+  .marathon-screen button.m-close {
+    margin-top: 16px; background: none; border: none; color: var(--muted); font-size: 0.8rem;
+  }
+  .fav-btn { cursor: pointer; font-size: 1rem; }
+  .fav-btn.active { color: var(--crimson); }
+  .compact .item-text ~ .rating-widget,
+  .compact .item-text ~ .watch-date,
+  .compact .item-text ~ .media-info,
+  .compact .item-text ~ .series-pct-line,
+  .compact .item-text ~ .next-ep-line,
+  .compact .item-text ~ .interleave-badge,
+  .compact .item-text ~ .episode-toggle,
+  .compact .item-text ~ .episode-list { display: none; }
+  .compact .item.expanded .rating-widget { display: flex; }
+  .compact .item.expanded .watch-date { display: inline-block; }
+  .compact .item.expanded .media-info,
+  .compact .item.expanded .series-pct-line,
+  .compact .item.expanded .next-ep-line,
+  .compact .item.expanded .interleave-badge,
+  .compact .item.expanded .episode-toggle { display: block; }
+  .compact .item.expanded .episode-list { display: block; }
+  .select-check { flex: 0 0 20px; }
+
+  /* ---- sistema de abas ---- */
+  .tab-page { display: none; padding: 14px 14px 0; max-width: 640px; margin: 0 auto; }
+  .tab-page.tab-visible { display: block; }
+  #tabLista.tab-visible { display: flex; flex-direction: column; padding: 0; }
+  .tabbar {
+    position: fixed; bottom: 0; left: 0; right: 0; z-index: 45;
+    display: flex; background: var(--ink2); border-top: 2px solid var(--gold);
+    max-width: 640px; margin: 0 auto;
+  }
+  .tabbar-btn {
+    flex: 1; background: none; border: none; color: var(--muted);
+    font-size: 1rem; padding: 7px 2px 5px; display: flex; flex-direction: column;
+    align-items: center; gap: 2px; cursor: pointer; min-width: 0;
+  }
+  .tabbar-btn span { font-size: 0.55rem; font-family: 'Baloo 2', sans-serif; }
+  .tabbar-btn.tab-active { color: var(--gold); }
+  .big-action {
+    width: 100%; background: var(--gold); color: var(--ink); border: none;
+    border-radius: 10px; padding: 14px; font-family: 'Bangers', cursive;
+    font-size: 1.1rem; letter-spacing: 1px; margin: 14px 0 10px; cursor: pointer;
+  }
+  .dash-actions { display: flex; gap: 8px; flex-wrap: wrap; margin-bottom: 20px; }
+  .dash-actions button {
+    flex: 1; min-width: 100px; background: var(--ink2); color: var(--paper);
+    border: 1px solid var(--line); border-radius: 8px; padding: 10px 6px;
+    font-size: 0.72rem; font-family: 'Baloo 2', sans-serif;
+  }
+  .config-list { display: flex; flex-direction: column; gap: 8px; margin-bottom: 20px; }
+  .config-list button {
+    background: var(--ink2); color: var(--paper); border: 1px solid var(--line);
+    border-radius: 8px; padding: 12px 14px; text-align: left; font-size: 0.85rem;
+    font-family: 'Baloo 2', sans-serif;
+  }
+  .stat-card {
+    background: var(--ink2); border: 1px solid var(--line); border-radius: 10px;
+    padding: 14px; margin-bottom: 14px;
+  }
+  .stat-card h4 { font-family: 'Bangers', cursive; color: var(--gold); margin: 0 0 10px; font-size: 1rem; }
+  .stat-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; }
+  .stat-box { text-align: center; }
+  .stat-box .num { font-family: 'JetBrains Mono', monospace; font-size: 1.3rem; color: var(--gold); font-weight: 700; }
+  .stat-box .lbl { font-size: 0.65rem; color: var(--muted); }
+  .achv-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; }
+  .achv-cat-title {
+    font-family: 'Bangers', cursive; color: var(--cobalt); font-size: 0.95rem;
+    margin: 18px 0 8px; letter-spacing: 0.5px;
+  }
+  .achv-popup {
+    position: fixed; top: 70px; left: 50%; z-index: 90;
+    transform: translateX(-50%) translateY(-20px); opacity: 0;
+    background: var(--ink2); border: 3px solid var(--gold); border-radius: 14px;
+    padding: 14px 22px; text-align: center; max-width: 88vw;
+    box-shadow: 0 6px 18px rgba(0,0,0,0.5);
+    transition: transform 0.35s ease, opacity 0.35s ease;
+  }
+  .achv-popup.show { transform: translateX(-50%) translateY(0); opacity: 1; }
+  .achv-popup-icon { font-size: 2.2rem; line-height: 1; }
+  .achv-popup-label {
+    font-family: 'JetBrains Mono', monospace; font-size: 0.62rem; color: var(--crimson);
+    letter-spacing: 1.5px; margin-top: 4px; font-weight: 700;
+  }
+  .achv-popup-name {
+    font-family: 'Bangers', cursive; color: var(--gold); font-size: 1.15rem;
+    -webkit-text-stroke: 1px var(--ink); margin-top: 2px;
+  }
+  .achv-card {
+    background: var(--ink2); border: 1px solid var(--line); border-radius: 10px;
+    padding: 14px 10px; text-align: center; opacity: 0.35;
+  }
+  .achv-card.unlocked { opacity: 1; border-color: var(--gold); }
+  .achv-card .achv-icon { font-size: 1.8rem; display: block; margin-bottom: 6px; }
+  .achv-card .achv-name { font-size: 0.7rem; font-family: 'Baloo 2', sans-serif; }
+  .reschedule-banner {
+    background: rgba(217,164,65,0.15); border: 1px solid var(--gold); border-radius: 8px;
+    padding: 10px; margin-bottom: 14px; font-size: 0.75rem; text-align: center;
+  }
+  .reschedule-banner button {
+    display: block; margin: 8px auto 0; background: var(--gold); color: var(--ink);
+    border: none; border-radius: 6px; padding: 6px 12px; font-family: 'Bangers', cursive;
+  }
+  .toast-container {
+    position: fixed; bottom: 70px; left: 0; right: 0; z-index: 80;
+    display: flex; flex-direction: column; align-items: center; gap: 6px;
+    pointer-events: none; padding: 0 14px;
+  }
+  .toast {
+    background: var(--ink2); color: var(--paper); border: 1px solid var(--gold);
+    border-radius: 20px; padding: 8px 16px; font-size: 0.78rem;
+    font-family: 'Baloo 2', sans-serif; box-shadow: 0 3px 10px rgba(0,0,0,0.4);
+    opacity: 0; transform: translateY(8px); transition: opacity 0.2s ease, transform 0.2s ease;
+    max-width: 90vw; pointer-events: auto; display: flex; align-items: center; gap: 4px;
+  }
+  .toast.show { opacity: 1; transform: translateY(0); }
+  .toast-undo-btn {
+    background: var(--gold); color: var(--ink); border: none; border-radius: 12px;
+    padding: 3px 10px; font-family: 'Bangers', cursive; font-size: 0.72rem;
+    letter-spacing: 0.5px; cursor: pointer; flex-shrink: 0;
+  }
+  .loading-spin {
+    text-align: center; color: var(--muted); font-family: 'Baloo 2', sans-serif;
+    padding: 40px 0; font-size: 0.9rem; animation: pulse 1.1s ease-in-out infinite;
+  }
+  @keyframes pulse { 0%,100% { opacity: 0.4; } 50% { opacity: 1; } }
+  .delay-counter {
+    text-align: center; font-family: 'JetBrains Mono', monospace;
+    font-size: 0.72rem; margin-top: 8px;
+  }
+  .delay-counter.late { color: var(--crimson); }
+  .delay-counter.early { color: #4c8c5a; }
+  .delay-counter.ontime { color: var(--gold); }
+  .phase-progress {
+    height: 4px; background: var(--ink); margin: 0 6px;
+  }
+  .phase-progress-fill {
+    height: 100%; background: var(--gold);
+  }
+  .item.today {
+    border-left: 4px solid var(--gold);
+    background: rgba(217,164,65,0.09);
+    padding-left: 10px;
+  }
+  .today-tag {
+    font-family: 'JetBrains Mono', monospace; font-size: 0.62rem;
+    color: var(--ink); background: var(--gold); border-radius: 3px;
+    padding: 1px 5px; margin-left: 6px; font-weight: 700;
+  }
+  body.light {
+    --ink: #f4ecd8; --ink2: #e6d8b8; --paper: #221f1a; --paper2: #2b271f;
+    --muted: #6b6355; --line: rgba(21,20,27,0.18);
+  }
+
+  main {
+    position: relative; z-index: 1;
+    max-width: 640px;
+    margin: 0 auto;
+    padding: 24px 14px 0;
+  }
+  .phase {
+    margin-bottom: 22px;
+    border: 2px solid var(--ink2);
+    border-radius: 6px;
+    background: rgba(239,228,200,0.03);
+    overflow: hidden;
+  }
+  .studs { display: none; }
+  .phase-head {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 10px;
+    padding: 12px 14px;
+    background: linear-gradient(90deg, var(--cobalt), rgba(43,76,140,0.25));
+    cursor: pointer;
+    user-select: none;
+    border-bottom: 2px solid var(--ink);
+  }
+  .phase-timeline {
+    display: flex;
+    overflow-x: auto;
+    gap: 4px;
+    padding: 10px 4px 14px;
+    margin-bottom: 6px;
+    -webkit-overflow-scrolling: touch;
+  }
+  .phase-timeline::-webkit-scrollbar { height: 4px; }
+  .phase-station {
+    flex: 0 0 auto;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 4px;
+    width: 74px;
+    cursor: pointer;
+    background: none;
+    border: none;
+    padding: 4px 2px;
+  }
+  .phase-station .dot-wrap {
+    width: 22px; height: 22px; border-radius: 50%;
+    display: flex; align-items: center; justify-content: center;
+    border: 2px solid var(--line);
+    background: var(--ink2);
+    font-size: 0.7rem;
+  }
+  .phase-station.done .dot-wrap { border-color: var(--gold); background: var(--gold); color: var(--ink); }
+  .phase-station.current .dot-wrap { border-color: var(--crimson); box-shadow: 0 0 0 3px rgba(230,57,70,0.25); }
+  .phase-station .station-label {
+    font-size: 0.55rem;
+    text-align: center;
+    line-height: 1.15;
+    color: var(--muted);
+    max-height: 2.4em;
+    overflow: hidden;
+  }
+  .phase-station.current .station-label { color: var(--paper); font-weight: bold; }
+  .phase-timeline-line {
+    flex: 0 0 12px;
+    height: 2px;
+    background: var(--line);
+    margin-top: 11px;
+  }
+  .phase-title {
+    font-family: 'Bangers', cursive;
+    font-size: 1.15rem;
+    letter-spacing: 0.5px;
+    color: var(--paper);
+  }
+  .phase-count {
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 0.7rem;
+    color: var(--gold);
+    white-space: nowrap;
+  }
+  .phase-count-mini {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+  }
+  .phase-count-mini .mini-bar {
+    width: 108px;
+    height: 14px;
+    border-radius: 7px;
+    background: rgba(0,0,0,0.35);
+    overflow: hidden;
+    box-shadow: inset 0 0 0 1px rgba(255,255,255,0.15);
+    flex-shrink: 0;
+  }
+  .phase-count-mini .mini-bar-fill {
+    display: block;
+    height: 100%;
+    border-radius: 5px;
+    background: linear-gradient(90deg, var(--crimson), var(--gold));
+    transition: width 0.3s ease;
+  }
+  .phase-count-mini.full .mini-bar-fill {
+    background: var(--gold);
+  }
+  .phase-count-mini .mini-bar-label {
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 0.78rem;
+    font-weight: bold;
+    color: var(--gold);
+    white-space: nowrap;
+  }
+  .chevron {
+    font-size: 0.8rem;
+    transition: transform 0.25s ease;
+    color: var(--paper);
+    opacity: 0.7;
+  }
+  .phase.collapsed .chevron { transform: rotate(-90deg); }
+  .phase-body {
+    max-height: 200000px;
+    overflow: hidden;
+    transition: max-height 0.3s ease;
+  }
+  .phase.collapsed .phase-body { max-height: 0; }
+  @keyframes itemFadeIn {
+    from { opacity: 0; transform: translateY(4px); }
+    to { opacity: 1; transform: translateY(0); }
+  }
+  .item {
+    display: flex;
+    align-items: flex-start;
+    gap: 10px;
+    padding: 10px 14px;
+    border-bottom: 1px solid var(--line);
+    position: relative;
+    animation: itemFadeIn 0.22s ease both;
+    transition: background 0.25s ease;
+  }
+  .item:last-child { border-bottom: none; }
+  .check {
+    flex: 0 0 24px;
+    width: 24px; height: 24px;
+    border-radius: 50%;
+    border: 2.5px solid var(--ink);
+    margin-top: 2px;
+    background: var(--paper);
+    cursor: pointer;
+    position: relative;
+    display: flex; align-items: center; justify-content: center;
+    box-shadow: 0 2px 0 var(--ink);
+    transition: background 0.18s ease, box-shadow 0.18s ease, transform 0.18s ease;
+  }
+  .check:active { transform: scale(0.88); }
+  .check.done {
+    background: var(--gold);
+    border-color: var(--ink);
+    box-shadow: 0 1px 0 var(--ink);
+    transform: translateY(1px);
+  }
+  .check.done::after {
+    content: '✓';
+    color: var(--ink);
+    font-weight: 700;
+    font-size: 0.85rem;
+  }
+  .item-text {
+    flex: 1;
+    font-size: 0.9rem;
+    line-height: 1.4;
+    color: var(--paper);
+    word-break: break-word;
+  }
+  .item.done .item-text {
+    color: var(--muted);
+    text-decoration: line-through;
+    text-decoration-color: var(--crimson);
+  }
+  .item-actions {
+    display: flex;
+    gap: 4px;
+    flex: 0 0 auto;
+  }
+  .icon-btn {
+    background: none;
+    border: none;
+    color: var(--muted);
+    font-size: 1rem;
+    cursor: pointer;
+    padding: 2px 6px;
+    line-height: 1;
+    border-radius: 4px;
+  }
+  .icon-btn:hover { color: var(--paper); background: rgba(255,255,255,0.08); }
+  .icon-btn.del:hover { color: var(--crimson); }
+  .add-row {
+    display: flex;
+    gap: 8px;
+    padding: 10px 14px 14px;
+    background: rgba(0,0,0,0.15);
+  }
+  .add-row input {
+    flex: 1;
+    background: var(--ink2);
+    border: 1px solid var(--line);
+    border-radius: 4px;
+    color: var(--paper);
+    padding: 8px 10px;
+    font-size: 0.85rem;
+    font-family: 'Baloo 2', sans-serif;
+  }
+  .add-row input::placeholder { color: var(--muted); }
+  .add-row button {
+    background: var(--crimson);
+    color: var(--paper);
+    border: none;
+    border-radius: 4px;
+    padding: 0 14px;
+    font-family: 'Bangers', cursive;
+    letter-spacing: 1px;
+    font-size: 0.9rem;
+    cursor: pointer;
+  }
+  .add-row button:hover { background: var(--crimson-dark); }
+  .stamp {
+    position: absolute;
+    right: 14px;
+    top: 4px;
+    font-family: 'Bangers', cursive;
+    color: var(--crimson);
+    border: 2px solid var(--crimson);
+    border-radius: 4px;
+    padding: 1px 6px;
+    font-size: 0.65rem;
+    letter-spacing: 1px;
+    transform: rotate(-8deg) scale(0);
+    opacity: 0;
+    pointer-events: none;
+  }
+  @keyframes stampIn {
+    0% { transform: rotate(-8deg) scale(2.2); opacity: 0; }
+    60% { transform: rotate(-8deg) scale(0.9); opacity: 1; }
+    100% { transform: rotate(-8deg) scale(1); opacity: 1; }
+  }
+  .stamp.show { animation: stampIn 0.5s ease forwards; }
+  footer {
+    position: fixed;
+    bottom: 56px; left: 0; right: 0;
+    z-index: 42;
+    background: var(--ink2);
+    border-top: 3px solid var(--crimson);
+    padding: 10px 14px;
+    display: flex;
+    gap: 8px;
+    max-width: 640px;
+    margin: 0 auto;
+  }
+  footer select, footer input {
+    background: var(--ink);
+    border: 1px solid var(--line);
+    color: var(--paper);
+    border-radius: 4px;
+    padding: 8px;
+    font-size: 0.8rem;
+    font-family: 'Baloo 2', sans-serif;
+  }
+  footer select { flex: 0 0 auto; max-width: 34%; }
+  footer input { flex: 1; }
+  footer button {
+    background: var(--gold);
+    color: var(--ink);
+    border: none;
+    border-radius: 4px;
+    padding: 0 16px;
+    font-family: 'Bangers', cursive;
+    letter-spacing: 1px;
+    cursor: pointer;
+  }
+  .search-wrap {
+    max-width: 520px;
+    margin: 0 auto;
+    padding: 6px 12px;
+    position: sticky;
+    top: 32px;
+    z-index: 38;
+    background: var(--ink);
+    display: flex;
+    justify-content: flex-end;
+    gap: 8px;
+  }
+  .search-icon-btn {
+    background: var(--ink2);
+    border: 1px solid var(--line);
+    color: var(--paper);
+    width: 34px; height: 34px;
+    border-radius: 50%;
+    font-size: 1rem;
+    cursor: pointer;
+    flex-shrink: 0;
+    display: none;
+  }
+  .search-wrap input {
+    width: 100%;
+    background: var(--ink2);
+    border: 1px solid var(--line);
+    border-radius: 20px;
+    color: var(--paper);
+    padding: 9px 14px;
+    font-size: 0.85rem;
+    font-family: 'Baloo 2', sans-serif;
+  }
+  /* rolou pra baixo: some o campo, mostra só a lupa */
+  .search-wrap.collapsed .search-icon-btn { display: block; }
+  .search-wrap.collapsed input { display: none; }
+  /* rolou pra baixo mas o usuário tocou na lupa: mostra o campo de novo, some a lupa */
+  .search-wrap.collapsed.open .search-icon-btn { display: none; }
+  .search-wrap.collapsed.open input { display: block; }
+  .search-wrap input::placeholder { color: var(--muted); }
+  .search-wrap input:focus { outline: none; border-color: var(--gold); }
+  .stars {
+    display: flex;
+    gap: 2px;
+    margin-top: 4px;
+  }
+  .stars .star {
+    cursor: pointer;
+    font-size: 0.95rem;
+    line-height: 1;
+    color: var(--muted);
+    user-select: none;
+  }
+  .stars .star.filled { color: var(--gold); }
+  .rating-widget {
+    display: flex; align-items: center; gap: 10px; margin-top: 6px;
+    background: var(--crimson-dark); border-radius: 20px; padding: 4px 10px;
+    width: fit-content;
+  }
+  .rating-widget button {
+    background: none; border: none; color: var(--paper); font-size: 1rem;
+    width: 22px; height: 22px; display: flex; align-items: center; justify-content: center;
+    cursor: pointer; line-height: 1;
+  }
+  .rating-widget .rating-num {
+    font-family: 'JetBrains Mono', monospace; font-weight: 700; font-size: 1.05rem;
+    color: var(--paper); min-width: 18px; text-align: center; cursor: text;
+  }
+  .rating-input {
+    width: 46px; background: var(--ink); color: var(--paper); border: 1px solid var(--gold);
+    border-radius: 4px; text-align: center; font-family: 'JetBrains Mono', monospace; font-size: 0.9rem;
+    padding: 2px 0;
+  }
+  .media-info {
+    font-size: 0.68rem; color: var(--muted); margin-top: 5px; line-height: 1.5;
+  }
+  .episode-toggle {
+    background: none; border: none; color: var(--cobalt); font-size: 0.7rem;
+    padding: 3px 0; cursor: pointer; font-family: 'Baloo 2', sans-serif;
+  }
+  .series-pct-line {
+    font-size: 0.7rem; color: var(--gold); font-weight: 700; margin-top: 4px;
+    font-family: 'JetBrains Mono', monospace;
+  }
+  .next-ep-line {
+    font-size: 0.68rem; color: var(--paper); margin-top: 2px;
+  }
+  .interleave-badge {
+    font-size: 0.65rem; color: var(--cobalt); margin-top: 3px; font-style: italic;
+    background: none; border: none; padding: 0; text-decoration: underline; cursor: pointer;
+    font-family: 'Baloo 2', sans-serif; display: block;
+  }
+  .modal-box.wide-modal { max-width: 640px; }
+  .interleaved-row {
+    display: flex; align-items: center; gap: 10px; padding: 8px 4px;
+    border-bottom: 1px solid var(--line); font-size: 0.8rem;
+  }
+  .interleaved-row .iv-num { color: var(--muted); font-family: 'JetBrains Mono', monospace; font-size: 0.72rem; width: 26px; flex-shrink: 0; }
+  .interleaved-row .iv-title { flex: 1; }
+  .interleaved-row .iv-date { color: var(--gold); font-family: 'JetBrains Mono', monospace; font-size: 0.75rem; }
+  .interleaved-row.iv-today { background: rgba(255,209,0,0.14); }
+  .interleaved-row.iv-today .iv-date { background: #ffd100; color: #1a1400; font-weight: bold; padding: 2px 7px; border-radius: 8px; }
+  .interleaved-row.iv-overdue { background: rgba(182,51,44,0.16); }
+  .interleaved-row.iv-overdue .iv-date { background: var(--crimson); color: #fff; font-weight: bold; padding: 2px 7px; border-radius: 8px; }
+  .interleaved-list { max-height: 65vh; overflow-y: auto; }
+  .episode-list {
+    margin-top: 4px; padding-left: 8px; border-left: 2px solid var(--line);
+    max-height: 220px; overflow-y: auto;
+  }
+  .episode-row {
+    font-size: 0.68rem; color: var(--muted); padding: 3px 0; border-bottom: 1px solid var(--line);
+  }
+  .watch-date {
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 0.7rem;
+    display: inline-block;
+    padding: 2px 7px;
+    border-radius: 10px;
+    margin-top: 4px;
+    border: 1px solid;
+  }
+  .watch-date.k-filme { color: var(--gold); background: rgba(217,164,65,0.12); border-color: var(--gold); }
+  .watch-date.k-anim { color: var(--cobalt); background: rgba(43,76,140,0.15); border-color: var(--cobalt); }
+  .watch-date.k-live { color: var(--crimson); background: rgba(182,51,44,0.12); border-color: var(--crimson); }
+  .watch-date.k-jogo { color: #4c8c5a; background: rgba(76,140,90,0.12); border-color: #4c8c5a; }
+  .watch-date.is-today { background: #ffd100; color: #1a1400; border-color: #ffd100; font-weight: bold; }
+  .watch-date.is-overdue { background: var(--crimson); color: #fff; border-color: var(--crimson); font-weight: bold; }
+  .no-results {
+    text-align: center;
+    color: var(--muted);
+    font-size: 0.85rem;
+    padding: 30px 10px;
+  }
+  .empty-note {
+    text-align: center;
+    color: var(--muted);
+    font-size: 0.8rem;
+    padding: 10px;
+  }
+  @media (prefers-reduced-motion: reduce) {
+    .stamp.show { animation: none; opacity: 1; transform: rotate(-8deg) scale(1); }
+    .progress-fill { transition: none; }
+  }
+</style>
+</head>
+<body>
+<div class="sticky-progress" id="stickyProgress">
+  <span id="stickyProgressText">0/0</span>
+  <span id="stickyProgressPct">0%</span>
+</div>
+<div class="halftone"></div>
+<header>
+  <h1>ESSENCIAIS PRA DOOMSDAY</h1>
+  <div class="sub">os 15 títulos do selo verde da Disney+ &middot; toque na bolinha pra marcar</div>
+</header>
+
+<div class="tab-page" id="tabInicio">
+  <div class="progress-wrap">
+    <div class="progress-track"><div class="progress-fill" id="progressFill" style="width:0%"></div></div>
+    <div class="progress-label"><span id="progressText">0/0</span><span id="progressPct">0%</span></div>
+  </div>
+  <div class="phase-timeline" id="phaseTimeline"></div>
+  <div class="legend">
+    <span><span class="dot k-filme"></span>filme/curta</span>
+    <span><span class="dot k-anim"></span>série animada</span>
+    <span><span class="dot k-live"></span>série de episódios longos</span>
+    <span><span class="dot k-jogo"></span>jogo</span>
+  </div>
+  <div class="badges">
+    <span class="badge start">INÍCIO 04/08/2026</span>
+    <span class="badge end" id="badgeEnd">TÉRMINO —</span>
+    <span class="badge deadline">DOOMSDAY 16/12/2026</span>
+  </div>
+  <div class="delay-counter" id="delayCounter"></div>
+  <div class="delay-counter" id="delayCounterDetail" style="font-size:0.68rem;"></div>
+  <div class="delay-counter" id="streakCounter"></div>
+  <div class="delay-counter" id="hoursLeft"></div>
+  <div class="delay-counter" id="countdownNext"></div>
+  <div class="delay-counter" id="countdownDoomsday"></div>
+  <button id="btnWatchNow" class="big-action">▶️ O que assistir agora?</button>
+  <div class="reschedule-banner" id="rescheduleBanner" style="display:none;"></div>
+  <div class="dash-actions">
+    <button id="btnMarathon">🎬 Modo maratona</button>
+    <button id="btnPace">⏱ Ajustar ritmo</button>
+    <button id="btnFitsTime">⌛ O que cabe no meu tempo?</button>
+    <button id="btnShare">📤 Compartilhar progresso</button>
+    <button id="btnReloadHome">🔄 Recarregar</button>
+  </div>
+</div>
+
+<div class="tab-page" id="tabLista">
+  <div class="toolbar">
+    <div class="dropdown">
+      <button id="btnFilterMenu">🔍 Filtrar ▾</button>
+      <div class="dropdown-menu" id="filterMenu">
+        <button id="btnPending">☐ Só o que falta</button>
+        <button id="btnNext7">☐ Próximos 7 dias</button>
+        <button id="btnFavOnly">☐ Só favoritos</button>
+        <button id="btnAlpha">☐ Ordem alfabética</button>
+        <button id="btnCompact">☐ Modo compacto (oculta detalhes)</button>
+        <button id="btnMultiSelect">☐ Selecionar vários</button>
+      </div>
+    </div>
+    <div class="dropdown">
+      <button id="btnTypeMenu">🎞 Tipo ▾</button>
+      <div class="dropdown-menu" id="typeMenu">
+        <button id="btnTypeAll" class="menu-active">● Todos</button>
+        <button id="btnTypeFilme">○ Só filmes</button>
+        <button id="btnTypeSerie">○ Só séries</button>
+        <button id="btnTypeJogo">○ Só jogos</button>
+      </div>
+    </div>
+    <button id="btnCalendar">📅 Calendário</button>
+    <button id="btnHeroMenu">🦸 Herói ▾</button>
+  </div>
+  <div class="hero-active-bar" id="heroActiveBar" style="display:none;"></div>
+  <div class="search-wrap" id="searchWrap">
+    <button id="btnScrollTop" class="search-icon-btn" style="display:flex;align-items:center;justify-content:center;" title="Voltar ao início da lista">🏠</button>
+    <button id="btnReloadApp" class="search-icon-btn" style="display:flex;align-items:center;justify-content:center;" title="Recarregar">🔄</button>
+    <button id="btnGoToday" class="search-icon-btn" style="display:flex;align-items:center;justify-content:center;" title="Ir para o item do dia">🎯</button>
+    <button id="btnScrollBottom" class="search-icon-btn" style="display:flex;align-items:center;justify-content:center;" title="Ir para o final da lista">⬇️</button>
+    <button id="searchToggleBtn" class="search-icon-btn">🔍</button>
+    <input id="searchInput" type="text" placeholder="Buscar filme ou série..." />
+  </div>
+  <main id="main"><div class="loading-spin">🎬 Carregando...</div></main>
+</div>
+
+<div class="tab-page" id="tabAdicionar">
+  <h2 style="font-family:'Bangers',cursive;color:var(--gold);margin-top:0;">➕ Adicionar Item</h2>
+  <p style="font-size:0.8rem;color:var(--muted);">Escolhe a fase, a posição dentro dela, e escreve o nome. O cronograma recalcula sozinho depois.</p>
+  <select id="phaseSelect" style="width:100%;padding:10px;margin-bottom:10px;background:var(--ink2);color:var(--paper);border:1px solid var(--line);border-radius:8px;"></select>
+  <select id="insertAfterSelect" style="width:100%;padding:10px;margin-bottom:10px;background:var(--ink2);color:var(--paper);border:1px solid var(--line);border-radius:8px;"></select>
+  <input id="newItemText" type="text" placeholder="Novo item (ex: 🎬 Nome do filme (ano))" style="width:100%;padding:10px;margin-bottom:10px;background:var(--ink2);color:var(--paper);border:1px solid var(--line);border-radius:8px;box-sizing:border-box;" />
+  <button id="addBtn" style="width:100%;background:var(--gold);color:var(--ink);border:none;border-radius:8px;padding:12px;font-family:'Bangers',cursive;font-size:1rem;letter-spacing:1px;">+ ADICIONAR</button>
+
+  <h2 style="font-family:'Bangers',cursive;color:var(--gold);margin-top:26px;">🔀 Mover Item de Fase</h2>
+  <p style="font-size:0.8rem;color:var(--muted);">Escolhe um item já existente e manda ele pra outra fase (e posição, se quiser).</p>
+  <select id="moveItemSelect" style="width:100%;padding:10px;margin-bottom:10px;background:var(--ink2);color:var(--paper);border:1px solid var(--line);border-radius:8px;"></select>
+  <select id="movePhaseSelect" style="width:100%;padding:10px;margin-bottom:10px;background:var(--ink2);color:var(--paper);border:1px solid var(--line);border-radius:8px;"></select>
+  <select id="movePositionSelect" style="width:100%;padding:10px;margin-bottom:10px;background:var(--ink2);color:var(--paper);border:1px solid var(--line);border-radius:8px;"></select>
+  <button id="moveBtn" style="width:100%;background:var(--cobalt);color:var(--paper);border:none;border-radius:8px;padding:12px;font-family:'Bangers',cursive;font-size:1rem;letter-spacing:1px;">🔀 MOVER</button>
+</div>
+
+<div class="tab-page" id="tabEstatisticas"></div>
+<div class="tab-page" id="tabConquistas"></div>
+<div class="tab-page" id="tabConfig">
+  <div class="config-list">
+    <button id="btnTheme">🌗 Tema claro/escuro</button>
+    <button id="btnPalette">🎨 Trocar paleta de cor</button>
+    <button id="btnExport">⬇ Exportar backup</button>
+    <button id="btnImport">⬆ Importar backup</button>
+    <button id="btnTrash">🗑 Lixeira</button>
+    <button id="btnForceSync">🧨 Restaurar dados originais (reseta progresso)</button>
+  </div>
+  <p id="lastSavedInfo" style="font-size:0.7rem;color:var(--muted);text-align:center;margin-top:-8px;"></p>
+
+  <div style="margin-top:14px;padding:12px;border:1px solid var(--line);border-radius:10px;">
+    <p style="margin:0 0 8px;font-family:'Bangers',cursive;letter-spacing:0.5px;">☁️ Sincronizar entre aparelhos</p>
+    <p style="margin:0 0 10px;font-size:0.7rem;color:var(--muted);">Código deste aparelho: <b id="syncCodeDisplay">------</b><br>Use o MESMO código no celular e no tablet (aperte "usar outro código" no segundo aparelho e cole o código do primeiro). Nada muda sozinho — só quando você aperta Enviar ou Puxar.</p>
+    <button id="btnSyncJoin" style="width:100%;margin-bottom:8px;">🔗 Usar outro código</button>
+    <div style="display:flex;gap:8px;">
+      <button id="btnSyncPush" style="flex:1;">⬆️ Enviar pra nuvem</button>
+      <button id="btnSyncPull" style="flex:1;">⬇️ Puxar da nuvem</button>
+    </div>
+    <p id="syncStatus" style="font-size:0.7rem;color:var(--muted);text-align:center;margin-top:8px;"></p>
+  </div>
+
+  <input type="file" id="importFile" accept="application/json" style="display:none;">
+</div>
+
+<div class="tabbar" id="tabbar">
+  <button class="tabbar-btn" data-tab="tabInicio">🏠<span>Início</span></button>
+  <button class="tabbar-btn tab-active" data-tab="tabLista">🎬<span>Lista</span></button>
+  <button class="tabbar-btn" data-tab="tabEstatisticas">📊<span>Stats</span></button>
+  <button class="tabbar-btn" data-tab="tabConquistas">🏆<span>Troféus</span></button>
+  <button class="tabbar-btn" data-tab="tabAdicionar">➕<span>Add</span></button>
+  <button class="tabbar-btn" data-tab="tabConfig">⚙️<span>Config</span></button>
+</div>
+
+<div class="modal-overlay" id="modalOverlay">
+  <button class="modal-close-x" id="modalCloseX" title="Fechar">✕</button>
+  <div class="modal-box" id="modalBox"></div>
+</div>
+
+<script>
+const LIST_VERSION = 30;
+const DEFAULT_ITEMS = [{"id": 7, "key": "k7", "phase": "1845–1945 (Wolverine e as origens da S.H.I.E.L.D.)", "text": "🎬 Capitão América: O Primeiro Vingador (1942–1945)", "done": true}, {"id": 14, "key": "k14", "phase": "1962–1997 (era clássica dos X-Men)", "text": "🎬 Quarteto Fantástico: Primeiros Passos (1964, Terra-828)", "done": false, "watchStart": "2026-09-29", "watchEnd": "2026-09-29", "watchKind": "filme"}, {"id": 26, "key": "k26", "phase": "1998–2007 (pré-Homem de Ferro)", "text": "🎬 X-Men (2000)", "done": false, "watchStart": "2026-10-07", "watchEnd": "2026-10-07", "watchKind": "filme"}, {"id": 30, "key": "k30", "phase": "1998–2007 (pré-Homem de Ferro)", "text": "🎬 X-Men 2 (2003)", "done": false, "watchStart": "2026-10-16", "watchEnd": "2026-10-16", "watchKind": "filme"}, {"id": 51, "key": "k51", "phase": "2008–2012: NASCE O UCM", "text": "🎬 Os Vingadores (2012)", "done": false, "watchStart": "2026-10-31", "watchEnd": "2026-10-31", "watchKind": "filme"}, {"id": 112, "key": "k112", "phase": "2016–2018: GUERRA CIVIL AO ESTALO", "text": "🎬 Vingadores: Guerra Infinita (2018)", "done": false, "watchStart": "2027-07-10", "watchEnd": "2027-07-10", "watchKind": "filme"}, {"id": 120, "key": "k120", "phase": "2016–2018: GUERRA CIVIL AO ESTALO", "text": "🎬 Vingadores: Ultimato (2018 → 2023)", "done": false, "watchStart": "2027-08-20", "watchEnd": "2027-08-20", "watchKind": "filme"}, {"id": 121, "key": "k121", "phase": "2016–2018: GUERRA CIVIL AO ESTALO", "text": "📺 Loki T1 (ramifica do Loki de 2012; TVA fora do tempo) — 6 eps ⭐️⭐️⭐️", "done": true}, {"id": 122, "key": "k122", "phase": "2016–2018: GUERRA CIVIL AO ESTALO", "text": "📺 Loki T2 — 6 eps", "done": false, "watchStart": "2027-08-21", "watchEnd": "2027-08-23", "watchKind": "live"}, {"id": 130, "key": "k130", "phase": "2023–2024: PÓS-BLIP", "text": "🎬 Shang-Chi e a Lenda dos Dez Anéis (2023)", "done": false, "watchStart": "2027-09-06", "watchEnd": "2027-09-06", "watchKind": "filme"}, {"id": 136, "key": "k136", "phase": "2023–2024: PÓS-BLIP", "text": "🎬 Homem-Aranha: Sem Volta Para Casa (outono de 2024) — Tobey, Andrew e o Venom nos pós-créditos", "done": false, "watchStart": "2027-09-12", "watchEnd": "2027-09-12", "watchKind": "filme"}, {"id": 141, "key": "k141", "phase": "2023–2024: PÓS-BLIP", "text": "🎬 Deadpool & Wolverine (2024) — Blade, Elektra e Tocha Humana aparecem aqui", "done": false, "watchStart": "2027-09-16", "watchEnd": "2027-09-16", "watchKind": "filme"}, {"id": 144, "key": "k144", "phase": "2025–2026 (Saga do Multiverso se aprofunda)", "text": "🎬 Doutor Estranho no Multiverso da Loucura (2025) — Professor X estilo '97", "done": false, "watchStart": "2027-09-20", "watchEnd": "2027-09-20", "watchKind": "filme"}, {"id": 148, "key": "k148", "phase": "2025–2026 (Saga do Multiverso se aprofunda)", "text": "🎬 Pantera Negra: Wakanda Para Sempre (2025)", "done": false, "watchStart": "2027-09-22", "watchEnd": "2027-09-22", "watchKind": "filme"}, {"id": 156, "key": "k156", "phase": "2025–2026 (Saga do Multiverso se aprofunda)", "text": "🎬 Capitão América: Admirável Mundo Novo (~2025–2026)", "done": false, "watchStart": "2027-10-08", "watchEnd": "2027-10-08", "watchKind": "filme"}, {"id": 161, "key": "k161", "phase": "FUTURO DA LINHA DO TEMPO", "text": "🎬 Thunderbolts* / Novos Vingadores (~2027, 14 meses após o nº 156)", "done": false, "watchStart": "2027-10-23", "watchEnd": "2027-10-23", "watchKind": "filme"}];
+const STORAGE_KEY = 'ucm-doomsday-essenciais-items-v1';
+let items = [];
+let nextId = 1;
+let collapsedPhases = new Set();
+function saveCollapsedPhases() {
+  try { localStorage.setItem('ucm-collapsed-phases', JSON.stringify(Array.from(collapsedPhases))); } catch(e) {}
+}
+let onlyPending = false;
+let showNext7 = false;
+let favOnly = false;
+let alphaMode = false;
+let compactMode = false;
+let multiSelectMode = false;
+let selectedIds = new Set();
+let trash = [];
+let kindFilter = null; // null | 'filme' | 'serie' | 'jogo'
+let calendarFilter = null; // { start: 'YYYY-MM-DD', end: 'YYYY-MM-DD' } | null
+let heroFilter = null; // null | id de HERO_GROUPS
+
+const HERO_GROUPS = [
+  { id: 'homem-aranha', emoji: '🕷️', label: 'Homem-Aranha (+ Aranhaverso)', keywords: ['homem-aranha', 'aranhaverso', 'spider-man', 'miles morales', 'spider-noir'] },
+  { id: 'homem-de-ferro', emoji: '⚙️', label: 'Homem de Ferro', keywords: ['homem de ferro'] },
+  { id: 'vingadores', emoji: '🅰️', label: 'Vingadores', keywords: ['vingadores'] },
+  { id: 'quarteto-fantastico', emoji: '4️⃣', label: 'Quarteto Fantástico', keywords: ['quarteto fantástico'] },
+  { id: 'x-men', emoji: '🧬', label: 'X-Men', keywords: ['x-men'] },
+  { id: 'wolverine', emoji: '🔪', label: 'Wolverine', keywords: ['wolverine'] },
+  { id: 'blade', emoji: '🩸', label: 'Blade', keywords: ['blade'] },
+  { id: 'gaviao-arqueiro', emoji: '🏹', label: 'Gavião Arqueiro', keywords: ['gavião arqueiro'] },
+  { id: 'punho-de-ferro', emoji: '👊', label: 'Punho de Ferro', keywords: ['punho de ferro'] },
+  { id: 'shield', emoji: '🕶️', label: 'Agentes da S.H.I.E.L.D.', keywords: ['agents of s.h.i.e.l.d.'] },
+  { id: 'jessica-jones', emoji: '🥋', label: 'Jessica Jones', keywords: ['jessica jones'] },
+  { id: 'luke-cage', emoji: '🥊', label: 'Luke Cage', keywords: ['luke cage'] },
+  { id: 'demolidor', emoji: '😈', label: 'Demolidor', keywords: ['demolidor'] },
+  { id: 'justiceiro', emoji: '💀', label: 'O Justiceiro', keywords: ['justiceiro'] },
+  { id: 'motoqueiro-fantasma', emoji: '🔥', label: 'Motoqueiro Fantasma', keywords: ['motoqueiro fantasma'] },
+  { id: 'venom', emoji: '🖤', label: 'Venom', keywords: ['venom'] },
+  { id: 'morbius', emoji: '🧛', label: 'Morbius', keywords: ['morbius'] },
+  { id: 'madame-web', emoji: '🕸️', label: 'Madame Web', keywords: ['madame web'] },
+  { id: 'kraven', emoji: '🏴', label: 'Kraven', keywords: ['kraven'] },
+  { id: 'deadpool', emoji: '🗡️', label: 'Deadpool', keywords: ['deadpool'] },
+  { id: 'pantera-negra', emoji: '🐆', label: 'Pantera Negra / Wakanda', keywords: ['pantera negra', 'wakanda'] },
+  { id: 'guardioes', emoji: '🌌', label: 'Guardiões da Galáxia', keywords: ['guardiões da galáxia', 'i am groot'] },
+  { id: 'doutor-estranho', emoji: '🔮', label: 'Doutor Estranho', keywords: ['doutor estranho'] },
+  { id: 'homem-formiga', emoji: '🐜', label: 'Homem-Formiga', keywords: ['homem-formiga'] },
+  { id: 'capita-marvel', emoji: '⭐', label: 'Capitã Marvel', keywords: ['capitã marvel', 'as marvels'] },
+  { id: 'thor', emoji: '🌩️', label: 'Thor', keywords: ['thor'] },
+  { id: 'hulk', emoji: '💚', label: 'Hulk', keywords: ['hulk'] },
+  { id: 'hit-monkey', emoji: '🐒', label: 'Hit-Monkey (extra)', keywords: ['hit-monkey'] },
+  { id: 'modok', emoji: '🧠', label: 'M.O.D.O.K. (extra)', keywords: ['m.o.d.o.k.'] },
+  { id: 'loki', emoji: '🐍', label: 'Loki', keywords: ['loki'] },
+  { id: 'wandavision', emoji: '🧙‍♀️', label: 'WandaVision / Agatha', keywords: ['wandavision', 'agatha'] },
+  { id: 'falcao-soldado', emoji: '🦅', label: 'Falcão e o Soldado Invernal', keywords: ['falcão e o soldado invernal'] },
+  { id: 'cavaleiro-da-lua', emoji: '🌙', label: 'Cavaleiro da Lua', keywords: ['cavaleiro da lua'] },
+  { id: 'ms-marvel', emoji: '💍', label: 'Ms. Marvel', keywords: ['ms. marvel'] },
+  { id: 'coracao-de-ferro', emoji: '🦾', label: 'Coração de Ferro', keywords: ['coração de ferro'] },
+  { id: 'invasao-secreta', emoji: '🕵️', label: 'Invasão Secreta', keywords: ['invasão secreta'] },
+  { id: 'echo', emoji: '🦻', label: 'Echo', keywords: ['echo'] },
+  { id: 'manto-e-adaga', emoji: '🌗', label: 'Manto e Adaga', keywords: ['manto e adaga'] },
+  { id: 'inumanos', emoji: '👽', label: 'Inumanos', keywords: ['inumanos'] },
+  { id: 'thunderbolts', emoji: '⚡', label: 'Thunderbolts / Novos Vingadores', keywords: ['thunderbolts', 'novos vingadores'] },
+  { id: 'visionquest', emoji: '👁️', label: 'VisionQuest', keywords: ['visionquest'] },
+  { id: 'eternos', emoji: '🌍', label: 'Eternos', keywords: ['eternos'] },
+  { id: 'shang-chi', emoji: '🐉', label: 'Shang-Chi', keywords: ['shang-chi'] },
+  { id: 'viuva-negra', emoji: '🕴️', label: 'Viúva Negra', keywords: ['viúva negra'] },
+  { id: 'x-men-origens-mutantes', emoji: '🧟', label: 'Novos Mutantes / Zumbis', keywords: ['novos mutantes', 'marvel zombies'] },
+];
+// ritmo dos trios intercalados: 3 eps/dia até 29/09/2026, 4 eps/dia a partir de 30/09/2026
+// (subiu por causa da entrada de Guardiões da Galáxia no trio 2 — combinação votada com o usuário).
+const TRIO_RATE_SWITCH_DATE = '2026-09-30';
+function trioRateFor(dateIso) { return dateIso >= TRIO_RATE_SWITCH_DATE ? 4 : 3; }
+
+// grupos intercalados: cada um é identificado pelas "key" dos 3 itens que o compõem (nessa
+// ordem). A ordem de intercalação em si (TRIO_ORDER de cada grupo) é calculada com
+// weightedInterleave() a partir da contagem de episódios — não precisa mais ser hardcoded.
+const TRIOS = [
+  {
+    keys: ['k52', 'k53', 'k168'],
+    seasonSizes: [[26,26,26,26], [26,26,26,26], [26,26]],
+    labels: ['Ultimate Spider-Man', 'Avengers Assemble (T1–T4)', 'Hulk e os Agentes de S.M.A.S.H.'],
+    forceAnchor: '2026-09-21', // já começou de verdade nessa data, fora do controle do cronograma
+    // 36 episódios seguidos de Ultimate Homem-Aranha primeiro (T1 completa + 10 da T2), depois
+    // os 3 entram juntos na intercalação (proporcional ao que sobra de cada um).
+    phases: [[36, 0, 0], [68, 104, 52]],
+  },
+  {
+    keys: ['k54', 'k170', 'k171'],
+    seasonSizes: [[26,26,6], [26,26,26], [23]],
+    labels: ['Homem-Aranha (2017)', 'Guardiões da Galáxia (animado)', 'Vingadores Unidos T5'],
+    forceAnchor: null,
+  },
+];
+
+function seasonEpLabel(flatIdx, seasonSizes) {
+  let s = 0, remaining = flatIdx;
+  while (remaining >= seasonSizes[s]) { remaining -= seasonSizes[s]; s++; }
+  return `T${s+1}E${String(remaining+1).padStart(2,'0')}`;
+}
+
+const KNOWN_RELEASES = [
+  { name: "Marvel's Wolverine", date: '2026-09-15' },
+  { name: 'VisionQuest', date: '2026-10-14' },
+  { name: 'Vingadores: Doomsday', date: '2026-12-16' },
+  { name: 'Vingadores: Guerras Secretas', date: '2027-12-17' },
+];
+
+function phaseOrder() {
+  const seen = [];
+  DEFAULT_ITEMS.forEach(it => { if (!seen.includes(it.phase)) seen.push(it.phase); });
+  return seen;
+}
+const PHASE_ORDER = phaseOrder();
+
+function sortItems(arr) {
+  if (alphaMode) {
+    arr.sort((a,b) => normalizeStr(a.text).localeCompare(normalizeStr(b.text)));
+    return arr;
+  }
+  arr.sort((a,b) => PHASE_ORDER.indexOf(a.phase) - PHASE_ORDER.indexOf(b.phase) || (a.order ?? 0) - (b.order ?? 0));
+  return arr;
+}
+
+function withOrder(list) {
+  const counters = {};
+  return list.map(it => {
+    if (typeof it.order !== 'number') {
+      counters[it.phase] = (counters[it.phase] ?? -1) + 1;
+      it = {...it, order: counters[it.phase]};
+    }
+    return it;
+  });
+}
+
+function migrateStars(list) {
+  const starChar = '⭐️';
+  let changed = false;
+  const out = list.map(it => {
+    if (it.text && it.text.includes(starChar)) {
+      const count = it.text.split(starChar).length - 1;
+      const cleanText = it.text.replace(new RegExp('\\s*(' + starChar + ')+\\s*$'), '').trimEnd();
+      changed = true;
+      return { ...it, text: cleanText, rating: it.rating || count * 2 };
+    }
+    return it;
+  });
+  return { list: out, changed };
+}
+
+function normalizeMatchText(s) {
+  return (s || '').toLowerCase().normalize('NFD').replace(/[\u0300-\u036f]/g, '').trim();
+}
+
+function findDefaultFor(it) {
+  // acha o item correspondente em DEFAULT_ITEMS: prioriza a "key" estável (não muda mesmo que
+  // o texto seja editado, por você ou numa atualização futura do app); cai pro texto só como
+  // fallback pra itens salvos antes de existir "key".
+  if (it.key) {
+    const m = DEFAULT_ITEMS.find(d => d.key === it.key);
+    if (m) return m;
+  }
+  return DEFAULT_ITEMS.find(d => d.text === it.text);
+}
+
+function reconcileWithNewList(oldItems, oldVersion) {
+  // mescla progresso antigo (done/rating) na nova estrutura DEFAULT_ITEMS. Casa pela "key"
+  // estável quando disponível (sobrevive a edição de texto); cai pro texto normalizado como
+  // fallback (itens salvos antes de existir "key", ou itens novos sem correspondência).
+  const oldByKey = new Map();
+  const oldByText = new Map();
+  oldItems.forEach(it => {
+    if (it.key) oldByKey.set(it.key, it);
+    oldByText.set(normalizeMatchText(it.text), it);
+  });
+
+  let nid = 1;
+  const merged = DEFAULT_ITEMS.map(def => {
+    const match = (def.key && oldByKey.get(def.key)) || oldByText.get(normalizeMatchText(def.text));
+    const fresh = { ...def, id: nid++ };
+    if (match) {
+      fresh.done = match.done || fresh.done;
+      if (match.rating) fresh.rating = match.rating <= 5 ? match.rating * 2 : match.rating;
+      if (match.favorite) fresh.favorite = match.favorite;
+      // preserva o texto salvo — permite editar o nome/descrição de um item sem perder o
+      // progresso/nota dele quando o conteúdo padrão for atualizado depois.
+      if (match.text) fresh.text = match.text;
+      // preserva datas já calculadas (estáveis) em vez de recalcular a cada atualização —
+      // exceto pro trio intercalado numa migração vinda de versão antiga (<20), cuja data
+      // correta e fixa já vem embutida em DEFAULT_ITEMS; dali pra frente preserva normalmente.
+      const isTrio = !!def.epDates && oldVersion < 20;
+      if (!isTrio) {
+        if (match.watchStart) fresh.watchStart = match.watchStart;
+        if (match.watchEnd) fresh.watchEnd = match.watchEnd;
+        if (match.watchKind) fresh.watchKind = match.watchKind;
+        if (match.epDates) fresh.epDates = match.epDates;
+      }
+      if (match.epDone) fresh.epDone = match.epDone;
+      if (match.completedAt) fresh.completedAt = match.completedAt;
+      if (match.note) fresh.note = match.note;
+    }
+    return fresh;
+  });
+  return merged;
+}
+
+function load() {
+  let storedVersion = null;
+  let storedItems = null;
+  let storedTrash = [];
+  let needsReschedule = false;
+  try {
+    const raw = localStorage.getItem(STORAGE_KEY);
+    if (raw) {
+      const parsed = JSON.parse(raw);
+      if (Array.isArray(parsed)) {
+        storedItems = parsed; // formato antigo sem versão
+      } else {
+        storedVersion = parsed.version;
+        storedItems = parsed.items;
+        storedTrash = parsed.trash || [];
+      }
+    }
+  } catch (e) {
+    storedItems = null;
+  }
+  trash = storedTrash;
+
+  // uma lista salva com 0 itens nunca é um estado real (mesmo excluindo tudo, os itens vão
+  // pra "trash", não somem) — é sinal de dado corrompido (ex.: sincronização puxando um
+  // documento vazio antes da correção). Trata como se não tivesse nada salvo, pra não travar
+  // o app pra sempre com a tela vazia.
+  if (Array.isArray(storedItems) && storedItems.length === 0) {
+    storedItems = null;
+    storedVersion = null;
+  }
+
+  if (storedItems && storedVersion === LIST_VERSION) {
+    items = withOrder(storedItems);
+  } else if (storedItems) {
+    // lista mudou de estrutura desde o último salvamento: reconcilia progresso e preserva
+    // datas já calculadas — só recalcula de verdade se o trio ainda não tiver data nenhuma
+    items = withOrder(reconcileWithNewList(storedItems, storedVersion || 0));
+  } else {
+    items = withOrder(DEFAULT_ITEMS.map((x, i) => ({...x, id: i+1})));
+  }
+
+  const migrated = migrateStars(items);
+  items = migrated.list;
+  nextId = items.reduce((m,i) => Math.max(m, i.id), 0) + 1;
+  try {
+    const p = JSON.parse(localStorage.getItem('ucm-palette') || 'null');
+    if (p) {
+      document.documentElement.style.setProperty('--gold', p.gold);
+      document.documentElement.style.setProperty('--crimson', p.crimson);
+      document.documentElement.style.setProperty('--cobalt', p.cobalt);
+    }
+  } catch(e) {}
+  if (!needsReschedule) {
+    // só considera "precisa recalcular" a partir do trio intercalado em diante — itens antes de
+    // "Blade" nunca tiveram data de propósito, então não devem disparar um reset generalizado.
+    const trioAnchor = items.find(i => !i.done && i.text.includes('Ultimate Homem-Aranha'));
+    needsReschedule = !!(trioAnchor && !trioAnchor.watchStart);
+  }
+  if (needsReschedule) {
+    const anchor = items.find(i => !i.done && i.text.includes('Ultimate Homem-Aranha'));
+    // força o início do trio em hoje mesmo, sem depender de datas antigas já salvas no aparelho
+    recomputeSchedule(anchor ? anchor.id : null, todayIso());
+  }
+
+  // correção definitiva e direta (só roda uma vez, nunca mais depois disso): se o trio não
+  // estiver com a data oficial (21/09/2026), corrige na hora — não depende de número de
+  // versão nem de cache, só do valor real. Depois de aplicada, nunca mais atropela mudanças
+  // legítimas suas (tipo adicionar/remover item deslocando as datas).
+  let fixApplied = false;
+  try { fixApplied = localStorage.getItem('ucm-fix-2109') === '1'; } catch(e) {}
+  if (!fixApplied) {
+    const usFix = items.find(i => i.text.includes('Ultimate Homem-Aranha'));
+    if (usFix && !usFix.done && usFix.watchStart !== '2026-09-21') {
+      const defUs = DEFAULT_ITEMS.find(d => d.text.includes('Ultimate Homem-Aranha'));
+      const defAa = DEFAULT_ITEMS.find(d => d.text.includes('Vingadores Unidos'));
+      const defHs = DEFAULT_ITEMS.find(d => d.text.includes('Hulk and the Agents'));
+      const aaFix = items.find(i => i.text.includes('Vingadores Unidos'));
+      const hsFix = items.find(i => i.text.includes('Hulk and the Agents'));
+      if (defUs) { usFix.watchStart = defUs.watchStart; usFix.watchEnd = defUs.watchEnd; usFix.epDates = defUs.epDates; usFix.watchKind = 'anim'; }
+      if (aaFix && defAa) { aaFix.watchStart = defAa.watchStart; aaFix.watchEnd = defAa.watchEnd; aaFix.epDates = defAa.epDates; aaFix.watchKind = 'anim'; }
+      if (hsFix && defHs) { hsFix.watchStart = defHs.watchStart; hsFix.watchEnd = defHs.watchEnd; hsFix.epDates = defHs.epDates; hsFix.watchKind = 'anim'; }
+    }
+    try { localStorage.setItem('ucm-fix-2109', '1'); } catch(e) {}
+  }
+
+  // correção definitiva #2 (v2 — roda uma vez por dispositivo, mesmo que a v1 já tenha rodado
+  // antes com dados errados): recálculo completo do cronograma pra bater com a meta (Wolverine
+  // termina 09/12/2027, Guerras Secretas fixo 17/12/2027, depois de Wolverine). Sobrescreve
+  // qualquer data/ordem antiga salva no aparelho — depois disso, volta a preservar normalmente.
+  let fullFixApplied = false;
+  try { fullFixApplied = localStorage.getItem('ucm-fix-full-v5') === '1'; } catch(e) {}
+  if (!fullFixApplied) {
+    items.forEach(it => {
+      if (it.done) return;
+      const def = findDefaultFor(it);
+      if (def && def.watchStart) {
+        it.watchStart = def.watchStart;
+        it.watchEnd = def.watchEnd;
+        it.watchKind = def.watchKind;
+        if (def.epDates) it.epDates = def.epDates; else delete it.epDates;
+      }
+      delete it.order;
+    });
+    items = withOrder(items);
+    try {
+      localStorage.setItem('ucm-fix-full-v5', '1');
+      localStorage.setItem('ucm-fix-full-v4', '1');
+      localStorage.setItem('ucm-fix-full-v1', '1');
+    } catch(e) {}
+  }
+
+  // reverte a trilha Doomsday: usuário pediu pra tirar depois de aplicada. Roda uma vez por
+  // aparelho, tirando a flag/selo e as datas puxadas pra dezembro/2026 de quem já tinha pego
+  // a versão anterior, restaurando as datas normais do cronograma principal.
+  let doomsdayUndoApplied = false;
+  try { doomsdayUndoApplied = localStorage.getItem('ucm-fix-doomsday-undo-v1') === '1'; } catch(e) {}
+  if (!doomsdayUndoApplied) {
+    items.forEach(it => {
+      delete it.doomsday;
+      if (it.done) return;
+      const def = findDefaultFor(it);
+      if (def && def.watchStart) {
+        it.watchStart = def.watchStart;
+        it.watchEnd = def.watchEnd;
+        it.watchKind = def.watchKind;
+      }
+    });
+    items = withOrder(items);
+    try {
+      localStorage.setItem('ucm-fix-doomsday-undo-v1', '1');
+      localStorage.removeItem('ucm-fix-doomsday-v1');
+    } catch(e) {}
+  }
+
+  // ajuste de ritmo v3: anim 3/dia, live 2/dia, 3 férias fixas (10–14/10/2026, período GTA VI
+  // 19/11–10/12/2026, e 16–23/01/2027), e maratona lenta (menos episódio/dia, curta não gruda
+  // mais em filme) de 26/12/2026 a 15/01/2027 — puxa as novas datas do DEFAULT_ITEMS pra cima
+  // do que já tava salvo. Roda uma vez por aparelho — depois disso, respeita edição manual.
+  let paceFixApplied = false;
+  try { paceFixApplied = localStorage.getItem('ucm-fix-pace-v3') === '1'; } catch(e) {}
+  if (!paceFixApplied) {
+    items.forEach(it => {
+      if (it.done) return;
+      const def = findDefaultFor(it);
+      if (def && def.watchStart) {
+        it.watchStart = def.watchStart;
+        it.watchEnd = def.watchEnd;
+        it.watchKind = def.watchKind;
+        if (def.epDates) it.epDates = def.epDates;
+      }
+    });
+    items = withOrder(items);
+    try {
+      localStorage.setItem('ucm-fix-pace-v3', '1');
+      localStorage.setItem('ucm-fix-pace-v2', '1');
+      localStorage.setItem('ucm-fix-pace-jan2027-v1', '1');
+    } catch(e) {}
+  }
+
+  // ajuste v4: pausa do GTA VI encurtada (19–26/11/2026, em vez de até 10/12) + adicionados
+  // Hit-Monkey (T1+T2) e M.O.D.O.K. como extras fora da continuidade oficial, logo depois do
+  // jogo Marvel's Wolverine e antes de Guerras Secretas, ritmo 2 eps/dia — puxa as novas datas
+  // do DEFAULT_ITEMS pra cima do que já tava salvo. Roda uma vez por aparelho.
+  let extrasFixApplied = false;
+  try { extrasFixApplied = localStorage.getItem('ucm-fix-extras-v1') === '1'; } catch(e) {}
+  if (!extrasFixApplied) {
+    items.forEach(it => {
+      if (it.done) return;
+      const def = findDefaultFor(it);
+      if (def && def.watchStart) {
+        it.watchStart = def.watchStart;
+        it.watchEnd = def.watchEnd;
+        it.watchKind = def.watchKind;
+        if (def.epDates) it.epDates = def.epDates; else delete it.epDates;
+      }
+      delete it.order;
+    });
+    items = withOrder(items);
+    try { localStorage.setItem('ucm-fix-extras-v1', '1'); } catch(e) {}
+  }
+
+  // correção: marca todos os episódios como vistos nas séries que já estão marcadas
+  // como "assistida" (done), pra não ficar mostrando 0%/episódio pendente numa série
+  // que você já viu inteira. Roda uma vez por aparelho.
+  let epDoneFixApplied = false;
+  try { epDoneFixApplied = localStorage.getItem('ucm-fix-epdone-v2') === '1'; } catch(e) {}
+  if (!epDoneFixApplied) {
+    items.forEach(it => {
+      if (!it.done) return;
+      const eps = extractEpsCount(it.text);
+      if (!eps) return;
+      it.epDone = new Array(eps).fill(true);
+    });
+    try { localStorage.setItem('ucm-fix-epdone-v2', '1'); } catch(e) {}
+  }
+
+  // correção: o app nunca guardou a data REAL em que cada item foi assistido (só a data
+  // planejada, que era apagada ao marcar como visto pela bolinha) — por isso "Progresso por
+  // mês" mostrava datas erradas/vazias. Agora cada "marcar como visto" grava completedAt.
+  // Pra quem já tinha itens vistos antes dessa correção, estima uma data razoável pra cada
+  // um, espalhando entre o início da maratona (04/08/2026) e hoje. É uma aproximação — não
+  // tem como recuperar a data exata de quem já foi assistido sem esse registro — mas é bem
+  // melhor que mostrar tudo em outubro (que ainda nem começou). Roda uma vez por aparelho.
+  let completedAtFixApplied = false;
+  try { completedAtFixApplied = localStorage.getItem('ucm-fix-completedat-v1') === '1'; } catch(e) {}
+  if (!completedAtFixApplied) {
+    const doneOrdered = sortItems(items.filter(i => i.done && !i.completedAt));
+    const startAnchor = new Date('2026-08-04T12:00:00');
+    const endAnchor = new Date('2026-09-28T12:00:00');
+    const totalDays = Math.max(1, Math.round((endAnchor - startAnchor) / 86400000));
+    const n = doneOrdered.length;
+    doneOrdered.forEach((it, idx) => {
+      const dayOffset = n > 1 ? Math.round(idx * totalDays / (n - 1)) : 0;
+      const d = new Date(startAnchor.getTime() + dayOffset * 86400000);
+      it.completedAt = fmtDateISO(d);
+    });
+    try { localStorage.setItem('ucm-fix-completedat-v1', '1'); } catch(e) {}
+  }
+
+  // correção: "Vingadores: Doutor Destino" foi renomeado pro título real de lançamento,
+  // "Vingadores: Doomsday" (estreia real 16/12/2026, não 18/12) — quem já tinha esse item
+  // salvo com o texto antigo não pega o texto novo automaticamente (a reconciliação por
+  // "key" preserva edição manual), então força a troca uma vez por aparelho, só se o texto
+  // ainda for o antigo (não sobrescreve se você mesmo editou o texto desse item).
+  let doomsdayRenameApplied = false;
+  try { doomsdayRenameApplied = localStorage.getItem('ucm-fix-doomsday-rename-v1') === '1'; } catch(e) {}
+  if (!doomsdayRenameApplied) {
+    items.forEach(it => {
+      if (it.key === 'k165' && it.text === '🎬 Vingadores: Doutor Destino (estreia 18/12/2026)') {
+        it.text = '🎬 Vingadores: Doomsday (estreia 16/12/2026)';
+      }
+    });
+    try { localStorage.setItem('ucm-fix-doomsday-rename-v1', '1'); } catch(e) {}
+  }
+
+  // ajuste v5: entrou Guardiões da Galáxia (animado) na lista, formando um segundo trio
+  // intercalado com Homem-Aranha (2017, animado) + Vingadores Unidos T5 (que saiu do trio
+  // antigo, que agora é só T1-T4). M.O.D.O.K. foi mantido. Ritmo do anim subiu de 3 pra 4
+  // eps/dia a partir de 30/09/2026 (antes disso continua 3/dia, coerente com o que já foi
+  // avançado no trio 1 desde 21/09). Recálculo completo pra puxar as novas datas do
+  // DEFAULT_ITEMS pra cima do que já tava salvo. Roda uma vez por aparelho.
+  let guardioesFixApplied = false;
+  try { guardioesFixApplied = localStorage.getItem('ucm-fix-guardioes-trio2-v1') === '1'; } catch(e) {}
+  if (!guardioesFixApplied) {
+    items.forEach(it => {
+      if (it.done) return;
+      const def = findDefaultFor(it);
+      if (def && def.watchStart) {
+        it.watchStart = def.watchStart;
+        it.watchEnd = def.watchEnd;
+        it.watchKind = def.watchKind;
+        if (def.epDates) it.epDates = def.epDates; else delete it.epDates;
+      }
+      delete it.order;
+    });
+    items = withOrder(items);
+    try { localStorage.setItem('ucm-fix-guardioes-trio2-v1', '1'); } catch(e) {}
+  }
+
+  // correção: a intercalação do trio 1 (Ultimate Homem-Aranha + Vingadores Unidos T1-T4 + Hulk
+  // e os Agentes de S.M.A.S.H.) tava jogando os 3 juntos desde o episódio 1, mas na estreia real
+  // o Ultimate ficou 36 episódios sozinho (T1 completa + 10 da T2) antes de Vingadores e do Hulk
+  // entrarem — TRIOS[0].phases agora respeita isso. Puxa as datas corrigidas do DEFAULT_ITEMS
+  // (a data final do trio não muda, só a ordem interna, então nada depois dele é afetado). Não
+  // mexe em epDone (progresso marcado episódio a episódio na modal fica como estava). Roda uma
+  // vez por aparelho.
+  let trio1PhasesFixApplied = false;
+  try { trio1PhasesFixApplied = localStorage.getItem('ucm-fix-trio1-phases-v1') === '1'; } catch(e) {}
+  if (!trio1PhasesFixApplied) {
+    ['k52', 'k53', 'k168'].forEach(key => {
+      const it = items.find(i => i.key === key);
+      if (!it || it.done) return;
+      const def = findDefaultFor(it);
+      if (def && def.watchStart) {
+        it.watchStart = def.watchStart;
+        it.watchEnd = def.watchEnd;
+        it.watchKind = def.watchKind;
+        if (def.epDates) it.epDates = def.epDates; else delete it.epDates;
+      }
+    });
+    try { localStorage.setItem('ucm-fix-trio1-phases-v1', '1'); } catch(e) {}
+  }
+
+  try {
+    const savedCollapsed = JSON.parse(localStorage.getItem('ucm-collapsed-phases') || '[]');
+    if (Array.isArray(savedCollapsed)) collapsedPhases = new Set(savedCollapsed);
+  } catch(e) {}
+
+  // correção/novidade: fases 100% completas agora fecham sozinhas. Pra quem já tinha fases
+  // inteiras terminadas antes dessa mudança existir, fecha elas de uma vez aqui também — só
+  // uma vez, depois disso respeita se você reabrir uma fase completa de propósito.
+  let autoCollapseApplied = false;
+  try { autoCollapseApplied = localStorage.getItem('ucm-fix-autocollapse-v1') === '1'; } catch(e) {}
+  if (!autoCollapseApplied) {
+    const phasesSeen = new Set(items.map(i => i.phase));
+    phasesSeen.forEach(p => {
+      const list = items.filter(i => i.phase === p);
+      if (list.length > 0 && list.every(i => i.done)) collapsedPhases.add(p);
+    });
+    saveCollapsedPhases();
+    try { localStorage.setItem('ucm-fix-autocollapse-v1', '1'); } catch(e) {}
+  }
+
+  // correção: a ordem dos itens dentro de cada fase tinha ficado fora da ordem cronológica
+  // pretendida (ex.: "Homem de Ferro 2" e "Thor" apareciam DEPOIS do trio intercalado
+  // Ultimate Homem-Aranha/Vingadores Unidos/Hulk, quando deveriam vir antes) — resultado de
+  // migrações antigas que recalculavam a ordem a partir da ordem "atual" do array em vez da
+  // ordem oficial do DEFAULT_ITEMS. Corrige de uma vez, pegando a posição certa de cada item
+  // (pela key) direto do DEFAULT_ITEMS. Só roda uma vez — depois disso, respeita qualquer
+  // reordenação manual sua (🔀 Mover, ▲▼).
+  let orderFixApplied = false;
+  try { orderFixApplied = localStorage.getItem('ucm-fix-order-v1') === '1'; } catch(e) {}
+  if (!orderFixApplied) {
+    const canonicalIndex = new Map();
+    DEFAULT_ITEMS.forEach((d, idx) => { if (d.key) canonicalIndex.set(d.key, idx); });
+    items.forEach(it => {
+      if (it.key && canonicalIndex.has(it.key)) it.order = canonicalIndex.get(it.key);
+      else delete it.order;
+    });
+    items = withOrder(items);
+    try { localStorage.setItem('ucm-fix-order-v1', '1'); } catch(e) {}
+  }
+
+  // ajuste: o período do GTA VI/período de prova (19–26/11/2026) deixou de ser uma pausa
+  // total (0 episódios) e virou ritmo reduzido (1 ep/dia) — dá pra continuar vendo o item do
+  // dia enquanto estuda, e depois nas férias joga bastante. Isso muda as datas de tudo que
+  // ainda não foi assistido, então recalcula geral (a partir de amanhã) uma vez por aparelho.
+  let slowGtaFixApplied = false;
+  try { slowGtaFixApplied = localStorage.getItem('ucm-fix-slowgta-v1') === '1'; } catch(e) {}
+  if (!slowGtaFixApplied) {
+    recomputeSchedule();
+    try { localStorage.setItem('ucm-fix-slowgta-v1', '1'); } catch(e) {}
+  }
+
+  // correção definitiva #3: garante que o trio intercalado sempre comece em 21/09/2026 de
+  // verdade. Roda em TODO load (não só uma vez), porque dados vindos de outro aparelho pela
+  // sincronização podem trazer essa data errada de volta — não dá pra confiar só no flag local.
+  enforceTrioAnchor();
+  save();
+  render();
+}
+
+function enforceTrioAnchor() {
+  const usm = items.find(i => i.text.includes('Ultimate Homem-Aranha'));
+  if (usm && !usm.done && usm.watchStart !== '2026-09-21') {
+    recomputeSchedule(usm.id, '2026-09-21');
+    return true;
+  }
+  return false;
+}
+
+function save() {
+  try {
+    localStorage.setItem(STORAGE_KEY, JSON.stringify({ version: LIST_VERSION, items: items, trash: trash }));
+    localStorage.setItem('ucm-last-saved', new Date().toISOString());
+  } catch (e) {
+    console.error('storage error', e);
+  }
+}
+
+// ===== Sincronização entre aparelhos (Firebase Firestore) — MANUAL =====
+// Reativada com o modo 100% manual (nunca aplica nada da nuvem sozinha, em segundo plano —
+// foi o automático com onSnapshot que causou os 2 incidentes de progresso apagado antes).
+// Só existe "Enviar" (local → nuvem) e "Puxar" (nuvem → local, com confirmação explícita).
+const FIREBASE_CONFIG = {
+  apiKey: "AIzaSyBD8SChYPL_qKrwIsa-9DWfICME1r9V66g",
+  authDomain: "lista-ucm.firebaseapp.com",
+  projectId: "lista-ucm",
+  storageBucket: "lista-ucm.firebasestorage.app",
+  messagingSenderId: "168065399604",
+  appId: "1:168065399604:web:c9dfa1a2e97564609d4361"
+};
+const SYNC_CODE_KEY = 'ucm-sync-code';
+let syncDb = null;
+let syncUnsub = null;
+let applyingRemoteUpdate = false;
+let pushToCloudTimer = null;
+
+function genSyncCode() {
+  const chars = 'ABCDEFGHJKLMNPQRSTUVWXYZ23456789'; // sem O/0/I/1 pra evitar confusão
+  let code = '';
+  for (let i = 0; i < 6; i++) code += chars[Math.floor(Math.random() * chars.length)];
+  return code;
+}
+
+function getSyncCode() {
+  let code = null;
+  try { code = localStorage.getItem(SYNC_CODE_KEY); } catch(e) {}
+  if (!code) {
+    code = genSyncCode();
+    try { localStorage.setItem(SYNC_CODE_KEY, code); } catch(e) {}
+  }
+  return code;
+}
+
+function schedulePushToCloud() {
+  if (!syncDb || applyingRemoteUpdate) return;
+  clearTimeout(pushToCloudTimer);
+  pushToCloudTimer = setTimeout(pushToCloudNow, 700);
+}
+
+function pushToCloudNow() {
+  if (!syncDb) return;
+  if (!isValidRemoteItems(items)) {
+    // nunca sobe uma lista claramente incompleta/quebrada pra nuvem — isso protegeria o outro
+    // aparelho de receber lixo se algo local ainda estiver corrompido.
+    console.warn('sync: recusando subir lista local inválida (', items.length, 'itens)');
+    return;
+  }
+  const code = getSyncCode();
+  syncDb.collection('syncs').doc(code).set({
+    items: items,
+    trash: trash,
+    listVersion: LIST_VERSION,
+    updatedAt: firebase.firestore.FieldValue.serverTimestamp()
+  }).then(() => {
+    setSyncStatus('✅ Sincronizado agora');
+  }).catch(err => {
+    console.error('sync push error', err);
+    setSyncStatus('⚠️ Erro ao sincronizar: ' + err.message);
+  });
+}
+
+function setSyncStatus(msg) {
+  const el = document.getElementById('syncStatus');
+  if (el) el.textContent = msg;
+}
+
+// Sincronização agora é 100% manual: nunca aplica nada da nuvem sozinha, em segundo plano.
+// A versão antiga usava onSnapshot (tempo real) pra puxar mudanças automaticamente — foi
+// isso que causou os dois incidentes de dados apagados (um documento ruim na nuvem, de teste
+// ou de um bug já corrigido, sobrescrevendo o aparelho sozinho, sem o usuário perceber ou
+// poder evitar). Agora só existe "Enviar" (local → nuvem) e "Puxar" (nuvem → local, sob
+// confirmação explícita, mostrando quantos itens tem de cada lado antes de aplicar).
+function isValidRemoteItems(remoteItems) {
+  // uma lista de verdade tem bem mais de 100 itens (hoje são 169); qualquer coisa muito menor
+  // que isso é lixo de teste/configuração incompleta, nunca progresso real.
+  return Array.isArray(remoteItems) && remoteItems.length >= 100;
+}
+
+function pullFromCloudNow() {
+  if (!syncDb) { showToast('⚠️ Sincronização ainda não conectou'); return; }
+  const code = getSyncCode();
+  setSyncStatus('🔄 Buscando da nuvem...');
+  syncDb.collection('syncs').doc(code).get().then(snap => {
+    if (!snap.exists) {
+      setSyncStatus('⚠️ Nenhum dado salvo nesse código ainda');
+      return;
+    }
+    const data = snap.data();
+    if (!isValidRemoteItems(data && data.items)) {
+      setSyncStatus('⚠️ Dado da nuvem parece incompleto/inválido — nada foi alterado aqui');
+      return;
+    }
+    const remoteCount = data.items.length;
+    const localCount = items.length;
+    if (!confirm(`A nuvem tem ${remoteCount} itens, este aparelho tem ${localCount}.\n\nIsso vai SUBSTITUIR os dados deste aparelho pelos da nuvem. Confirma?`)) {
+      setSyncStatus('Cancelado — nada foi alterado');
+      return;
+    }
+    applyingRemoteUpdate = true;
+    items = withOrder(data.items);
+    trash = data.trash || [];
+    nextId = items.reduce((m,i) => Math.max(m, i.id), 0) + 1;
+    enforceTrioAnchor();
+    save();
+    render();
+    applyingRemoteUpdate = false;
+    setSyncStatus('✅ Puxado da nuvem agora');
+    showToast('✅ Dados atualizados a partir da nuvem');
+  }).catch(err => {
+    console.error('sync pull error', err);
+    setSyncStatus('⚠️ Erro ao buscar: ' + err.message);
+  });
+}
+
+function initCloudSync() {
+  try {
+    if (!window.firebase) return;
+    if (!firebase.apps.length) firebase.initializeApp(FIREBASE_CONFIG);
+    syncDb = firebase.firestore();
+    const code = getSyncCode();
+    const disp = document.getElementById('syncCodeDisplay');
+    if (disp) disp.textContent = code;
+    setSyncStatus('☁️ Conectado — use os botões pra enviar/puxar quando quiser');
+  } catch(e) {
+    console.error('initCloudSync error', e);
+    setSyncStatus('⚠️ Sincronização indisponível');
+  }
+}
+
+function joinSyncCode(newCode) {
+  newCode = (newCode || '').trim().toUpperCase();
+  if (!newCode) return;
+  try { localStorage.setItem(SYNC_CODE_KEY, newCode); } catch(e) {}
+  const disp = document.getElementById('syncCodeDisplay');
+  if (disp) disp.textContent = newCode;
+  showToast('🔗 Código atualizado: ' + newCode + ' — use "Enviar"/"Puxar" pra sincronizar');
+}
+
+function forceSync() {
+  if (!confirm('Isso vai apagar seu progresso salvo e recarregar tudo do zero, do jeito mais recente que eu te mandei. Tem certeza?')) return;
+  try {
+    localStorage.removeItem(STORAGE_KEY);
+    localStorage.removeItem('ucm-fix-2109');
+  } catch(e) {}
+  items = withOrder(DEFAULT_ITEMS.map((x, i) => ({...x, id: i+1})));
+  nextId = items.reduce((m,i) => Math.max(m, i.id), 0) + 1;
+  save();
+  render();
+  updateLastSavedInfo();
+  showToast('🔄 Dados restaurados pro estado original!');
+}
+
+function updateLastSavedInfo() {
+  const el = document.getElementById('lastSavedInfo');
+  if (!el) return;
+  let iso = null;
+  try { iso = localStorage.getItem('ucm-last-saved'); } catch(e) {}
+  if (!iso) { el.textContent = ''; return; }
+  const d = new Date(iso);
+  const dd = String(d.getDate()).padStart(2,'0');
+  const mm = String(d.getMonth()+1).padStart(2,'0');
+  const hh = String(d.getHours()).padStart(2,'0');
+  const min = String(d.getMinutes()).padStart(2,'0');
+  el.textContent = `Último salvamento: ${dd}/${mm} às ${hh}:${min}`;
+}
+
+function formatWatchDate(startIso, endIso) {
+  const fmt = (iso) => {
+    const [y, m, d] = iso.split('-');
+    return `${d}/${m}/${y.slice(2)}`;
+  };
+  if (!endIso || startIso === endIso) {
+    return `▸ ${fmt(startIso)}`;
+  }
+  return `▸ ${fmt(startIso)} até ${fmt(endIso)}`;
+}
+
+function normalizeStr(s) {
+  return (s || '').toLowerCase().normalize('NFD').replace(/[\u0300-\u036f]/g, '');
+}
+
+function todayIso() {
+  const d = new Date();
+  const yy = d.getFullYear();
+  const mm = String(d.getMonth()+1).padStart(2,'0');
+  const dd = String(d.getDate()).padStart(2,'0');
+  return `${yy}-${mm}-${dd}`;
+}
+
+function isToday(it) {
+  if (it.done || !it.watchStart || !it.watchEnd) return false;
+  const t = todayIso();
+  return t >= it.watchStart && t <= it.watchEnd;
+}
+
+function simpleKind(it) {
+  if (it.text.includes('🎮')) return 'jogo';
+  if (it.text.includes('🎨') || it.text.includes('📺')) return 'serie';
+  return 'filme'; // 🎬 filmes e 🎥 one-shots contam como filme/curta
+}
+
+function textHasKeyword(normText, keyword) {
+  const k = normalizeStr(keyword);
+  const esc = k.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+  const re = new RegExp('(^|[^a-z0-9])' + esc + '($|[^a-z0-9])');
+  return re.test(normText);
+}
+
+function matchesKindFilter(it) {
+  if (kindFilter && simpleKind(it) !== kindFilter) return false;
+  if (heroFilter) {
+    const group = HERO_GROUPS.find(g => g.id === heroFilter);
+    if (group) {
+      const norm = normalizeStr(it.text);
+      if (!group.keywords.some(k => textHasKeyword(norm, k))) return false;
+    }
+  }
+  return true;
+}
+
+function matchesCalendarFilter(it) {
+  if (!calendarFilter) return true;
+  if (!it.watchStart || !it.watchEnd) return false;
+  return it.watchStart <= calendarFilter.end && it.watchEnd >= calendarFilter.start;
+}
+
+function groupByPhase(searchTerm) {
+  const map = new Map();
+  PHASE_ORDER.forEach(p => map.set(p, []));
+  const term = normalizeStr(searchTerm || '');
+  sortItems(items).forEach(it => {
+    if (term && !normalizeStr(it.text).includes(term)) return;
+    if (onlyPending && it.done) return;
+    if (favOnly && !it.favorite) return;
+    if (!matchesKindFilter(it)) return;
+    if (!matchesCalendarFilter(it)) return;
+    if (!map.has(it.phase)) map.set(it.phase, []);
+    map.get(it.phase).push(it);
+  });
+  return map;
+}
+
+function getNext7Items() {
+  const t = todayIso();
+  const in7 = new Date();
+  in7.setDate(in7.getDate() + 7);
+  const limit = `${in7.getFullYear()}-${String(in7.getMonth()+1).padStart(2,'0')}-${String(in7.getDate()).padStart(2,'0')}`;
+  return items
+    .filter(it => !it.done && it.watchStart && it.watchStart <= limit && it.watchEnd >= t && matchesKindFilter(it))
+    .sort((a,b) => a.watchStart < b.watchStart ? -1 : 1);
+}
+
+function buildItemRow(it) {
+      const row = document.createElement('div');
+      row.className = 'item' + (it.done ? ' done' : '') + (isToday(it) ? ' today' : '');
+
+      if (multiSelectMode) {
+        const sel = document.createElement('input');
+        sel.type = 'checkbox';
+        sel.className = 'select-check';
+        sel.checked = selectedIds.has(it.id);
+        sel.addEventListener('change', () => {
+          if (sel.checked) selectedIds.add(it.id); else selectedIds.delete(it.id);
+        });
+        row.appendChild(sel);
+      }
+
+      const check = document.createElement('div');
+      check.className = 'check' + (it.done ? ' done' : '');
+      check.addEventListener('click', (ev) => toggleDone(it.id, ev.currentTarget));
+      row.appendChild(check);
+
+      const mainCol = document.createElement('div');
+      mainCol.style.cssText = 'flex:1;min-width:0;';
+
+      const text = document.createElement('div');
+      text.className = 'item-text';
+      text.textContent = it.text;
+      if (isToday(it)) {
+        const tag = document.createElement('span');
+        tag.className = 'today-tag';
+        tag.textContent = 'HOJE';
+        text.appendChild(tag);
+      }
+      mainCol.appendChild(text);
+      text.addEventListener('click', () => {
+        row.classList.toggle('expanded');
+      });
+
+      const starsEl = document.createElement('div');
+      starsEl.className = 'rating-widget';
+      const ratingDownBtn = document.createElement('button');
+      ratingDownBtn.textContent = '▼';
+      ratingDownBtn.addEventListener('click', (ev) => { ev.stopPropagation(); adjustRating(it.id, -1); });
+      const numSpan = document.createElement('span');
+      numSpan.className = 'rating-num';
+      numSpan.textContent = it.rating || 0;
+      numSpan.addEventListener('click', (ev) => { ev.stopPropagation(); startRatingEdit(it.id, numSpan); });
+      const ratingUpBtn = document.createElement('button');
+      ratingUpBtn.textContent = '▲';
+      ratingUpBtn.addEventListener('click', (ev) => { ev.stopPropagation(); adjustRating(it.id, 1); });
+      starsEl.appendChild(ratingDownBtn);
+      starsEl.appendChild(numSpan);
+      starsEl.appendChild(ratingUpBtn);
+      const noteBtn = document.createElement('button');
+      noteBtn.textContent = it.note ? '📝' : '📝+';
+      noteBtn.title = 'Anotação';
+      noteBtn.addEventListener('click', (ev) => { ev.stopPropagation(); openNoteEditor(it.id); });
+      starsEl.appendChild(noteBtn);
+      mainCol.appendChild(starsEl);
+
+      if (it.note) {
+        const noteDisp = document.createElement('div');
+        noteDisp.style.cssText = 'font-size:0.72rem;color:var(--muted);font-style:italic;margin-top:2px;white-space:pre-wrap;';
+        noteDisp.textContent = '📝 ' + it.note;
+        mainCol.appendChild(noteDisp);
+      }
+
+      if (it.watchStart && !it.done) {
+        const dateEl = document.createElement('div');
+        let dateStatus = '';
+        if (isToday(it)) dateStatus = ' is-today';
+        else if (it.watchEnd && it.watchEnd < todayIso()) dateStatus = ' is-overdue';
+        dateEl.className = 'watch-date k-' + (it.watchKind || 'filme') + dateStatus;
+        dateEl.textContent = formatWatchDate(it.watchStart, it.watchEnd);
+        mainCol.appendChild(dateEl);
+      }
+
+      const kindSimple = simpleKind(it);
+      if (kindSimple !== 'jogo') {
+        const infoEl = document.createElement('div');
+        infoEl.className = 'media-info';
+        if (kindSimple === 'filme') {
+          infoEl.textContent = `🎬 ~130 min (estimativa) · 📺 ${whereToWatch(it)}`;
+        } else {
+          const eps = extractEpsCount(it.text) || 1;
+          const perEp = perEpisodeMinutes(it);
+          const totalMin = eps * perEp;
+          const h = Math.floor(totalMin / 60), mi = totalMin % 60;
+          infoEl.textContent = `⏱ ${h}h${mi > 0 ? mi + 'min' : ''} no total (${eps} eps, ~${perEp}min/epis., aprox.) · 📺 ${whereToWatch(it)}`;
+        }
+        mainCol.appendChild(infoEl);
+      } else {
+        const infoEl = document.createElement('div');
+        infoEl.className = 'media-info';
+        infoEl.textContent = `🎮 ${whereToWatch(it)}`;
+        mainCol.appendChild(infoEl);
+      }
+
+      if (kindSimple === 'serie') {
+        const eps = extractEpsCount(it.text) || 1;
+        const epDone = it.epDone || [];
+        const doneCount = epDone.filter(Boolean).length;
+        const pct = Math.round(100 * doneCount / eps);
+        const pctEl = document.createElement('div');
+        pctEl.className = 'series-pct-line';
+        pctEl.dataset.id = it.id;
+        pctEl.textContent = `📊 ${pct}% (${doneCount}/${eps} eps)`;
+        mainCol.appendChild(pctEl);
+
+        const nextIdx = epDone.findIndex(v => !v);
+        const nextEp = nextIdx === -1 ? (epDone.length < eps ? epDone.length : -1) : nextIdx;
+        if (nextEp !== -1 && doneCount < eps) {
+          const nextDate = episodeDateFor(it, nextEp, eps);
+          const nextEl = document.createElement('div');
+          nextEl.className = 'next-ep-line';
+          nextEl.textContent = `▶ Próximo: Episódio ${nextEp + 1}` + (nextDate ? ` em ${nextDate.split('-').reverse().join('/')}` : '');
+          mainCol.appendChild(nextEl);
+        }
+
+        const toggleBtn = document.createElement('button');
+        toggleBtn.className = 'episode-toggle';
+        if (it.epDates) {
+          // faz parte do trio intercalado: abre a lista combinada das 3 séries junto
+          toggleBtn.textContent = '▼ Ver episódios (3 séries intercaladas)';
+          toggleBtn.addEventListener('click', (ev) => {
+            ev.stopPropagation();
+            showInterleavedModal(it);
+          });
+        } else {
+          toggleBtn.textContent = '▼ Ver episódios';
+          toggleBtn.addEventListener('click', (ev) => {
+            ev.stopPropagation();
+            showSingleSeriesModal(it);
+          });
+        }
+        mainCol.appendChild(toggleBtn);
+      }
+
+      row.appendChild(mainCol);
+
+      const actions = document.createElement('div');
+      actions.className = 'item-actions';
+      const favBtn = document.createElement('button');
+      favBtn.className = 'icon-btn fav-btn' + (it.favorite ? ' active' : '');
+      favBtn.innerHTML = it.favorite ? '♥' : '♡';
+      favBtn.title = 'Favoritar';
+      favBtn.addEventListener('click', () => toggleFavorite(it.id));
+      actions.appendChild(favBtn);
+      const editBtn = document.createElement('button');
+      editBtn.className = 'icon-btn';
+      editBtn.innerHTML = '✎';
+      editBtn.title = 'Editar';
+      editBtn.addEventListener('click', () => startEdit(it.id, row, text));
+      actions.appendChild(editBtn);
+      if (!it.done && it.watchStart) {
+        const dateBtn = document.createElement('button');
+        dateBtn.className = 'icon-btn';
+        dateBtn.innerHTML = '📅';
+        dateBtn.title = 'Ajustar data (recalcula o resto a partir daqui)';
+        dateBtn.addEventListener('click', (ev) => { ev.stopPropagation(); startDateEdit(it.id, row); });
+        actions.appendChild(dateBtn);
+      }
+      const upBtn = document.createElement('button');
+      upBtn.className = 'icon-btn';
+      upBtn.innerHTML = '▲';
+      upBtn.title = 'Mover para cima';
+      upBtn.addEventListener('click', () => moveItem(it.id, -1));
+      actions.appendChild(upBtn);
+      const downBtn = document.createElement('button');
+      downBtn.className = 'icon-btn';
+      downBtn.innerHTML = '▼';
+      downBtn.title = 'Mover para baixo';
+      downBtn.addEventListener('click', () => moveItem(it.id, 1));
+      actions.appendChild(downBtn);
+      const delBtn = document.createElement('button');
+      delBtn.className = 'icon-btn del';
+      delBtn.innerHTML = '✕';
+      delBtn.title = 'Remover';
+      delBtn.addEventListener('click', () => removeItem(it.id));
+      actions.appendChild(delBtn);
+      row.appendChild(actions);
+
+      const stamp = document.createElement('div');
+      stamp.className = 'stamp';
+      stamp.textContent = 'VISTO!';
+      row.appendChild(stamp);
+
+      return row;
+}
+
+function toggleFavorite(id) {
+  const it = items.find(i => i.id === id);
+  if (!it) return;
+  it.favorite = !it.favorite;
+  save();
+  render();
+  checkAchievements();
+}
+
+function markDoneToday() {
+  try {
+    const raw = localStorage.getItem('ucm-streak-days');
+    const days = raw ? JSON.parse(raw) : [];
+    const t = todayIso();
+    if (!days.includes(t)) {
+      days.push(t);
+      localStorage.setItem('ucm-streak-days', JSON.stringify(days));
+    }
+  } catch(e) {}
+}
+
+function updateStreak() {
+  const el = document.getElementById('streakCounter');
+  if (!el) return;
+  let days = [];
+  try { days = JSON.parse(localStorage.getItem('ucm-streak-days') || '[]'); } catch(e) {}
+  if (days.length === 0) { el.textContent = ''; return; }
+  const set = new Set(days);
+  let streak = 0;
+  let d = new Date();
+  // se hoje ainda não marcou nada, começa a contar de ontem
+  if (!set.has(todayIso())) d.setDate(d.getDate() - 1);
+  while (streak < 3650) {
+    const iso = `${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,'0')}-${String(d.getDate()).padStart(2,'0')}`;
+    if (set.has(iso)) { streak++; d.setDate(d.getDate() - 1); } else break;
+  }
+  el.className = 'delay-counter ontime';
+  el.textContent = streak > 0 ? `🔥 sequência de ${streak} dia${streak===1?'':'s'}` : '';
+}
+
+const HOURS_PER = { filme: 2, anim: 0.37, live: 0.75, jogo: 18 };
+function updateHoursLeft() {
+  const el = document.getElementById('hoursLeft');
+  if (!el) return;
+  let hours = 0;
+  items.filter(i => !i.done).forEach(it => {
+    const k = it.watchKind || 'filme';
+    if (k === 'jogo') { hours += HOURS_PER.jogo; return; }
+    const isShortItem = it.text.includes('One-Shot') || (it.text.includes('What If') && !it.text.includes('T3'));
+    if (isShortItem) { hours += 0.33; return; }
+    const m = it.text.match(/(\d+)\s*eps/);
+    const eps = m ? parseInt(m[1], 10) : 1;
+    hours += eps * (HOURS_PER[k] || 1);
+  });
+  el.textContent = `⏳ ~${Math.round(hours)}h de conteúdo restante`;
+}
+
+function updateCountdown() {
+  const el = document.getElementById('countdownNext');
+  if (!el) return;
+  const t = todayIso();
+  const next = KNOWN_RELEASES.filter(r => r.date >= t).sort((a,b) => a.date < b.date ? -1 : 1)[0];
+  if (!next) { el.textContent = ''; return; }
+  const days = Math.round((new Date(next.date) - new Date(t)) / 86400000);
+  el.textContent = `🚀 faltam ${days} dia${days===1?'':'s'} pra ${next.name}`;
+}
+
+function updateEndBadge() {
+  const el = document.getElementById('badgeEnd');
+  if (!el) return;
+  // exclui o item do próprio filme final (k166, Vingadores: Guerras Secretas) — a data dele é
+  // fixa na estreia real e já tem o badge "GUERRAS SECRETAS" ao lado mostrando isso; incluir
+  // ele aqui só fazia o TÉRMINO sempre repetir a mesma data do badge de deadline, escondendo a
+  // data de verdade em que o catch-up de tudo o resto termina.
+  const pending = items.filter(i => !i.done && i.watchEnd && i.key !== 'k166');
+  if (pending.length === 0) { el.textContent = 'TÉRMINO —'; return; }
+  const last = pending.reduce((m, i) => (i.watchEnd > m.watchEnd ? i : m), pending[0]);
+  const [y, mo, d] = last.watchEnd.split('-');
+  el.textContent = `TÉRMINO ${d}/${mo}/${y}`;
+}
+function updateCountdownFinal() {
+  const el = document.getElementById('countdownFinal');
+  if (!el) return;
+  const t = todayIso();
+  const finalDate = '2027-12-17';
+  const days = Math.round((new Date(finalDate) - new Date(t)) / 86400000);
+  if (days < 0) { el.textContent = '🎬 Guerras Secretas já estreou!'; return; }
+  el.textContent = `⏳ faltam ${days} dia${days===1?'':'s'} até Vingadores: Guerras Secretas (17/12/2027)`;
+}
+
+function updateCountdownDoomsday() {
+  const el = document.getElementById('countdownDoomsday');
+  if (!el) return;
+  const t = todayIso();
+  const finalDate = '2026-12-16';
+  const days = Math.round((new Date(finalDate) - new Date(t)) / 86400000);
+  if (days < 0) { el.textContent = '🎬 Vingadores: Doomsday já estreou!'; return; }
+  el.textContent = `🚀 faltam ${days} dia${days===1?'':'s'} até Vingadores: Doomsday (16/12/2026)`;
+}
+
+function showToast(msg, undoFn) {
+  const container = document.getElementById('toastContainer');
+  if (!container) return;
+  const t = document.createElement('div');
+  t.className = 'toast';
+  const label = document.createElement('span');
+  label.textContent = msg;
+  t.appendChild(label);
+  let dismissTimer = null;
+  const dismiss = () => {
+    clearTimeout(dismissTimer);
+    t.classList.remove('show');
+    setTimeout(() => t.remove(), 250);
+  };
+  if (undoFn) {
+    const btn = document.createElement('button');
+    btn.className = 'toast-undo-btn';
+    btn.textContent = '↺ Desfazer';
+    btn.addEventListener('click', () => {
+      undoFn();
+      dismiss();
+    });
+    t.appendChild(btn);
+  }
+  container.appendChild(t);
+  requestAnimationFrame(() => t.classList.add('show'));
+  dismissTimer = setTimeout(dismiss, undoFn ? 6000 : 2200);
+}
+
+function openModal(html) {
+  document.getElementById('modalBox').classList.remove('wide-modal');
+  document.getElementById('modalBox').innerHTML = html + '<button class="close-modal" id="closeModalBtn">Fechar</button>';
+  document.getElementById('modalOverlay').classList.add('open');
+  document.getElementById('closeModalBtn').addEventListener('click', closeModal);
+}
+function closeModal() {
+  document.getElementById('modalBox').classList.remove('wide-modal');
+  document.getElementById('modalOverlay').classList.remove('open');
+}
+
+function showStats() {
+  const byMonth = {};
+  items.filter(i => i.done && i.completedAt).forEach(it => {
+    const key = it.completedAt.slice(0,7);
+    byMonth[key] = (byMonth[key] || 0) + 1;
+  });
+  const keys = Object.keys(byMonth).sort();
+  const max = Math.max(1, ...Object.values(byMonth));
+  let rows = keys.map(k => `
+    <div class="bar-row">
+      <div class="bar-label">${k}</div>
+      <div class="bar-track"><div class="bar-fill" style="width:${100*byMonth[k]/max}%"></div></div>
+      <div>${byMonth[k]}</div>
+    </div>`).join('');
+  if (!rows) rows = '<p>Ainda sem itens concluídos com data.</p>';
+  openModal(`<h3>📊 Progresso por mês</h3>${rows}`);
+}
+
+// destaca a linha de um episódio conforme a data: amarelo se é hoje, vermelho se passou e
+// ainda não foi marcado como visto (atrasado). Sem destaque se já foi visto.
+function epRowStatusClass(dateIso, checked) {
+  if (!dateIso || checked) return '';
+  const t = todayIso();
+  if (dateIso === t) return ' iv-today';
+  if (dateIso < t) return ' iv-overdue';
+  return '';
+}
+// rola a lista de episódios (dentro da modal) direto pro episódio de hoje (ou, se não tiver
+// nenhum exatamente hoje, pro primeiro atrasado) — evita ter que caçar manualmente na lista.
+function scrollEpisodeListToToday() {
+  setTimeout(() => {
+    const list = document.querySelector('.interleaved-list');
+    if (!list) return;
+    const target = list.querySelector('.interleaved-row.iv-today') || list.querySelector('.interleaved-row.iv-overdue');
+    if (target) target.scrollIntoView({ behavior: 'smooth', block: 'center' });
+  }, 50);
+}
+
+function showSingleSeriesModal(it) {
+  const eps = extractEpsCount(it.text) || 1;
+  if (!it.epDone) it.epDone = new Array(eps).fill(false);
+  let rows = '';
+  for (let e = 0; e < eps; e++) {
+    const dateIso = episodeDateFor(it, e, eps);
+    const dateStr = dateIso ? dateIso.split('-').reverse().slice(0,2).join('/') : '';
+    const checked = it.epDone[e] ? 'checked' : '';
+    const statusClass = epRowStatusClass(dateIso, it.epDone[e]);
+    rows += `<label class="interleaved-row${statusClass}">
+      <input type="checkbox" data-ep="${e}" ${checked}>
+      <span class="iv-num">${e+1}.</span>
+      <span class="iv-title">Episódio ${e+1}</span>
+      <span class="iv-date">${dateStr}</span>
+    </label>`;
+  }
+  const title = it.text.replace(/^[^\wÀ-ÿ]+\s*/, '');
+  openModal(`<h3>${escapeHtml(title)}</h3>
+    <button id="resetEpsBtn" style="margin-bottom:10px;background:none;border:1px solid var(--crimson);color:var(--crimson);border-radius:6px;padding:6px 12px;font-size:0.75rem;">↺ Desmarcar todos os episódios (rever do zero)</button>
+    <div class="interleaved-list">${rows}</div>`);
+  document.getElementById('modalBox').classList.add('wide-modal');
+  scrollEpisodeListToToday();
+  document.querySelectorAll('.interleaved-list input[type="checkbox"]').forEach(cb => {
+    cb.addEventListener('change', () => {
+      const idx = parseInt(cb.dataset.ep, 10);
+      it.epDone[idx] = cb.checked;
+      save();
+      updateDelayCounter();
+      updateEndBadge();
+      cb.closest('.interleaved-row').classList.remove('iv-today', 'iv-overdue');
+      if (!cb.checked) {
+        const dateIso = episodeDateFor(it, idx, eps);
+        const cls = epRowStatusClass(dateIso, false).trim();
+        if (cls) cb.closest('.interleaved-row').classList.add(cls);
+      }
+    });
+  });
+  document.getElementById('resetEpsBtn').addEventListener('click', () => {
+    if (!confirm(`Desmarcar todos os ${eps} episódios de "${title}" como não assistidos?`)) return;
+    it.epDone = new Array(eps).fill(false);
+    save();
+    render();
+    showToast('↺ Episódios desmarcados');
+    showSingleSeriesModal(it);
+  });
+}
+
+function showInterleavedModal(clickedItem) {
+  // acha o grupo (TRIOS) ao qual o item clicado pertence, pela key
+  const cfg = clickedItem ? TRIOS.find(c => c.keys.includes(clickedItem.key)) : null;
+  if (!cfg) { showToast('Séries intercaladas não encontradas'); return; }
+  const shows = cfg.keys.map(k => items.find(i => i.key === k));
+  if (shows.some(s => !s)) { showToast('Séries intercaladas não encontradas'); return; }
+  shows.forEach((show, s) => {
+    const total = cfg.seasonSizes[s].reduce((a, b) => a + b, 0);
+    if (!show.epDone) show.epDone = new Array(total).fill(false);
+  });
+
+  // mesma função usada em tryInterleaveTrio — garante a mesma ordem (incluindo fases, quando
+  // existirem) que gerou as datas de verdade.
+  const order = computeTrioOrder(cfg);
+  const counters = cfg.keys.map(() => 0);
+  const rows = order.map((showIdx, i) => {
+    const show = shows[showIdx];
+    const epFlatIdx = counters[showIdx]++;
+    const code = seasonEpLabel(epFlatIdx, cfg.seasonSizes[showIdx]);
+    const label = `${cfg.labels[showIdx]} ${code}`;
+    const dateIso = show.epDates ? show.epDates[epFlatIdx] : null;
+    const dateStr = dateIso ? dateIso.split('-').reverse().slice(0,2).join('/') : '';
+    const checked = show.epDone[epFlatIdx] ? 'checked' : '';
+    const statusClass = epRowStatusClass(dateIso, show.epDone[epFlatIdx]);
+    return `<label class="interleaved-row${statusClass}">
+      <input type="checkbox" data-show="${showIdx}" data-ep="${epFlatIdx}" ${checked}>
+      <span class="iv-num">${i+1}.</span>
+      <span class="iv-title">${escapeHtml(label)}</span>
+      <span class="iv-date">${dateStr}</span>
+    </label>`;
+  }).join('');
+
+  const resetButtons = cfg.labels.map((label, i) =>
+    `<button data-reset-show="${i}" style="margin:0 6px 10px 0;background:none;border:1px solid var(--crimson);color:var(--crimson);border-radius:6px;padding:6px 10px;font-size:0.72rem;">↺ Desmarcar ${escapeHtml(label)}</button>`
+  ).join('');
+
+  openModal(`
+    <h3>📈 Ordem Intercalada (3 séries)</h3>
+    <div style="margin-bottom:6px;">${resetButtons}</div>
+    <div class="interleaved-list">${rows}</div>
+  `);
+  document.getElementById('modalBox').classList.add('wide-modal');
+  scrollEpisodeListToToday();
+  document.querySelectorAll('.interleaved-list input[type="checkbox"]').forEach(cb => {
+    cb.addEventListener('change', () => {
+      const showIdx = parseInt(cb.dataset.show, 10);
+      const epIdx = parseInt(cb.dataset.ep, 10);
+      shows[showIdx].epDone[epIdx] = cb.checked;
+      save();
+      // atualiza os indicadores da home (dias adiantado/atrasado, "restam N episódios de
+      // hoje") na hora — antes só recalculava no próximo load(), porque esse checkbox nunca
+      // chamava nada disso, só save().
+      updateDelayCounter();
+      updateEndBadge();
+      cb.closest('.interleaved-row').classList.remove('iv-today', 'iv-overdue');
+      if (!cb.checked) {
+        const dateIso = shows[showIdx].epDates ? shows[showIdx].epDates[epIdx] : null;
+        const cls = epRowStatusClass(dateIso, false).trim();
+        if (cls) cb.closest('.interleaved-row').classList.add(cls);
+      }
+    });
+  });
+  document.querySelectorAll('[data-reset-show]').forEach(btn => {
+    btn.addEventListener('click', () => {
+      const showIdx = parseInt(btn.dataset.resetShow, 10);
+      const label = cfg.labels[showIdx];
+      if (!confirm(`Desmarcar todos os episódios de "${label}" como não assistidos?`)) return;
+      shows[showIdx].epDone = new Array(shows[showIdx].epDone.length).fill(false);
+      save();
+      render();
+      showToast('↺ Episódios desmarcados');
+      showInterleavedModal(clickedItem);
+    });
+  });
+}
+
+function showTrash() {
+  let rows = trash.map(it => `
+    <div class="bar-row">
+      <div style="flex:1;">${escapeHtml(it.text)}</div>
+      <button data-id="${it.id}" class="restore-btn" style="background:var(--gold);color:var(--ink);border:none;border-radius:5px;padding:4px 8px;">Restaurar</button>
+    </div>`).join('');
+  if (!rows) rows = '<p>Lixeira vazia.</p>';
+  openModal(`<h3>🗑 Lixeira</h3>${rows}`);
+  document.querySelectorAll('.restore-btn').forEach(btn => {
+    btn.addEventListener('click', () => {
+      const id = parseInt(btn.dataset.id, 10);
+      const idx = trash.findIndex(i => i.id === id);
+      if (idx >= 0) {
+        const [restored] = trash.splice(idx, 1);
+        items.push(restored);
+        save();
+        render();
+        closeModal();
+        autoReschedule('item restaurado da lixeira', restored.id);
+      }
+    });
+  });
+}
+
+function wrapCanvasText(ctx, text, x, y, maxWidth, lineHeight) {
+  const words = text.split(' ');
+  let line = '';
+  let curY = y;
+  for (let n = 0; n < words.length; n++) {
+    const testLine = line + words[n] + ' ';
+    if (ctx.measureText(testLine).width > maxWidth && n > 0) {
+      ctx.fillText(line, x, curY);
+      line = words[n] + ' ';
+      curY += lineHeight;
+    } else {
+      line = testLine;
+    }
+  }
+  ctx.fillText(line, x, curY);
+  return curY;
+}
+function buildProgressCardCanvas() {
+  const doneTotal = items.filter(i => i.done).length;
+  const total = items.length;
+  const pct = total ? Math.round(100 * doneTotal / total) : 0;
+  const nextPending = sortItems(items.filter(i => !i.done))[0];
+  const currentPhase = nextPending ? nextPending.phase : 'Tudo assistido! 🎉';
+  const t = todayIso();
+  const daysLeft = Math.max(0, Math.round((new Date('2027-12-17') - new Date(t)) / 86400000));
+
+  const cssVar = (name, fallback) => (getComputedStyle(document.documentElement).getPropertyValue(name).trim() || fallback);
+  const gold = cssVar('--gold', '#ffd23f');
+  const crimson = cssVar('--crimson', '#e63946');
+  const cobalt = cssVar('--cobalt', '#7fb3ff');
+  const ink = cssVar('--ink', '#15141b');
+  const paper = cssVar('--paper', '#fdfaf3');
+
+  const canvas = document.createElement('canvas');
+  canvas.width = 1080; canvas.height = 1920;
+  const ctx = canvas.getContext('2d');
+
+  const grad = ctx.createLinearGradient(0, 0, 0, canvas.height);
+  grad.addColorStop(0, ink);
+  grad.addColorStop(1, '#000000');
+  ctx.fillStyle = grad;
+  ctx.fillRect(0, 0, canvas.width, canvas.height);
+
+  ctx.textAlign = 'center';
+  ctx.fillStyle = gold;
+  ctx.font = "64px 'Bangers', cursive, sans-serif";
+  ctx.fillText('🎬 CRONOLOGIA UCM', canvas.width / 2, 280);
+
+  ctx.fillStyle = paper;
+  ctx.font = "bold 240px 'Baloo 2', sans-serif";
+  ctx.fillText(pct + '%', canvas.width / 2, 640);
+
+  ctx.font = "44px 'Baloo 2', sans-serif";
+  ctx.fillText(`${doneTotal} de ${total} assistidos`, canvas.width / 2, 720);
+
+  ctx.fillStyle = cobalt;
+  ctx.font = "38px 'Baloo 2', sans-serif";
+  wrapCanvasText(ctx, '📍 ' + currentPhase, canvas.width / 2, 860, 920, 50);
+
+  ctx.fillStyle = crimson;
+  ctx.font = "42px 'Baloo 2', sans-serif";
+  ctx.fillText(daysLeft > 0 ? `⏳ ${daysLeft} dias até Guerras Secretas` : '🎬 Guerras Secretas já estreou!', canvas.width / 2, 1780);
+
+  ctx.globalAlpha = 0.55;
+  ctx.fillStyle = paper;
+  ctx.font = "30px 'Baloo 2', sans-serif";
+  ctx.fillText('breno779.github.io', canvas.width / 2, 1860);
+  ctx.globalAlpha = 1;
+
+  return canvas;
+}
+function shareTextFallback(text) {
+  if (navigator.share) {
+    navigator.share({ text }).catch(() => {});
+  } else if (navigator.clipboard) {
+    navigator.clipboard.writeText(text);
+    alert('Copiado pra área de transferência:\n\n' + text);
+  } else {
+    alert(text);
+  }
+}
+function shareProgress() {
+  const doneTotal = items.filter(i => i.done).length;
+  const total = items.length;
+  const text = `🎬 Maratona UCM: já vi ${doneTotal}/${total} itens (${Math.round(100 * doneTotal / total)}%)!`;
+  try {
+    const canvas = buildProgressCardCanvas();
+    canvas.toBlob((blob) => {
+      if (!blob) { shareTextFallback(text); return; }
+      const file = new File([blob], 'progresso-ucm.png', { type: 'image/png' });
+      if (navigator.canShare && navigator.canShare({ files: [file] })) {
+        navigator.share({ files: [file], text }).catch(() => {});
+        return;
+      }
+      const url = URL.createObjectURL(blob);
+      const a = document.createElement('a');
+      a.href = url; a.download = 'progresso-ucm.png';
+      document.body.appendChild(a); a.click(); a.remove();
+      setTimeout(() => URL.revokeObjectURL(url), 4000);
+      showToast('🖼️ Imagem salva! Já pode compartilhar.');
+    }, 'image/png');
+  } catch (e) {
+    shareTextFallback(text);
+  }
+}
+
+// ---- Anotação livre por item (diário pessoal, além da nota de estrelas) ----
+function openNoteEditor(id) {
+  const it = items.find(i => i.id === id);
+  if (!it) return;
+  openModal(`
+    <h3>📝 Anotação</h3>
+    <p style="font-size:0.75rem;color:var(--muted);margin-bottom:8px;">${escapeHtml(it.text)}</p>
+    <textarea id="noteInput" rows="5" style="width:100%;padding:8px;background:var(--ink);color:var(--paper);border:1px solid var(--line);border-radius:6px;font-family:'Baloo 2',sans-serif;">${escapeHtml(it.note || '')}</textarea>
+    <div style="display:flex;gap:8px;margin-top:10px;">
+      <button id="noteSaveBtn" style="flex:1;background:var(--gold);color:var(--ink);border:none;border-radius:6px;padding:8px;font-family:'Bangers',cursive;">Salvar</button>
+      <button id="noteClearBtn" style="flex:1;background:var(--ink2);color:var(--paper);border:1px solid var(--line);border-radius:6px;padding:8px;font-family:'Bangers',cursive;">Limpar</button>
+    </div>
+  `);
+  document.getElementById('noteSaveBtn').addEventListener('click', () => {
+    const val = document.getElementById('noteInput').value.trim();
+    if (val) it.note = val; else delete it.note;
+    save();
+    render();
+    closeModal();
+    showToast('📝 Anotação salva!');
+  });
+  document.getElementById('noteClearBtn').addEventListener('click', () => {
+    delete it.note;
+    save();
+    render();
+    closeModal();
+    showToast('🗑️ Anotação removida');
+  });
+}
+
+// ---- "O que cabe no meu tempo?" — sugere algo pendente que caiba nos minutos livres ----
+function estimateNextWatchMinutes(it) {
+  const kind = it.watchKind || scheduleKind(it);
+  if (kind === 'jogo') return null; // jogo não entra nesse filtro, é coisa de dias, não minutos
+  if (isShortItem(it.text)) {
+    const m = it.text.match(/faltam\s*(\d+)\s*min/i);
+    if (m) return parseInt(m[1], 10);
+    return 6;
+  }
+  const eps = extractEpsCount(it.text);
+  if (eps && eps > 1) return perEpisodeMinutes(it); // só o próximo episódio, não a série toda
+  return Math.round((HOURS_PER.filme || 2) * 60);
+}
+function showFitsTimePicker() {
+  openModal(`
+    <h3>⌛ O que cabe no meu tempo?</h3>
+    <p>Quantos minutos livres você tem agora?</p>
+    <div style="display:flex;gap:8px;flex-wrap:wrap;margin-bottom:10px;">
+      <button data-min="15" class="fits-quick">15 min</button>
+      <button data-min="30" class="fits-quick">30 min</button>
+      <button data-min="60" class="fits-quick">1h</button>
+      <button data-min="120" class="fits-quick">2h</button>
+    </div>
+    <input type="number" id="fitsMinutesInput" min="1" placeholder="ou digite os minutos" style="width:100%;padding:8px;margin-bottom:10px;background:var(--ink);color:var(--paper);border:1px solid var(--line);border-radius:6px;">
+    <button id="fitsGoBtn" style="background:var(--gold);color:var(--ink);border:none;border-radius:6px;padding:8px 14px;font-family:'Bangers',cursive;">Ver sugestão</button>
+    <div id="fitsResult" style="margin-top:14px;"></div>
+  `);
+  document.querySelectorAll('.fits-quick').forEach(btn => {
+    btn.addEventListener('click', () => runFitsTime(parseInt(btn.dataset.min, 10)));
+  });
+  document.getElementById('fitsGoBtn').addEventListener('click', () => {
+    const val = parseInt(document.getElementById('fitsMinutesInput').value, 10);
+    if (val > 0) runFitsTime(val);
+  });
+}
+function runFitsTime(minutes) {
+  const pending = sortItems(items.filter(i => !i.done));
+  let best = null, bestEst = null;
+  for (const it of pending) {
+    const est = estimateNextWatchMinutes(it);
+    if (est == null) continue;
+    if (est <= minutes) { best = it; bestEst = est; break; }
+  }
+  const el = document.getElementById('fitsResult');
+  if (!el) return;
+  if (!best) {
+    el.innerHTML = `<p style="color:var(--muted);">Nada da fila cabe em ${minutes} min agora — os próximos pendentes são mais longos que isso.</p>`;
+    return;
+  }
+  el.innerHTML = `
+    <p style="font-size:0.7rem;color:var(--muted);margin-bottom:4px;">~${bestEst} min:</p>
+    <p style="font-family:'Bangers',cursive;letter-spacing:0.5px;">${escapeHtml(best.text)}</p>
+    <button id="fitsGoToItem" style="margin-top:8px;background:var(--cobalt);color:var(--paper);border:none;border-radius:6px;padding:8px 14px;font-family:'Bangers',cursive;">Ir até esse item</button>
+  `;
+  document.getElementById('fitsGoToItem').addEventListener('click', () => {
+    closeModal();
+    switchTab('tabLista');
+    onlyPending = false; showNext7 = false; alphaMode = false; calendarFilter = null; favOnly = false; kindFilter = null; heroFilter = null;
+    updateHeroActiveBar();
+    render();
+    setTimeout(() => {
+      const rows = document.querySelectorAll('.item');
+      for (const row of rows) {
+        if (row.querySelector('.item-text') && row.querySelector('.item-text').textContent.includes(best.text.slice(0,15))) {
+          row.scrollIntoView({ behavior: 'smooth', block: 'center' });
+          row.style.outline = '2px solid var(--gold)';
+          setTimeout(() => row.style.outline = '', 1500);
+          break;
+        }
+      }
+    }, 150);
+  });
+}
+
+// ---- Linha do tempo visual (aba Início) ----
+function renderPhaseTimeline() {
+  const el = document.getElementById('phaseTimeline');
+  if (!el) return;
+  const nextPending = sortItems(items.filter(i => !i.done))[0];
+  const currentPhase = nextPending ? nextPending.phase : null;
+  el.innerHTML = '';
+  PHASE_ORDER.forEach((phase, idx) => {
+    if (idx > 0) {
+      const line = document.createElement('div');
+      line.className = 'phase-timeline-line';
+      el.appendChild(line);
+    }
+    const list = items.filter(i => i.phase === phase);
+    const doneCount = list.filter(i => i.done).length;
+    const isDone = list.length > 0 && doneCount === list.length;
+    const isCurrent = phase === currentPhase;
+    const btn = document.createElement('button');
+    btn.className = 'phase-station' + (isDone ? ' done' : '') + (isCurrent ? ' current' : '');
+    const shortLabel = phase.split('(')[0].trim().slice(0, 30);
+    btn.innerHTML = `<span class="dot-wrap">${isDone ? '✓' : (idx + 1)}</span><span class="station-label">${escapeHtml(shortLabel)}</span>`;
+    btn.title = phase;
+    btn.addEventListener('click', () => goToPhase(phase));
+    el.appendChild(btn);
+  });
+  if (currentPhase) {
+    setTimeout(() => {
+      const activeBtn = el.querySelector('.phase-station.current');
+      if (activeBtn) activeBtn.scrollIntoView({ behavior: 'smooth', inline: 'center', block: 'nearest' });
+    }, 50);
+  }
+}
+function goToPhase(phase) {
+  switchTabSilent('tabLista');
+  onlyPending = false; showNext7 = false; alphaMode = false; calendarFilter = null; favOnly = false; kindFilter = null; heroFilter = null;
+  updateHeroActiveBar();
+  collapsedPhases.delete(phase);
+  saveCollapsedPhases();
+  render();
+  setTimeout(() => {
+    const target = Array.from(document.querySelectorAll('.phase')).find(d => d.dataset.phase === phase);
+    if (target) {
+      target.scrollIntoView({ behavior: 'smooth', block: 'start' });
+      target.style.outline = '2px solid var(--gold)';
+      setTimeout(() => target.style.outline = '', 1500);
+    }
+  }, 150);
+}
+
+function showPaceAdjuster() {
+  openModal(`
+    <h3>⏱ Ajustar ritmo</h3>
+    <p>Quando você quer terminar tudo?</p>
+    <input type="date" id="paceDate" style="width:100%;padding:8px;margin-bottom:10px;background:var(--ink);color:var(--paper);border:1px solid var(--line);border-radius:6px;">
+    <button id="paceApply" style="background:var(--gold);color:var(--ink);border:none;border-radius:6px;padding:8px 14px;font-family:'Bangers',cursive;">Recalcular</button>
+    <p style="margin-top:10px;font-size:0.7rem;color:var(--muted);">Isso redistribui as datas dos itens ainda não assistidos, igualmente, entre hoje e a data escolhida.</p>
+  `);
+  document.getElementById('paceApply').addEventListener('click', () => {
+    const dateVal = document.getElementById('paceDate').value;
+    if (!dateVal) return;
+    const pending = sortItems(items.filter(i => !i.done && i.watchStart));
+    const start = new Date();
+    const end = new Date(dateVal);
+    const totalDays = Math.max(1, Math.round((end - start) / 86400000));
+    const step = totalDays / Math.max(1, pending.length);
+    pending.forEach((it, idx) => {
+      const d0 = new Date(start.getTime() + Math.round(idx * step) * 86400000);
+      const d1raw = new Date(start.getTime() + Math.round((idx+1) * step - 1) * 86400000);
+      const d1 = d1raw < d0 ? d0 : d1raw;
+      const fmt = (d) => `${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,'0')}-${String(d.getDate()).padStart(2,'0')}`;
+      it.watchStart = fmt(d0);
+      it.watchEnd = fmt(d1);
+      if (it.epDates) {
+        // reespalha a data de cada episódio proporcionalmente dentro da nova janela — senão
+        // o "próximo episódio" e a lista de episódios ficam presos nas datas antigas mesmo
+        // com o intervalo do item já atualizado.
+        const totalEps = it.epDates.length;
+        const totalDaysSpan = Math.max(1, Math.round((d1 - d0) / 86400000) + 1);
+        it.epDates = Array.from({ length: totalEps }, (_, e) => {
+          const dayIdx = Math.min(totalDaysSpan - 1, Math.floor(e * totalDaysSpan / totalEps));
+          const d = new Date(d0);
+          d.setDate(d.getDate() + dayIdx);
+          return fmt(d);
+        });
+      }
+    });
+    save();
+    render();
+    closeModal();
+  });
+}
+
+const PALETTES = [
+  { name: 'Gibi clássico', gold: '#d9a441', crimson: '#b6332c', cobalt: '#2b4c8c' },
+  { name: 'Neon roxo', gold: '#e0c341', crimson: '#a83279', cobalt: '#5b2b8c' },
+  { name: 'Verde tropa', gold: '#c9d94a', crimson: '#8c3a2b', cobalt: '#2b8c5a' },
+];
+function showPaletteMenu() {
+  let rows = PALETTES.map((p, i) => `
+    <div class="bar-row">
+      <div style="flex:1;">${p.name}</div>
+      <button data-i="${i}" class="pick-palette" style="background:${p.gold};color:#000;border:none;border-radius:5px;padding:4px 10px;">Usar</button>
+    </div>`).join('');
+  openModal(`<h3>🎨 Paleta de cor</h3>${rows}`);
+  document.querySelectorAll('.pick-palette').forEach(btn => {
+    btn.addEventListener('click', () => {
+      const p = PALETTES[parseInt(btn.dataset.i, 10)];
+      document.documentElement.style.setProperty('--gold', p.gold);
+      document.documentElement.style.setProperty('--crimson', p.crimson);
+      document.documentElement.style.setProperty('--cobalt', p.cobalt);
+      try { localStorage.setItem('ucm-palette', JSON.stringify(p)); } catch(e) {}
+      closeModal();
+      showToast('🎨 Paleta trocada!');
+    });
+  });
+}
+
+let ambientCtx = null, ambientOsc = null;
+function toggleAmbient(btn) {
+  if (ambientCtx) {
+    ambientOsc.stop();
+    ambientCtx.close();
+    ambientCtx = null;
+    btn.textContent = '🎵 Som ambiente';
+    return;
+  }
+  ambientCtx = new (window.AudioContext || window.webkitAudioContext)();
+  ambientOsc = ambientCtx.createOscillator();
+  const gain = ambientCtx.createGain();
+  ambientOsc.type = 'sine';
+  ambientOsc.frequency.value = 110;
+  gain.gain.value = 0.03;
+  ambientOsc.connect(gain);
+  gain.connect(ambientCtx.destination);
+  ambientOsc.start();
+  btn.textContent = '🔇 Parar som';
+}
+
+let marathonIdx = 0;
+function openMarathon() {
+  const pending = sortItems(items.filter(i => !i.done));
+  if (pending.length === 0) {
+    alert('Nada pendente — maratona concluída! 🎉');
+    return;
+  }
+  marathonIdx = 0;
+  renderMarathon(pending);
+  document.getElementById('marathonScreen').classList.add('open');
+}
+function renderMarathon(pending) {
+  const it = pending[marathonIdx];
+  const screen = document.getElementById('marathonScreen');
+  screen.innerHTML = `
+    <div class="m-title">${escapeHtml(it.text)}</div>
+    <div class="m-date">${it.watchStart ? formatWatchDate(it.watchStart, it.watchEnd) : ''}</div>
+    <button class="m-next" id="marathonNext">✓ Marcar e avançar</button>
+    <button class="m-close" id="marathonClose">Sair do modo maratona</button>
+  `;
+  document.getElementById('marathonNext').addEventListener('click', () => {
+    const itId = it.id;
+    const snapshot = JSON.parse(JSON.stringify(it)); // pra poder desfazer um toque sem querer
+    it.done = true;
+    it.completedAt = todayIso();
+    markDoneToday();
+    const eps = extractEpsCount(it.text);
+    if (eps) it.epDone = new Array(eps).fill(true);
+    delete it.watchStart; delete it.watchEnd; delete it.watchKind; delete it.epDates;
+    maybeAutoCollapsePhase(it.phase);
+    save();
+    showToast('✓ Marcado como visto', () => {
+      const idx = items.findIndex(i => i.id === itId);
+      if (idx === -1) return;
+      items[idx] = snapshot;
+      recomputeSchedule(itId);
+      save();
+      render();
+      showToast('↺ Desfeito');
+    });
+    const stillPending = sortItems(items.filter(i => !i.done));
+    if (stillPending.length === 0) {
+      render();
+      screen.classList.remove('open');
+      alert('Maratona concluída! 🎉');
+      return;
+    }
+    marathonIdx = 0;
+    renderMarathon(stillPending);
+    render();
+  });
+  document.getElementById('marathonClose').addEventListener('click', () => {
+    screen.classList.remove('open');
+  });
+}
+
+function updateDelayCounter() {
+  const el = document.getElementById('delayCounter');
+  if (!el) return;
+  const pending = sortItems(items.filter(i => !i.done && i.watchStart));
+  if (pending.length === 0) { el.textContent = ''; return; }
+  const t = todayIso();
+  const first = pending[0];
+  const kindHere = scheduleKind(first);
+
+  let nextStart;
+  let remainingToday = null;
+  let epsLateCount = null;
+  let isSerie = false;
+  if (first.watchStart === first.watchEnd || kindHere === 'jogo') {
+    // filme/curta/jogo: um dia só (ou o jogo inteiro), sem granularidade por episódio
+    nextStart = first.watchStart;
+  } else {
+    isSerie = true;
+    // série de vários dias: acha o primeiro episódio ainda não marcado — a data dele é
+    // que define se está em dia, adiantado ou atrasado (não a série inteira).
+    const eps = extractEpsCount(first.text) || 1;
+    const epDone = first.epDone || [];
+    const nextEpIdx = epDone.findIndex(v => !v);
+    const idx = nextEpIdx === -1 ? Math.min(epDone.length, eps - 1) : nextEpIdx;
+    nextStart = episodeDateFor(first, idx, eps) || first.watchStart;
+    // conta só os episódios cuja data agendada é a mesma do próximo não marcado
+    // (ou seja, "quantos faltam daquele dia específico", não da série inteira)
+    remainingToday = 0;
+    epsLateCount = 0;
+    for (let e = 0; e < eps; e++) {
+      if (epDone[e]) continue;
+      const d = episodeDateFor(first, e, eps);
+      if (d === nextStart) remainingToday++;
+      if (d && d <= t) epsLateCount++;
+    }
+  }
+
+  const diffDays = Math.round((new Date(nextStart) - new Date(t)) / 86400000);
+  const detailEl = document.getElementById('delayCounterDetail');
+
+  if (diffDays > 0) {
+    el.className = 'delay-counter early';
+    el.textContent = `✅ ${diffDays} dia${diffDays===1?'':'s'} adiantado no cronograma`;
+    if (detailEl) detailEl.textContent = '';
+  } else if (diffDays === 0) {
+    // ainda está dentro do próprio dia programado — só vira "atrasado" a partir de amanhã
+    el.className = 'delay-counter ontime';
+    if (remainingToday !== null) {
+      el.textContent = `▶️ Em andamento — restam ${remainingToday} episódio${remainingToday===1?'':'s'} de hoje`;
+    } else {
+      el.textContent = `▶️ Em andamento — assista hoje`;
+    }
+    if (detailEl) detailEl.textContent = '';
+  } else {
+    const days = -diffDays;
+    el.className = 'delay-counter late';
+    el.textContent = `⏰ ${days} dia${days===1?'':'s'} atrasado no cronograma`;
+    if (detailEl) {
+      if (isSerie && epsLateCount > 0) {
+        const title = first.text.replace(/^[^\wÀ-ÿ]+\s*/, '');
+        detailEl.className = 'delay-counter late';
+        detailEl.textContent = `(${title}: ${epsLateCount} episódio${epsLateCount===1?'':'s'} atrasado${epsLateCount===1?'':'s'})`;
+      } else {
+        detailEl.textContent = '';
+      }
+    }
+  }
+}
+
+function render() {
+  const banner = document.getElementById('rescheduleBanner');
+  if (banner) banner.style.display = 'none';
+  const main = document.getElementById('main');
+  main.innerHTML = '';
+  main.classList.toggle('compact', compactMode);
+  const doneTotal = items.filter(i => i.done).length;
+  const allTotal = items.length;
+
+  if (showNext7 || alphaMode || calendarFilter) {
+    let list;
+    if (calendarFilter) {
+      list = sortItems(items.filter(it => {
+        const searchTerm = document.getElementById('searchInput') ? document.getElementById('searchInput').value : '';
+        const term = normalizeStr(searchTerm || '');
+        if (term && !normalizeStr(it.text).includes(term)) return false;
+        if (onlyPending && it.done) return false;
+        if (favOnly && !it.favorite) return false;
+        if (!matchesKindFilter(it)) return false;
+        return matchesCalendarFilter(it);
+      })).sort((a,b) => (a.watchStart||'') < (b.watchStart||'') ? -1 : 1);
+    } else if (showNext7) {
+      list = getNext7Items();
+    } else {
+      list = sortItems(items.filter(it => {
+        const searchTerm = document.getElementById('searchInput') ? document.getElementById('searchInput').value : '';
+        const term = normalizeStr(searchTerm || '');
+        if (term && !normalizeStr(it.text).includes(term)) return false;
+        if (onlyPending && it.done) return false;
+        if (favOnly && !it.favorite) return false;
+        if (!matchesKindFilter(it)) return false;
+        return true;
+      }));
+    }
+    if (list.length === 0) {
+      const noRes = document.createElement('div');
+      noRes.className = 'no-results';
+      noRes.textContent = calendarFilter ? '📅 Nada nesse período.' : '🎉 Nada pendente pros próximos 7 dias.';
+      main.appendChild(noRes);
+    } else {
+      list.forEach(it => main.appendChild(buildItemRow(it)));
+    }
+  } else {
+    const searchTerm = document.getElementById('searchInput') ? document.getElementById('searchInput').value : '';
+    const grouped = groupByPhase(searchTerm);
+    let visibleCount = 0;
+
+    grouped.forEach((list, phase) => {
+      if (list.length === 0) return;
+      visibleCount += list.length;
+      const doneCount = list.filter(i => i.done).length;
+
+      const phaseDiv = document.createElement('div');
+      phaseDiv.className = 'phase' + (collapsedPhases.has(phase) ? ' collapsed' : '');
+      phaseDiv.dataset.phase = phase;
+
+      const studs = document.createElement('div');
+      studs.className = 'studs';
+      for (let s = 0; s < 8; s++) studs.appendChild(document.createElement('span'));
+      phaseDiv.appendChild(studs);
+
+      const head = document.createElement('div');
+      head.className = 'phase-head';
+      const phasePct = list.length ? Math.round(100 * doneCount / list.length) : 0;
+      head.innerHTML = `<span class="phase-title">${escapeHtml(phase)}</span><span style="display:flex;align-items:center;gap:8px;"><span class="phase-count-mini${phasePct >= 100 ? ' full' : ''}" title="${doneCount}/${list.length}"><span class="mini-bar"><span class="mini-bar-fill" style="width:${phasePct}%"></span></span><span class="mini-bar-label">${phasePct}%</span></span><span class="chevron">▾</span></span>`;
+      head.addEventListener('click', () => {
+        if (collapsedPhases.has(phase)) collapsedPhases.delete(phase);
+        else collapsedPhases.add(phase);
+        saveCollapsedPhases();
+        render();
+      });
+      phaseDiv.appendChild(head);
+
+      const phaseProg = document.createElement('div');
+      phaseProg.className = 'phase-progress';
+      const phaseProgFill = document.createElement('div');
+      phaseProgFill.className = 'phase-progress-fill';
+      phaseProgFill.style.width = list.length ? (100*doneCount/list.length) + '%' : '0%';
+      phaseProg.appendChild(phaseProgFill);
+      phaseDiv.appendChild(phaseProg);
+
+      const body = document.createElement('div');
+      body.className = 'phase-body';
+      list.forEach(it => body.appendChild(buildItemRow(it)));
+      phaseDiv.appendChild(body);
+      main.appendChild(phaseDiv);
+    });
+
+    if (visibleCount === 0) {
+      const noRes = document.createElement('div');
+      noRes.className = 'no-results';
+      noRes.textContent = '🔍 Nada encontrado nessa busca.';
+      main.appendChild(noRes);
+    }
+  }
+
+  document.getElementById('progressText').textContent = `${doneTotal}/${allTotal}`;
+  document.getElementById('progressPct').textContent = allTotal ? Math.round(100*doneTotal/allTotal) + '%' : '0%';
+  document.getElementById('progressFill').style.width = allTotal ? (100*doneTotal/allTotal) + '%' : '0%';
+  document.getElementById('stickyProgressText').textContent = `${doneTotal}/${allTotal}`;
+  document.getElementById('stickyProgressPct').textContent = allTotal ? Math.round(100*doneTotal/allTotal) + '%' : '0%';
+  updateDelayCounter();
+  updateStreak();
+  updateHoursLeft();
+  updateCountdown();
+  updateCountdownDoomsday();
+  updateEndBadge();
+  renderPhaseTimeline();
+
+  const sel = document.getElementById('phaseSelect');
+  sel.innerHTML = '';
+  PHASE_ORDER.forEach(p => {
+    const opt = document.createElement('option');
+    opt.value = p;
+    opt.textContent = p.length > 22 ? p.slice(0,20) + '…' : p;
+    sel.appendChild(opt);
+  });
+}
+
+function escapeHtml(s) {
+  const d = document.createElement('div');
+  d.textContent = s;
+  return d.innerHTML;
+}
+
+function adjustRating(id, delta) {
+  const it = items.find(i => i.id === id);
+  if (!it) return;
+  const current = it.rating || 0;
+  it.rating = Math.round(Math.max(0, Math.min(10, current + delta)) * 10) / 10;
+  save();
+  render();
+}
+
+function startRatingEdit(id, spanEl) {
+  const it = items.find(i => i.id === id);
+  if (!it) return;
+  const input = document.createElement('input');
+  input.type = 'number';
+  input.step = '0.1';
+  input.min = '0';
+  input.max = '10';
+  input.value = it.rating || 0;
+  input.className = 'rating-input';
+  spanEl.replaceWith(input);
+  input.focus();
+  input.select();
+  function commit() {
+    let val = parseFloat(input.value);
+    if (isNaN(val)) val = 0;
+    val = Math.round(Math.max(0, Math.min(10, val)) * 10) / 10;
+    it.rating = val;
+    save();
+    render();
+  }
+  input.addEventListener('keydown', (e) => { if (e.key === 'Enter') commit(); });
+  input.addEventListener('blur', commit);
+  input.addEventListener('click', (e) => e.stopPropagation());
+}
+
+// fecha a fase automaticamente assim que o último item dela é marcado como visto — só nesse
+// instante da transição (não força fechado toda vez que renderiza, senão reabrir a fase pra
+// olhar de novo depois nunca ficaria aberto).
+function maybeAutoCollapsePhase(phase) {
+  if (!phase) return;
+  const list = items.filter(i => i.phase === phase);
+  if (list.length > 0 && list.every(i => i.done)) {
+    collapsedPhases.add(phase);
+    saveCollapsedPhases();
+  }
+}
+
+function toggleDone(id, el) {
+  const it = items.find(i => i.id === id);
+  if (!it) return;
+  const snapshot = JSON.parse(JSON.stringify(it)); // pra poder desfazer um toque sem querer
+  const goingDone = !it.done;
+  let nextItemId = null;
+  if (goingDone) {
+    // acha o próximo item pendente na fila (antes de marcar este como visto) — é a partir
+    // dele que o cronograma recalcula, pra "fechar" o espaço que esse item deixou vago.
+    const pendingBefore = sortItems(items.filter(i => !i.done));
+    const myIdx = pendingBefore.findIndex(i => i.id === id);
+    const nextItem = myIdx >= 0 ? pendingBefore[myIdx + 1] : null;
+    nextItemId = nextItem ? nextItem.id : null;
+  }
+  it.done = goingDone;
+  if (goingDone) {
+    markDoneToday();
+    it.completedAt = todayIso();
+    const eps = extractEpsCount(it.text);
+    if (eps) it.epDone = new Array(eps).fill(true);
+    delete it.watchStart; delete it.watchEnd; delete it.watchKind; delete it.epDates;
+    maybeAutoCollapsePhase(it.phase);
+    const stamp = el.parentElement.querySelector('.stamp');
+    if (stamp) {
+      stamp.classList.remove('show');
+      void stamp.offsetWidth;
+      stamp.classList.add('show');
+    }
+  } else {
+    delete it.completedAt;
+  }
+  save();
+  render();
+  checkAchievements();
+  if (goingDone && nextItemId) {
+    recomputeSchedule(nextItemId);
+    render();
+  }
+  if (goingDone) {
+    showToast('✓ Marcado como visto', () => {
+      // desfazer: repõe o item exatamente como estava e recalcula o cronograma a partir
+      // dele de novo, reabrindo o espaço que tinha sido fechado ao marcar como visto.
+      const idx = items.findIndex(i => i.id === id);
+      if (idx === -1) return;
+      items[idx] = snapshot;
+      recomputeSchedule(id);
+      save();
+      render();
+      showToast('↺ Desfeito');
+    });
+    setTimeout(() => {
+      const nextRow = document.querySelector('.item:not(.done)');
+      if (nextRow) nextRow.scrollIntoView({ behavior: 'smooth', block: 'center' });
+    }, 350);
+  }
+}
+
+function startDateEdit(id, rowEl) {
+  if (rowEl.querySelector('.date-edit-wrap')) return; // já em edição
+  const it = items.find(i => i.id === id);
+  if (!it || it.done || !it.watchStart) return;
+  const dateLine = rowEl.querySelector('.watch-date');
+  if (!dateLine) return;
+
+  const wrap = document.createElement('div');
+  wrap.className = 'date-edit-wrap';
+  const input = document.createElement('input');
+  input.type = 'date';
+  input.value = it.watchStart;
+  const applyBtn = document.createElement('button');
+  applyBtn.className = 'apply-btn';
+  applyBtn.textContent = '✔ Aplicar (recalcula o resto a partir daqui)';
+  const cancelBtn = document.createElement('button');
+  cancelBtn.className = 'cancel-btn';
+  cancelBtn.textContent = 'Cancelar';
+  wrap.appendChild(input);
+  wrap.appendChild(applyBtn);
+  wrap.appendChild(cancelBtn);
+  dateLine.after(wrap);
+
+  applyBtn.addEventListener('click', (ev) => {
+    ev.stopPropagation();
+    const newDate = input.value;
+    if (!newDate) return;
+    recomputeSchedule(it.id, newDate);
+    render();
+    showToast('📅 Data ajustada — cronograma recalculado a partir daqui');
+  });
+  cancelBtn.addEventListener('click', (ev) => { ev.stopPropagation(); render(); });
+}
+
+function startEdit(id, rowEl, textEl) {
+  if (rowEl.querySelector('.edit-input')) return; // já em edição
+  const it = items.find(i => i.id === id);
+  if (!it) return;
+  const input = document.createElement('input');
+  input.type = 'text';
+  input.className = 'edit-input';
+  input.value = it.text;
+  input.style.cssText = 'flex:1;background:var(--ink2);border:1px solid var(--gold);border-radius:4px;color:var(--paper);padding:6px 8px;font-size:0.9rem;font-family:"Work Sans",sans-serif;';
+  textEl.replaceWith(input);
+  input.focus();
+  input.setSelectionRange(input.value.length, input.value.length);
+
+  function commit() {
+    const val = input.value.trim();
+    if (val) {
+      it.text = val;
+      save();
+    }
+    render();
+  }
+  input.addEventListener('keydown', (e) => {
+    if (e.key === 'Enter') commit();
+    if (e.key === 'Escape') render();
+  });
+  input.addEventListener('blur', commit);
+}
+
+function moveItem(id, dir) {
+  const it = items.find(i => i.id === id);
+  if (!it) return;
+  const siblings = items.filter(i => i.phase === it.phase).sort((a,b) => (a.order ?? 0) - (b.order ?? 0));
+  const idx = siblings.findIndex(i => i.id === id);
+  const swapIdx = idx + dir;
+  if (swapIdx < 0 || swapIdx >= siblings.length) return;
+  const other = siblings[swapIdx];
+  const tmp = it.order;
+  it.order = other.order;
+  other.order = tmp;
+  save();
+  // a troca de ordem muda quem vem antes na fila — recalcula o cronograma a partir do primeiro
+  // dos dois (na nova ordem) que ainda não foi assistido, senão as datas ficam desencontradas.
+  const earlier = dir < 0 ? it : other;
+  const later = dir < 0 ? other : it;
+  const anchor = !earlier.done ? earlier : (!later.done ? later : null);
+  if (anchor) {
+    autoReschedule('item reordenado', anchor.id);
+  } else {
+    render();
+  }
+}
+
+function removeItem(id) {
+  const it = items.find(i => i.id === id);
+  const label = it ? it.text.replace(/^[^\wÀ-ÿ]+/, '').slice(0, 40) : 'este item';
+  if (!confirm(`Remover "${label}" da lista? Vai pra lixeira, dá pra restaurar depois.`)) return;
+  // captura qual item vem logo depois, na ordem, ANTES de remover — é a partir dele que o cronograma recalcula
+  const pendingBefore = sortItems(items.filter(i => !i.done));
+  const myIdx = pendingBefore.findIndex(i => i.id === id);
+  const nextItem = myIdx >= 0 ? pendingBefore[myIdx + 1] : null;
+  if (it) trash.push(it);
+  items = items.filter(i => i.id !== id);
+  save();
+  render();
+  showToast('🗑 Movido pra lixeira');
+  autoReschedule('item removido', nextItem ? nextItem.id : null);
+}
+
+document.getElementById('addBtn').addEventListener('click', addNewItem);
+document.getElementById('newItemText').addEventListener('keydown', (e) => {
+  if (e.key === 'Enter') addNewItem();
+});
+
+function populateInsertAfterSelect() {
+  const phase = document.getElementById('phaseSelect').value;
+  const sel = document.getElementById('insertAfterSelect');
+  const inPhase = sortItems(items.filter(i => i.phase === phase));
+  sel.innerHTML = '<option value="__end__">No final da fase</option>' +
+    inPhase.map(i => `<option value="${i.id}">Depois de: ${escapeHtml(i.text.slice(0,50))}</option>`).join('');
+}
+document.getElementById('phaseSelect').addEventListener('change', populateInsertAfterSelect);
+
+function addNewItem() {
+  const input = document.getElementById('newItemText');
+  const phase = document.getElementById('phaseSelect').value;
+  const text = input.value.trim();
+  if (!text) return;
+  const afterVal = document.getElementById('insertAfterSelect').value;
+  let order;
+  if (afterVal === '__end__' || !afterVal) {
+    const maxOrder = items.filter(i => i.phase === phase).reduce((m,i) => Math.max(m, i.order ?? 0), -1);
+    order = maxOrder + 1;
+  } else {
+    const afterItem = items.find(i => i.id === parseInt(afterVal, 10));
+    const inPhase = sortItems(items.filter(i => i.phase === phase));
+    const idx = inPhase.findIndex(i => i.id === afterItem.id);
+    const nextItem = inPhase[idx + 1];
+    order = nextItem ? ((afterItem.order ?? 0) + (nextItem.order ?? afterItem.order + 2)) / 2 : (afterItem.order ?? 0) + 0.5;
+  }
+  items.push({ id: nextId++, phase, text, done: false, order });
+  input.value = '';
+  save();
+  render();
+  populateInsertAfterSelect();
+  populateMoveSelects();
+  autoReschedule('item adicionado', nextId - 1);
+}
+
+document.getElementById('searchInput').addEventListener('input', render);
+
+document.getElementById('searchToggleBtn').addEventListener('click', () => {
+  document.getElementById('searchWrap').classList.add('open');
+  document.getElementById('searchInput').focus();
+});
+document.getElementById('searchInput').addEventListener('blur', () => {
+  if (!document.getElementById('searchInput').value) {
+    document.getElementById('searchWrap').classList.remove('open');
+  }
+});
+
+window.addEventListener('scroll', () => {
+  const wrap = document.getElementById('searchWrap');
+  if (!wrap) return;
+  if (window.scrollY > 120) {
+    wrap.classList.add('collapsed');
+  } else {
+    wrap.classList.remove('collapsed');
+    wrap.classList.remove('open');
+  }
+}, { passive: true });
+
+document.getElementById('btnFilterMenu').addEventListener('click', (e) => {
+  e.stopPropagation();
+  document.getElementById('typeMenu').classList.remove('open');
+  document.getElementById('filterMenu').classList.toggle('open');
+});
+document.addEventListener('click', () => {
+  document.getElementById('filterMenu').classList.remove('open');
+  document.getElementById('typeMenu').classList.remove('open');
+});
+
+document.getElementById('btnPending').addEventListener('click', (e) => {
+  onlyPending = !onlyPending;
+  e.currentTarget.textContent = (onlyPending ? '☑' : '☐') + ' Só o que falta';
+  e.currentTarget.classList.toggle('menu-active', onlyPending);
+  render();
+});
+
+document.getElementById('btnNext7').addEventListener('click', (e) => {
+  showNext7 = !showNext7;
+  e.currentTarget.textContent = (showNext7 ? '☑' : '☐') + ' Próximos 7 dias';
+  e.currentTarget.classList.toggle('menu-active', showNext7);
+  document.querySelector('.search-wrap').style.display = showNext7 ? 'none' : '';
+  render();
+});
+
+function applyTheme(light) {
+  document.body.classList.toggle('light', light);
+  try { localStorage.setItem('ucm-theme', light ? 'light' : 'dark'); } catch(e) {}
+}
+document.getElementById('btnTheme').addEventListener('click', () => {
+  applyTheme(!document.body.classList.contains('light'));
+  showToast(document.body.classList.contains('light') ? '☀️ Tema claro ativado' : '🌙 Tema escuro ativado');
+});
+try {
+  applyTheme(localStorage.getItem('ucm-theme') === 'light');
+} catch(e) {}
+
+function downloadBackup(filename) {
+  const blob = new Blob([JSON.stringify({ version: LIST_VERSION, items: items, trash: trash }, null, 2)], { type: 'application/json' });
+  const url = URL.createObjectURL(blob);
+  const a = document.createElement('a');
+  a.href = url;
+  a.download = filename;
+  a.click();
+  URL.revokeObjectURL(url);
+}
+
+document.getElementById('btnExport').addEventListener('click', () => {
+  downloadBackup('ucm-watchlist-backup.json');
+  showToast('⬇ Backup exportado!');
+});
+
+// Backup automático de segurança: o progresso vive só no armazenamento local do navegador —
+// se limpar dados do app, trocar de aparelho ou o navegador resetar, some tudo sem chance de
+// recuperar. A cada 7 dias (no máximo), baixa sozinho uma cópia de backup, sem precisar lembrar.
+const AUTO_BACKUP_INTERVAL_DAYS = 7;
+function maybeAutoBackup() {
+  if (!items.length) return;
+  let last = null;
+  try { last = localStorage.getItem('ucm-last-auto-backup'); } catch(e) {}
+  if (last) {
+    const days = (Date.now() - new Date(last).getTime()) / 86400000;
+    if (days < AUTO_BACKUP_INTERVAL_DAYS) return;
+  }
+  try {
+    downloadBackup(`ucm-watchlist-backup-auto-${todayIso()}.json`);
+    localStorage.setItem('ucm-last-auto-backup', new Date().toISOString());
+    showToast('📦 Backup automático de segurança baixado');
+  } catch(e) {}
+}
+
+document.getElementById('btnImport').addEventListener('click', () => {
+  document.getElementById('importFile').click();
+});
+document.getElementById('importFile').addEventListener('change', (e) => {
+  const file = e.target.files[0];
+  if (!file) return;
+  const reader = new FileReader();
+  reader.onload = () => {
+    try {
+      const parsed = JSON.parse(reader.result);
+      const importedItems = Array.isArray(parsed) ? parsed : parsed.items;
+      if (!Array.isArray(importedItems)) throw new Error('formato inválido');
+      if (!confirm('Importar esse backup vai substituir sua lista atual. Continuar?')) return;
+      items = withOrder(importedItems);
+      trash = Array.isArray(parsed.trash) ? parsed.trash : [];
+      nextId = items.reduce((m,i) => Math.max(m, i.id), 0) + 1;
+      save();
+      render();
+      showToast('⬆ Backup importado com sucesso!');
+    } catch (err) {
+      showToast('❌ Arquivo inválido');
+    }
+  };
+  reader.readAsText(file);
+  e.target.value = '';
+});
+
+document.getElementById('btnFavOnly').addEventListener('click', (e) => {
+  favOnly = !favOnly;
+  e.currentTarget.textContent = (favOnly ? '☑' : '☐') + ' Só favoritos';
+  e.currentTarget.classList.toggle('menu-active', favOnly);
+  render();
+});
+document.getElementById('btnAlpha').addEventListener('click', (e) => {
+  alphaMode = !alphaMode;
+  e.currentTarget.textContent = (alphaMode ? '☑' : '☐') + ' Ordem alfabética';
+  e.currentTarget.classList.toggle('menu-active', alphaMode);
+  render();
+});
+document.getElementById('btnCompact').addEventListener('click', (e) => {
+  compactMode = !compactMode;
+  e.currentTarget.textContent = (compactMode ? '☑' : '☐') + ' Modo compacto (oculta detalhes)';
+  e.currentTarget.classList.toggle('menu-active', compactMode);
+  render();
+});
+document.getElementById('btnPalette').addEventListener('click', showPaletteMenu);
+document.getElementById('btnTrash').addEventListener('click', showTrash);
+document.getElementById('btnForceSync').addEventListener('click', forceSync);
+document.getElementById('btnSyncPush').addEventListener('click', () => {
+  setSyncStatus('🔄 Enviando pra nuvem...');
+  pushToCloudNow();
+});
+document.getElementById('btnSyncPull').addEventListener('click', pullFromCloudNow);
+document.getElementById('btnSyncJoin').addEventListener('click', () => {
+  const atual = getSyncCode();
+  const novo = prompt('Cole aqui o código de sincronização do outro aparelho (ou deixe igual pra manter o mesmo):', atual);
+  if (novo) joinSyncCode(novo);
+});
+document.getElementById('modalCloseX').addEventListener('click', closeModal);
+document.getElementById('btnShare').addEventListener('click', shareProgress);
+document.getElementById('btnFitsTime').addEventListener('click', showFitsTimePicker);
+document.getElementById('btnMarathon').addEventListener('click', openMarathon);
+document.getElementById('btnPace').addEventListener('click', showPaceAdjuster);
+document.getElementById('btnMultiSelect').addEventListener('click', (e) => {
+  multiSelectMode = !multiSelectMode;
+  selectedIds.clear();
+  e.currentTarget.textContent = (multiSelectMode ? '☑' : '☐') + ' Selecionar vários';
+  e.currentTarget.classList.toggle('menu-active', multiSelectMode);
+  if (multiSelectMode) {
+    const bar = document.createElement('div');
+    bar.id = 'multiSelectBar';
+    bar.style.cssText = 'position:fixed;bottom:60px;left:0;right:0;background:var(--crimson);padding:10px;text-align:center;z-index:5;max-width:640px;margin:0 auto;';
+    bar.innerHTML = '<button id="markSelectedBtn" style="background:var(--gold);color:var(--ink);border:none;border-radius:6px;padding:8px 14px;font-family:\'Bangers\',cursive;">Marcar selecionados como vistos</button>';
+    document.body.appendChild(bar);
+    document.getElementById('markSelectedBtn').addEventListener('click', () => {
+      selectedIds.forEach(id => {
+        const it = items.find(i => i.id === id);
+        if (!it) return;
+        it.done = true;
+        it.completedAt = todayIso();
+        const eps = extractEpsCount(it.text);
+        if (eps) it.epDone = new Array(eps).fill(true);
+        delete it.watchStart; delete it.watchEnd; delete it.watchKind; delete it.epDates;
+      });
+      if (selectedIds.size > 0) markDoneToday();
+      new Set(items.map(i => i.phase)).forEach(maybeAutoCollapsePhase);
+      saveCollapsedPhases();
+      selectedIds.clear();
+      save();
+      render();
+      checkAchievements();
+    });
+  } else {
+    const bar = document.getElementById('multiSelectBar');
+    if (bar) bar.remove();
+  }
+  render();
+});
+
+// ---- Menu de Tipo (filme/série/jogo) ----
+document.getElementById('btnTypeMenu').addEventListener('click', (e) => {
+  e.stopPropagation();
+  document.getElementById('filterMenu').classList.remove('open');
+  document.getElementById('typeMenu').classList.toggle('open');
+});
+function setKindFilter(val) {
+  kindFilter = val;
+  document.querySelectorAll('#typeMenu button').forEach(b => {
+    b.classList.remove('menu-active');
+    b.textContent = b.textContent.replace(/^[●○]/, '○');
+  });
+  const map = { null: 'btnTypeAll', filme: 'btnTypeFilme', serie: 'btnTypeSerie', jogo: 'btnTypeJogo' };
+  const activeBtn = document.getElementById(map[val === null ? 'null' : val]);
+  if (activeBtn) {
+    activeBtn.classList.add('menu-active');
+    activeBtn.textContent = activeBtn.textContent.replace(/^○/, '●');
+  }
+  render();
+}
+document.getElementById('btnTypeAll').addEventListener('click', () => setKindFilter(null));
+document.getElementById('btnTypeFilme').addEventListener('click', () => setKindFilter('filme'));
+document.getElementById('btnTypeSerie').addEventListener('click', () => setKindFilter('serie'));
+document.getElementById('btnTypeJogo').addEventListener('click', () => setKindFilter('jogo'));
+
+// ---- Filtro por herói/franquia ----
+function updateHeroActiveBar() {
+  const bar = document.getElementById('heroActiveBar');
+  if (!bar) return;
+  if (!heroFilter) { bar.style.display = 'none'; bar.innerHTML = ''; return; }
+  const group = HERO_GROUPS.find(g => g.id === heroFilter);
+  bar.style.display = 'flex';
+  bar.innerHTML = `<span>${group ? group.emoji + ' ' + escapeHtml(group.label) : ''}</span>`;
+  const clearBtn = document.createElement('button');
+  clearBtn.textContent = '✕';
+  clearBtn.title = 'Limpar filtro de herói';
+  clearBtn.addEventListener('click', () => { heroFilter = null; updateHeroActiveBar(); render(); });
+  bar.appendChild(clearBtn);
+}
+
+function setHeroFilter(id) {
+  heroFilter = id;
+  updateHeroActiveBar();
+  closeModal();
+  render();
+}
+
+document.getElementById('btnHeroMenu').addEventListener('click', () => {
+  document.getElementById('filterMenu').classList.remove('open');
+  document.getElementById('typeMenu').classList.remove('open');
+  const gridHtml = HERO_GROUPS.map(g =>
+    `<button data-hero="${g.id}" class="${heroFilter === g.id ? 'menu-active' : ''}"><span class="emoji">${g.emoji}</span><span>${escapeHtml(g.label)}</span></button>`
+  ).join('');
+  openModal(`
+    <h3>🦸 Filtrar por herói/franquia</h3>
+    <p style="font-size:0.78rem;color:var(--muted);margin-bottom:10px;">Escolhe um pra ver só os itens dele na lista (filmes, séries e jogos juntos).</p>
+    <div class="hero-grid">
+      <button data-hero="__all__" class="${!heroFilter ? 'menu-active' : ''}"><span class="emoji">🌐</span><span>Todos (limpar filtro)</span></button>
+      ${gridHtml}
+    </div>
+  `);
+  document.getElementById('modalBox').classList.add('wide-modal');
+  document.querySelectorAll('.hero-grid button').forEach(btn => {
+    btn.addEventListener('click', () => {
+      const id = btn.dataset.hero;
+      setHeroFilter(id === '__all__' ? null : id);
+    });
+  });
+});
+
+// ---- Botão Calendário ----
+document.getElementById('btnCalendar').addEventListener('click', () => {
+  const monthNames = ['Janeiro','Fevereiro','Março','Abril','Maio','Junho','Julho','Agosto','Setembro','Outubro','Novembro','Dezembro'];
+  const nowY = new Date().getFullYear();
+  const monthOpts = monthNames.map((n,i) => `<option value="${i+1}">${n}</option>`).join('');
+  const yearOpts = [nowY-1, nowY, nowY+1, nowY+2].map(y => `<option value="${y}">${y}</option>`).join('');
+  openModal(`
+    <h3>📅 Calendário</h3>
+    <p style="font-size:0.78rem;color:var(--muted);margin-bottom:4px;">Ver tudo de um mês específico:</p>
+    <div style="display:flex;gap:6px;margin-bottom:10px;">
+      <select id="calMonthSel" style="flex:2;padding:8px;background:var(--ink);color:var(--paper);border:1px solid var(--line);border-radius:6px;">${monthOpts}</select>
+      <select id="calYearSel" style="flex:1;padding:8px;background:var(--ink);color:var(--paper);border:1px solid var(--line);border-radius:6px;">${yearOpts}</select>
+    </div>
+    <button id="calMonthApply" style="background:var(--gold);color:var(--ink);border:none;border-radius:6px;padding:8px 14px;font-family:'Bangers',cursive;margin-bottom:16px;">Filtrar mês</button>
+    <p style="font-size:0.78rem;color:var(--muted);margin:10px 0 4px;">Ou ver um período específico:</p>
+    <div style="display:flex;gap:6px;margin-bottom:10px;">
+      <input type="date" id="calStart" style="flex:1;padding:8px;background:var(--ink);color:var(--paper);border:1px solid var(--line);border-radius:6px;">
+      <input type="date" id="calEnd" style="flex:1;padding:8px;background:var(--ink);color:var(--paper);border:1px solid var(--line);border-radius:6px;">
+    </div>
+    <button id="calRangeApply" style="background:var(--gold);color:var(--ink);border:none;border-radius:6px;padding:8px 14px;font-family:'Bangers',cursive;">Filtrar período</button>
+    ${calendarFilter ? '<br><button id="calClear" style="margin-top:14px;background:none;border:1px solid var(--crimson);color:var(--crimson);border-radius:6px;padding:6px 12px;">Limpar filtro de data</button>' : ''}
+  `);
+  document.getElementById('calMonthApply').addEventListener('click', () => {
+    const m = parseInt(document.getElementById('calMonthSel').value, 10);
+    const y = parseInt(document.getElementById('calYearSel').value, 10);
+    const val = `${y}-${String(m).padStart(2,'0')}`;
+    const start = `${val}-01`;
+    const lastDay = new Date(y, m, 0).getDate();
+    const end = `${val}-${String(lastDay).padStart(2,'0')}`;
+    calendarFilter = { start, end };
+    showNext7 = false; alphaMode = false;
+    closeModal();
+    render();
+    showToast(`📅 Filtrando ${val}`);
+  });
+  document.getElementById('calRangeApply').addEventListener('click', () => {
+    const s = document.getElementById('calStart').value;
+    const en = document.getElementById('calEnd').value;
+    if (!s || !en) return;
+    calendarFilter = { start: s, end: en };
+    showNext7 = false; alphaMode = false;
+    closeModal();
+    render();
+    showToast(`📅 Filtrando ${s} até ${en}`);
+  });
+  const clearBtn = document.getElementById('calClear');
+  if (clearBtn) {
+    clearBtn.addEventListener('click', () => {
+      calendarFilter = null;
+      closeModal();
+      render();
+      showToast('📅 Filtro de data removido');
+    });
+  }
+});
+
+
+// ---- Sistema de abas ----
+// acha a linha do item de hoje (ou, se não tiver nada marcado pra hoje, o próximo pendente)
+// e rola até ela — usado ao abrir a lista, ao trocar de aba pra ela e pelo botão 🎯.
+function scrollToTodayItem(smooth) {
+  setTimeout(() => {
+    let target = document.querySelector('.item.today');
+    if (!target) {
+      const next = sortItems(items.filter(i => !i.done))[0];
+      if (next) {
+        const rows = document.querySelectorAll('.item');
+        for (const row of rows) {
+          if (row.querySelector('.item-text') && row.querySelector('.item-text').textContent.includes(next.text.slice(0,15))) {
+            target = row;
+            break;
+          }
+        }
+      }
+    }
+    if (target) {
+      target.scrollIntoView({ behavior: smooth ? 'smooth' : 'auto', block: 'center' });
+      target.style.outline = '2px solid var(--gold)';
+      setTimeout(() => target.style.outline = '', 1500);
+    }
+  }, 150);
+}
+
+function goToTodayItem() {
+  switchTabSilent('tabLista');
+  onlyPending = false; showNext7 = false; alphaMode = false; calendarFilter = null; favOnly = false; kindFilter = null; heroFilter = null;
+  updateHeroActiveBar();
+  render();
+  scrollToTodayItem(true);
+}
+
+// troca de aba sem mexer no scroll (usado internamente por goToTodayItem, que controla o scroll ele mesmo)
+function switchTabSilent(name) {
+  document.querySelectorAll('.tab-page').forEach(p => p.classList.remove('tab-visible'));
+  document.getElementById(name).classList.add('tab-visible');
+  document.querySelectorAll('.tabbar-btn').forEach(b => b.classList.toggle('tab-active', b.dataset.tab === name));
+}
+
+function switchTab(name) {
+  switchTabSilent(name);
+  if (name === 'tabEstatisticas') renderStatsPage();
+  if (name === 'tabConquistas') renderAchievementsPage();
+  if (name === 'tabConfig') { updateLastSavedInfo(); }
+  if (name === 'tabLista') {
+    scrollToTodayItem(false);
+  } else {
+    window.scrollTo(0, 0);
+  }
+}
+document.querySelectorAll('.tabbar-btn').forEach(btn => {
+  btn.addEventListener('click', () => switchTab(btn.dataset.tab));
+});
+document.getElementById('tabLista').classList.add('tab-visible');
+
+document.getElementById('btnGoToday').addEventListener('click', goToTodayItem);
+document.getElementById('btnScrollTop').addEventListener('click', () => {
+  window.scrollTo({ top: 0, behavior: 'smooth' });
+});
+document.getElementById('btnScrollBottom').addEventListener('click', () => {
+  window.scrollTo({ top: document.body.scrollHeight, behavior: 'smooth' });
+});
+function reloadAppNoCache(stayTab) {
+  // location.reload() sozinho pode vir do cache do navegador/app instalado e não pegar a
+  // versão nova publicada. Força buscar a página de novo do servidor, sem cache nenhum.
+  // Guarda em qual aba a pessoa estava, pra reabrir nela em vez de sempre cair na Lista.
+  try {
+    if (stayTab) localStorage.setItem('ucm-reload-tab', stayTab);
+    else localStorage.removeItem('ucm-reload-tab');
+  } catch(e) {}
+  const url = location.pathname + '?nocache=' + Date.now();
+  location.replace(url);
+}
+document.getElementById('btnReloadApp').addEventListener('click', () => reloadAppNoCache());
+document.getElementById('btnReloadHome').addEventListener('click', () => reloadAppNoCache('tabInicio'));
+
+function goToWatchNow() {
+  const next = sortItems(items.filter(i => !i.done))[0];
+  if (!next) { showToast('🎉 Tudo assistido!'); return; }
+  switchTab('tabLista');
+  onlyPending = false; showNext7 = false; alphaMode = false; calendarFilter = null; favOnly = false; kindFilter = null; heroFilter = null;
+  updateHeroActiveBar();
+  render();
+  setTimeout(() => {
+    const rows = document.querySelectorAll('.item');
+    for (const row of rows) {
+      if (row.querySelector('.item-text') && row.querySelector('.item-text').textContent.includes(next.text.slice(0,15))) {
+        row.scrollIntoView({ behavior: 'smooth', block: 'center' });
+        row.style.outline = '2px solid var(--gold)';
+        setTimeout(() => row.style.outline = '', 1500);
+        break;
+      }
+    }
+  }, 150);
+}
+document.getElementById('btnWatchNow').addEventListener('click', goToWatchNow);
+
+// ---- Estatísticas (agora página, não modal) ----
+function renderStatsPage() {
+  const el = document.getElementById('tabEstatisticas');
+  const doneTotal = items.filter(i => i.done).length;
+  const doneRated = items.filter(i => i.done && i.rating);
+  const avgRating = doneRated.length ? (doneRated.reduce((s,i) => s + i.rating, 0) / doneRated.length).toFixed(1) : '—';
+  let hoursWatched = 0;
+  items.filter(i => i.done).forEach(it => {
+    const k = it.watchKind || simpleKind(it);
+    if (k === 'jogo') { hoursWatched += HOURS_PER.jogo; return; }
+    const isShortItem = it.text.includes('One-Shot') || (it.text.includes('What If') && !it.text.includes('T3'));
+    if (isShortItem) { hoursWatched += 0.33; return; }
+    const m = it.text.match(/(\d+)\s*eps/);
+    const eps = m ? parseInt(m[1], 10) : 1;
+    hoursWatched += eps * (HOURS_PER[k === 'serie' ? 'anim' : k] || 1);
+  });
+
+  const byMonth = {};
+  items.filter(i => i.done && i.completedAt).forEach(it => {
+    const key = it.completedAt.slice(0,7);
+    byMonth[key] = (byMonth[key] || 0) + 1;
+  });
+  const keys = Object.keys(byMonth).sort();
+  const max = Math.max(1, ...Object.values(byMonth));
+  let rows = keys.map(k => `
+    <div class="bar-row">
+      <div class="bar-label">${k}</div>
+      <div class="bar-track"><div class="bar-fill" style="width:${100*byMonth[k]/max}%"></div></div>
+      <div>${byMonth[k]}</div>
+    </div>`).join('');
+  if (!rows) rows = '<p style="font-size:0.75rem;color:var(--muted);">Ainda sem itens concluídos com data.</p>';
+
+  const filmes = items.filter(i => i.done && simpleKind(i) === 'filme').length;
+  const series = items.filter(i => i.done && simpleKind(i) === 'serie').length;
+  const jogos = items.filter(i => i.done && simpleKind(i) === 'jogo').length;
+
+  el.innerHTML = `
+    <h2 style="font-family:'Bangers',cursive;color:var(--gold);margin-top:0;">📊 Estatísticas</h2>
+    <div class="stat-card">
+      <h4>Resumo</h4>
+      <div class="stat-grid">
+        <div class="stat-box"><div class="num">${doneTotal}/${items.length}</div><div class="lbl">TÍTULOS</div></div>
+        <div class="stat-box"><div class="num">${Math.round(hoursWatched)}h</div><div class="lbl">ASSISTIDAS</div></div>
+        <div class="stat-box"><div class="num">${avgRating}</div><div class="lbl">NOTA MÉDIA (0-10)</div></div>
+        <div class="stat-box"><div class="num">${Math.round(100*doneTotal/items.length)}%</div><div class="lbl">CONCLUÍDO</div></div>
+      </div>
+    </div>
+    <div class="stat-card">
+      <h4>Filmes x Séries x Jogos</h4>
+      <div class="stat-grid">
+        <div class="stat-box"><div class="num">${filmes}</div><div class="lbl">FILMES/CURTAS</div></div>
+        <div class="stat-box"><div class="num">${series}</div><div class="lbl">SÉRIES</div></div>
+        <div class="stat-box"><div class="num">${jogos}</div><div class="lbl">JOGOS</div></div>
+      </div>
+    </div>
+    <div class="stat-card">
+      <h4>Progresso por mês</h4>
+      ${rows}
+    </div>
+  `;
+}
+
+// ---- Conquistas ----
+function allDone(list, substrings) {
+  return substrings.every(sub => list.some(i => i.text.includes(sub) && i.done));
+}
+
+const ACHIEVEMENTS = [
+  // ---- marcos gerais ----
+  { cat: 'Marcos', id: 'a10', icon: '🥉', name: '10 títulos', test: (d) => d >= 10 },
+  { cat: 'Marcos', id: 'a50', icon: '🥈', name: '50 títulos', test: (d) => d >= 50 },
+  { cat: 'Marcos', id: 'a100', icon: '🥇', name: '100 títulos', test: (d) => d >= 100 },
+  { cat: 'Marcos', id: 'streak5', icon: '🔥', name: '5 dias seguidos', test: () => {
+      let days = [];
+      try { days = JSON.parse(localStorage.getItem('ucm-streak-days') || '[]'); } catch(e) {}
+      return days.length >= 5;
+    }
+  },
+  { cat: 'Marcos', id: 'fav1', icon: '❤️', name: 'Primeiro favorito', test: (d, t, list) => list.some(i => i.favorite) },
+
+  // ---- sagas de equipe ----
+  { cat: 'Sagas de Equipe', id: 'avengers', icon: '🛡️', name: 'Os Mais Poderosos da Terra', hint: 'filmes dos Vingadores', test: (d,t,list) => allDone(list, [
+      'Os Vingadores (2012)', 'Vingadores: Era de Ultron', 'Vingadores: Guerra Infinita', 'Vingadores: Ultimato', 'Vingadores: Doomsday', 'Vingadores: Guerras Secretas'
+    ]) },
+  { cat: 'Sagas de Equipe', id: 'xmen', icon: '🧬', name: 'Homo Superior', hint: 'filmes principais dos X-Men', test: (d,t,list) => allDone(list, [
+      'X-Men: Primeira Classe', 'X-Men: Dias de um Futuro Esquecido', 'X-Men: Apocalipse', 'X-Men (2000)', 'X-Men 2 (2003)', 'X-Men: O Confronto Final', 'X-Men: Fênix Negra', 'Os Novos Mutantes'
+    ]) },
+  { cat: 'Sagas de Equipe', id: 'gotg', icon: '🚀', name: 'Os Perdedores da Galáxia', hint: 'filmes dos Guardiões da Galáxia', test: (d,t,list) => allDone(list, [
+      'Guardiões da Galáxia (2014)', 'Guardiões da Galáxia Vol. 2', 'Guardiões da Galáxia Vol. 3', 'Guardiões da Galáxia: Especial de Festas'
+    ]) },
+  { cat: 'Sagas de Equipe', id: 'ff', icon: '🔥', name: 'Primeira Família da Marvel', hint: 'filmes do Quarteto Fantástico', test: (d,t,list) => allDone(list, [
+      'Quarteto Fantástico (2005)', 'Quarteto Fantástico e o Surfista Prateado', 'Quarteto Fantástico: Primeiros Passos', 'Quarteto Fantástico (2015)'
+    ]) },
+
+  // ---- herois solo ----
+  { cat: 'Heróis Solo', id: 'spidey', icon: '🕷️', name: 'Seu Amigo da Vizinhança', hint: 'filmes solo do Homem-Aranha', test: (d,t,list) => allDone(list, [
+      'Homem-Aranha (2002)', 'Homem-Aranha 2 (2004)', 'Homem-Aranha 3 (2007)', 'O Espetacular Homem-Aranha (2012)', 'O Espetacular Homem-Aranha 2 (2014)', 'Homem-Aranha: De Volta ao Lar', 'Homem-Aranha: Longe de Casa', 'Homem-Aranha: Sem Volta Para Casa', 'Homem-Aranha: Um Novo Dia'
+    ]) },
+  { cat: 'Heróis Solo', id: 'thor', icon: '⚡', name: 'Deus do Trovão', hint: 'filmes solo do Thor', test: (d,t,list) => {
+      const thor1 = list.some(i => i.text.trim() === '🎬 Thor' && i.done);
+      return thor1 && allDone(list, ['Thor: O Mundo Sombrio', 'Thor: Ragnarok', 'Thor: Amor e Trovão']);
+    } },
+  { cat: 'Heróis Solo', id: 'ironman', icon: '🤖', name: 'Genial, Bilionário, Filantropo', hint: 'filmes do Homem de Ferro', test: (d,t,list) => allDone(list, [
+      'Homem de Ferro (2008', 'Homem de Ferro 2', 'Homem de Ferro 3'
+    ]) },
+  { cat: 'Heróis Solo', id: 'cap', icon: '🦅', name: 'O Primeiro Vingador', hint: 'filmes do Capitão América', test: (d,t,list) => allDone(list, [
+      'Capitão América: O Primeiro Vingador', 'Capitão América: O Soldado Invernal', 'Capitão América: Guerra Civil', 'Capitão América: Admirável Mundo Novo'
+    ]) },
+  { cat: 'Heróis Solo', id: 'strange', icon: '🌀', name: 'Mestre das Artes Místicas', hint: 'filmes do Doutor Estranho', test: (d,t,list) => allDone(list, [
+      'Doutor Estranho (2016', 'Doutor Estranho no Multiverso da Loucura'
+    ]) },
+  { cat: 'Heróis Solo', id: 'panther', icon: '🐾', name: 'Wakanda Para Sempre', hint: 'filmes do Pantera Negra', test: (d,t,list) => allDone(list, [
+      'Pantera Negra (2016)', 'Pantera Negra: Wakanda Para Sempre'
+    ]) },
+  { cat: 'Heróis Solo', id: 'antman', icon: '🐜', name: 'Tamanho Não é Documento', hint: 'filmes do Homem-Formiga', test: (d,t,list) => allDone(list, [
+      'Homem-Formiga (2015)', 'Homem-Formiga e a Vespa (2018)', 'Homem-Formiga e a Vespa: Quantumania'
+    ]) },
+  { cat: 'Heróis Solo', id: 'marvel', icon: '✨', name: 'Mais Forte que Todos', hint: 'filmes da Capitã Marvel', test: (d,t,list) => allDone(list, [
+      'Capitã Marvel (1995)', 'As Marvels'
+    ]) },
+  { cat: 'Heróis Solo', id: 'venom', icon: '🖤', name: 'Letal Protetor', hint: 'filmes do Venom', test: (d,t,list) => allDone(list, [
+      'Venom (2018)', 'Venom: Tempo de Carnificina', 'Venom: A Última Rodada'
+    ]) },
+  { cat: 'Heróis Solo', id: 'blade', icon: '🩸', name: 'Caçador Diurno', hint: 'filmes do Blade', test: (d,t,list) => allDone(list, [
+      'Blade (1998)', 'Blade II', 'Blade: Trinity'
+    ]) },
+  { cat: 'Heróis Solo', id: 'ghostrider', icon: '💀', name: 'Espírito da Vingança', hint: 'filmes do Motoqueiro Fantasma', test: (d,t,list) => allDone(list, [
+      'Motoqueiro Fantasma (2007)', 'Motoqueiro Fantasma: Espírito de Vingança'
+    ]) },
+  { cat: 'Heróis Solo', id: 'deadpool', icon: '💬', name: 'Mercenário Tagarela', hint: 'filmes do Deadpool', test: (d,t,list) => allDone(list, [
+      'Deadpool (2016)', 'Deadpool 2 (2018)', 'Deadpool & Wolverine'
+    ]) },
+  { cat: 'Heróis Solo', id: 'wolverine', icon: '🐺', name: 'O Melhor no que Faz', hint: 'filmes solo do Wolverine', test: (d,t,list) => allDone(list, [
+      'X-Men Origens: Wolverine', 'Wolverine: Imortal', 'Logan (2029'
+    ]) },
+
+  // ---- series ----
+  { cat: 'Séries', id: 'daredevil', icon: '😈', name: 'O Homem Sem Medo', hint: 'toda a saga do Demolidor', test: (d,t,list) => allDone(list, [
+      'Demolidor T1 (2015)', 'Demolidor T2', 'Demolidor T3 (2018)', 'Demolidor: Renascido T1', 'Demolidor: Renascido T2'
+    ]) },
+  { cat: 'Séries', id: 'ironfist', icon: '👊', name: 'Punho de Ferro Vivo', hint: 'Punho de Ferro T1 e T2', test: (d,t,list) => allDone(list, [
+      'Punho de Ferro T1', 'Punho de Ferro T2'
+    ]) },
+  { cat: 'Séries', id: 'punisher', icon: '☠️', name: 'Castigo Sem Piedade', hint: 'toda a saga do Justiceiro', test: (d,t,list) => allDone(list, [
+      'O Justiceiro T1', 'O Justiceiro T2', 'Especial do Justiceiro'
+    ]) },
+  { cat: 'Séries', id: 'jessicajones', icon: '🥃', name: 'Investigadora Particular', hint: 'Jessica Jones T1 a T3', test: (d,t,list) => allDone(list, [
+      'Jessica Jones T1', 'Jessica Jones T2', 'Jessica Jones T3'
+    ]) },
+  { cat: 'Séries', id: 'lukecage', icon: '🟨', name: 'Pele Inquebrável', hint: 'Luke Cage T1 e T2', test: (d,t,list) => allDone(list, [
+      'Luke Cage T1', 'Luke Cage T2'
+    ]) },
+  { cat: 'Séries', id: 'shield', icon: '🕶️', name: 'Agente de Campo', hint: 'todas as temporadas de Agents of S.H.I.E.L.D.', test: (d,t,list) => allDone(list, [
+      'Agents of S.H.I.E.L.D. T1 ep. 1–7', 'Agents of S.H.I.E.L.D. T1 ep. 8–16', 'Agents of S.H.I.E.L.D. T1 ep. 17–22',
+      'Agents of S.H.I.E.L.D. T2 ep. 1–19', 'Agents of S.H.I.E.L.D. T2 ep. 20–22', 'Agents of S.H.I.E.L.D. T3',
+      'Agents of S.H.I.E.L.D. T4', 'Agents of S.H.I.E.L.D. T5', 'Agents of S.H.I.E.L.D. T6', 'Agents of S.H.I.E.L.D. T7'
+    ]) },
+  { cat: 'Séries', id: 'loki', icon: '🐍', name: 'O Deus da Trapaça', hint: 'Loki T1 e T2', test: (d,t,list) => allDone(list, [
+      'Loki T1', 'Loki T2'
+    ]) },
+  { cat: 'Séries', id: 'whatif', icon: '👁️', name: 'Guardião do Multiverso', hint: 'chegar na 3ª temporada de What If...?', test: (d,t,list) => list.some(i => i.text.includes("What If…? T3") && i.done) },
+
+  // ---- porcentagem de progresso ----
+  { cat: 'Progresso', id: 'p20', icon: '🔹', name: '20% Concluído', test: (d,t) => t > 0 && d/t >= 0.20 },
+  { cat: 'Progresso', id: 'p50', icon: '🔷', name: 'Metade do Caminho', test: (d,t) => t > 0 && d/t >= 0.50 },
+  { cat: 'Progresso', id: 'p75', icon: '💠', name: 'Reta Final', test: (d,t) => t > 0 && d/t >= 0.75 },
+  { cat: 'Progresso', id: 'p100', icon: '💯', name: '100% Concluído', test: (d,t) => t > 0 && d === t },
+
+  // ---- conquistas finais ----
+  { cat: 'Finais', id: 'allseries', icon: '📺', name: 'Maratonista Profissional', hint: 'todas as séries da lista', test: (d,t,list) => list.filter(i => i.text.includes('📺')).every(i => i.done) },
+  { cat: 'Finais', id: 'allgames', icon: '🎮', name: 'Platina Desbloqueada', hint: 'todos os jogos da lista', test: (d,t,list) => list.filter(i => i.text.includes('🎮')).every(i => i.done) },
+  { cat: 'Finais', id: 'allmovies', icon: '🎬', name: 'Cinéfilo Master', hint: 'todos os filmes/curtas da lista', test: (d,t,list) => list.filter(i => i.text.includes('🎬') || i.text.includes('🎥')).every(i => i.done) },
+  { cat: 'Finais', id: 'all', icon: '👑', name: 'Lista Completa', hint: 'terminar a maratona inteira', test: (d, t) => d === t && t > 0 },
+  { cat: 'Finais', id: 'platinum', icon: '💿', name: 'Platina da Maratona', hint: 'o troféu definitivo — tudo, absolutamente tudo, visto', test: (d, t) => d === t && t > 0 },
+];
+
+function showAchievementPopup(a) {
+  const popup = document.createElement('div');
+  popup.className = 'achv-popup';
+  popup.innerHTML = `
+    <div class="achv-popup-icon">${a.icon}</div>
+    <div class="achv-popup-label">🏆 CONQUISTA DESBLOQUEADA</div>
+    <div class="achv-popup-name">${a.name}</div>
+  `;
+  document.body.appendChild(popup);
+  requestAnimationFrame(() => popup.classList.add('show'));
+  setTimeout(() => {
+    popup.classList.remove('show');
+    setTimeout(() => popup.remove(), 400);
+  }, 3200);
+}
+
+function checkAchievements() {
+  const doneTotal = items.filter(i => i.done).length;
+  const current = ACHIEVEMENTS.filter(a => a.test(doneTotal, items.length, items)).map(a => a.id);
+  let prev = [];
+  try { prev = JSON.parse(localStorage.getItem('ucm-unlocked-achv') || '[]'); } catch(e) {}
+  const newOnes = current.filter(id => !prev.includes(id));
+  try { localStorage.setItem('ucm-unlocked-achv', JSON.stringify(current)); } catch(e) {}
+  newOnes.forEach((id, i) => {
+    const a = ACHIEVEMENTS.find(x => x.id === id);
+    if (a) setTimeout(() => showAchievementPopup(a), i * 3400);
+  });
+}
+
+function renderAchievementsPage() {
+  const el = document.getElementById('tabConquistas');
+  const doneTotal = items.filter(i => i.done).length;
+  const cats = [];
+  ACHIEVEMENTS.forEach(a => { if (!cats.includes(a.cat)) cats.push(a.cat); });
+  let sections = '';
+  let unlockedCount = 0;
+  cats.forEach(cat => {
+    const catAchvs = ACHIEVEMENTS.filter(a => a.cat === cat);
+    const cards = catAchvs.map(a => {
+      const unlocked = a.test(doneTotal, items.length, items);
+      if (unlocked) unlockedCount++;
+      return `<div class="achv-card ${unlocked ? 'unlocked' : ''}" title="${a.hint || ''}"><span class="achv-icon">${a.icon}</span><span class="achv-name">${a.name}</span></div>`;
+    }).join('');
+    sections += `<h4 class="achv-cat-title">${cat}</h4><div class="achv-grid">${cards}</div>`;
+  });
+  el.innerHTML = `
+    <h2 style="font-family:'Bangers',cursive;color:var(--gold);margin-top:0;">🏆 Conquistas</h2>
+    <p style="font-size:0.8rem;color:var(--muted);">${unlockedCount}/${ACHIEVEMENTS.length} desbloqueadas</p>
+    ${sections}
+  `;
+}
+
+// ---- Recalculo automático do cronograma quando itens mudam ----
+function perEpisodeMinutes(it) {
+  if (it.watchKind === 'anim') return 22;
+  if (it.watchKind === 'live') return 48;
+  return 35;
+}
+function whereToWatch(it) {
+  const text = it.text;
+  if (text.includes('🎮')) return 'PS5';
+  const sonyKeywords = ['Homem-Aranha (2002)','Homem-Aranha 2','Homem-Aranha 3','O Espetacular Homem-Aranha','Homem-Aranha: De Volta ao Lar','Homem-Aranha: Longe de Casa','Homem-Aranha: Sem Volta Para Casa','Venom','Morbius','Madame Web','Kraven','Aranhaverso','Homem-Aranha no Aranhaverso','Homem-Aranha: Um Novo Dia'];
+  if (sonyKeywords.some(k => text.includes(k))) return 'Netflix / Prime Video (aprox.)';
+  return 'Disney+';
+}
+function episodeDateFor(it, episodeIdx, totalEps) {
+  if (it.epDates && it.epDates[episodeIdx]) return it.epDates[episodeIdx];
+  if (!it.watchStart || !it.watchEnd) return null;
+  const start = new Date(it.watchStart + 'T12:00:00');
+  const end = new Date(it.watchEnd + 'T12:00:00');
+  const totalDays = Math.round((end - start) / 86400000) + 1;
+  const dayIdx = Math.min(totalDays - 1, Math.floor(episodeIdx * totalDays / totalEps));
+  const d = new Date(start);
+  d.setDate(d.getDate() + dayIdx);
+  return fmtDateISO(d);
+}
+
+function buildEpisodeList(it, totalEps, perEp) {
+  if (!it.epDone) it.epDone = new Array(totalEps).fill(false);
+  const wrap = document.createElement('div');
+  wrap.className = 'episode-list';
+  for (let e = 1; e <= totalEps; e++) {
+    const row = document.createElement('div');
+    row.className = 'episode-row';
+    const check = document.createElement('input');
+    check.type = 'checkbox';
+    check.checked = !!it.epDone[e-1];
+    check.addEventListener('change', () => {
+      it.epDone[e-1] = check.checked;
+      save();
+      render();
+    });
+    const dateIso = episodeDateFor(it, e-1, totalEps);
+    const label = document.createElement('span');
+    label.textContent = `Episódio ${e} — ~${perEp} min` + (dateIso ? ` — ${dateIso.split('-').reverse().join('/')}` : '');
+    row.appendChild(check);
+    row.appendChild(label);
+    wrap.appendChild(row);
+  }
+  return wrap;
+}
+
+function updateSeriesPercent(it) {
+  if (!it.epDone) return;
+  const done = it.epDone.filter(Boolean).length;
+  const pct = Math.round(100 * done / it.epDone.length);
+  const el = document.querySelector(`.series-pct[data-id="${it.id}"]`);
+  if (el) el.textContent = `${pct}%`;
+}
+
+function extractEpsCount(text) {
+  const m = text.match(/(\d+)\s*eps/);
+  return m ? parseInt(m[1], 10) : null;
+}
+function isShortItem(text) {
+  if (text.includes('One-Shot')) return true;
+  if (text.includes('What If') && !text.includes('T3')) return true;
+  return false;
+}
+const PAUSE_WINDOWS = [
+  ['2026-10-10', '2026-10-14'],
+  ['2027-01-16', '2027-01-23'],
+];
+function isPauseDay(d) {
+  // períodos de "férias" de verdade: nada avança nesses dias, ritmo normal no resto.
+  const iso = fmtDateISO(d);
+  return PAUSE_WINDOWS.some(([start, end]) => iso >= start && iso <= end);
+}
+const SLOW_WINDOWS = [
+  ['2026-11-19', '2026-11-26'], // período de prova + começo do GTA VI: não para, só desacelera
+  ['2026-12-26', '2027-01-15'], // "maratona lenta" (Búzios/viagem)
+];
+function isSlowDay(d) {
+  // ritmo reduzido (1 ep/dia de série) nesses períodos — não é férias, dá pra manter vendo o
+  // item do dia enquanto estuda/viaja/joga mais. Também separa curtas de filmes (curta não
+  // gruda mais no mesmo dia de outro item) nesses dias.
+  const iso = fmtDateISO(d);
+  return SLOW_WINDOWS.some(([start, end]) => iso >= start && iso <= end);
+}
+function fmtDateISO(d) {
+  return `${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,'0')}-${String(d.getDate()).padStart(2,'0')}`;
+}
+
+// Recalcula as datas de tudo que ainda não foi assistido, a partir de amanhã,
+// preservando o ritmo original (filmes 1/dia, séries ~2,2 eps/dia, jogos 11 dias,
+// janeiro/2027 mais devagar, one-shots/what-if avulsos agrupados com o próximo item).
+function scheduleKind(it) {
+  if (it.text.includes('🎮')) return 'jogo';
+  if (it.text.includes('🎨')) return 'anim';
+  if (it.text.includes('📺')) return 'live';
+  return 'filme';
+}
+
+function weightedInterleave(counts) {
+  const n = counts.length;
+  const total = counts.reduce((a,b)=>a+b,0);
+  const acc = new Array(n).fill(0);
+  const result = [];
+  for (let i = 0; i < total; i++) {
+    let best = -1, bestRatio = Infinity;
+    for (let s = 0; s < n; s++) {
+      if (acc[s] >= counts[s]) continue;
+      const ratio = (acc[s] + 1) / counts[s];
+      if (ratio < bestRatio) { bestRatio = ratio; best = s; }
+    }
+    result.push(best);
+    acc[best]++;
+  }
+  return result;
+}
+
+// ordem de intercalação de um trio. Se cfg.phases existir, respeita a estreia real (ex.: trio
+// 1 — Ultimate Homem-Aranha estreou em 2012, sozinho, e só tinha a T1 inteira + 10 eps da T2 no
+// ar quando Vingadores Unidos estreou em maio/2013; o Hulk e os Agentes de S.M.A.S.H. só entrou
+// em agosto/2013, uns 11 eps de Vingadores depois): cada fase é uma contagem [ep. da série0,
+// ep. da série1, ep. da série2] pra intercalar SÓ entre quem já estreou naquele trecho (as
+// séries que ainda não entraram ficam com 0), e as fases são concatenadas em sequência. Sem
+// cfg.phases, cai no comportamento simples (as 3 juntas desde o início, proporcional ao total).
+function computeTrioOrder(cfg) {
+  if (cfg.phases) {
+    let order = [];
+    cfg.phases.forEach(phaseCounts => { order = order.concat(weightedInterleave(phaseCounts)); });
+    return order;
+  }
+  const counts = cfg.seasonSizes.map(seasons => seasons.reduce((a, b) => a + b, 0));
+  return weightedInterleave(counts);
+}
+
+// intercala os 3 itens de um grupo (ver TRIOS) no ritmo combinado de trioRateFor(). Genérico
+// pros dois trios: o antigo (Ultimate Homem-Aranha + Vingadores Unidos T1-T4 + Hulk and the
+// Agents of S.M.A.S.H., 2012-2019) e o novo (Homem-Aranha 2017 + Guardiões da Galáxia animado
+// + Vingadores Unidos T5, universo animado posterior — sem ligação com o primeiro trio).
+function findTrioConfig(it0, it1, it2) {
+  if (!it1 || !it2) return null;
+  return TRIOS.find(cfg => cfg.keys[0] === it0.key && cfg.keys[1] === it1.key && cfg.keys[2] === it2.key) || null;
+}
+function tryInterleaveTrio(pending, idx, current, RATE_ANIM, forceAnchor) {
+  const it0 = pending[idx];
+  const it1 = pending[idx + 1];
+  const it2 = pending[idx + 2];
+  const cfg = findTrioConfig(it0, it1, it2);
+  if (!cfg) return null;
+
+  // um trio com âncora real (cfg.forceAnchor) já começou de verdade numa data fixa, fora do
+  // controle do cronograma. Se já tinha uma data de início e ela já passou (ou é hoje), essa
+  // data é fixa e nunca deve ser empurrada pra frente só porque outros itens da lista foram
+  // marcados como vistos/recalculados — só recalcula a partir do cursor normal se o trio
+  // ainda nem tinha começado. Excepção: quando essa chamada é uma correção forçada
+  // (forceAnchor, ex.: enforceTrioAnchor corrigindo uma data errada vinda de sync ou de bug
+  // antigo), o cursor recebido (current) é a própria data correta e deve vencer o
+  // watchStart antigo/errado. Um trio sem âncora real (cfg.forceAnchor null) simplesmente
+  // usa o cursor sequencial normal, como qualquer outro item da lista.
+  const todayIso = fmtDateISO(new Date());
+  let startCursor = current;
+  if (cfg.forceAnchor) {
+    if (!forceAnchor && it0.watchStart && it0.watchStart <= todayIso) {
+      startCursor = new Date(it0.watchStart + 'T12:00:00');
+    } else if (forceAnchor) {
+      startCursor = new Date(cfg.forceAnchor + 'T12:00:00');
+    }
+  }
+
+  // ordem de intercalação: computeTrioOrder() respeita cfg.phases quando existir (entrada
+  // escalonada real, ex. trio 1) e usa cfg.seasonSizes (fonte estável, não o texto do item —
+  // que pode ter sido preservado/editado pelo usuário) como fallback pro trio sem fases.
+  const order = computeTrioOrder(cfg);
+  const totalEps = order.length;
+  const epDatesPerShow = [[], [], []];
+  let dayCursor = new Date(startCursor);
+  let i = 0;
+  while (i < totalEps) {
+    if (!isPauseDay(dayCursor)) {
+      const rate = trioRateFor(fmtDateISO(dayCursor));
+      for (let k = 0; k < rate && i < totalEps; k++, i++) {
+        epDatesPerShow[order[i]].push(fmtDateISO(dayCursor));
+      }
+    }
+    dayCursor.setDate(dayCursor.getDate() + 1);
+  }
+  [it0, it1, it2].forEach((it, s) => {
+    it.epDates = epDatesPerShow[s];
+    it.watchStart = epDatesPerShow[s][0];
+    it.watchEnd = epDatesPerShow[s][epDatesPerShow[s].length - 1];
+    it.watchKind = 'anim';
+  });
+  return new Date(dayCursor);
+}
+
+// Hit-Monkey (T1+T2) e M.O.D.O.K. — extras fora da continuidade oficial, 30 eps no total,
+// ~30min cada, ritmo de 2 eps/dia (mais lento que o padrão de anim de 3/dia) em sequência.
+function tryDualExtra(pending, idx, current) {
+  const it0 = pending[idx];
+  if (!it0.id || it0.id < 1000 || it0.id > 1099) return null;
+  const RATE = 2;
+  const total = extractEpsCount(it0.text) || 1;
+  let rem = total;
+  let d = new Date(current);
+  let startD = null, lastGood = null;
+  while (rem > 0) {
+    if (!isPauseDay(d)) {
+      if (startD === null) startD = new Date(d);
+      rem -= RATE;
+      lastGood = new Date(d);
+    }
+    d.setDate(d.getDate() + 1);
+  }
+  it0.watchStart = fmtDateISO(startD);
+  it0.watchEnd = fmtDateISO(lastGood);
+  it0.watchKind = 'anim';
+  const next = new Date(lastGood);
+  next.setDate(next.getDate() + 1);
+  return next;
+}
+
+function recomputeSchedule(anchorItemId, forceStartDate) {
+  const pending = sortItems(items.filter(i => !i.done));
+  if (pending.length === 0) return;
+  const RATE_ANIM = 4, RATE_LIVE = 2; // anim subiu de 3 pra 4 eps/dia a partir de 30/09/2026
+  const GAME_DAYS = 11;
+
+  let startIdx = 0;
+  let current = new Date();
+  current.setDate(current.getDate() + 1); // padrão: começa amanhã (só usado se não houver âncora)
+
+  if (forceStartDate) {
+    current = new Date(forceStartDate + 'T12:00:00');
+    if (anchorItemId) {
+      const idx = pending.findIndex(i => i.id === anchorItemId);
+      if (idx >= 0) startIdx = idx;
+    }
+  } else if (anchorItemId) {
+    const idx = pending.findIndex(i => i.id === anchorItemId);
+    if (idx > 0) {
+      const prev = pending[idx - 1];
+      if (prev.watchEnd) {
+        current = new Date(prev.watchEnd + 'T12:00:00');
+        current.setDate(current.getDate() + 1);
+        startIdx = idx;
+      }
+      // se o item anterior não tinha data, mantém startIdx=0 e recalcula tudo (caso raro)
+    } else if (idx === 0) {
+      startIdx = 0; // é o primeiro pendente, recalcula a partir de amanhã mesmo
+    }
+  }
+
+  const tomorrow = new Date();
+  tomorrow.setDate(tomorrow.getDate() + 1);
+  if (!anchorItemId || (current < tomorrow && startIdx === 0)) {
+    // sem âncora válida: usa amanhã como começo (comportamento de reset total, só pra migração inicial)
+  }
+
+  for (let idx = startIdx; idx < pending.length; idx++) {
+    const it = pending[idx];
+    if (it._skip) { delete it._skip; continue; }
+
+    // só a primeiríssima iteração, quando ela cai exatamente na âncora forçada, deve ter
+    // permissão de sobrescrever um watchStart antigo/errado do trio — as iterações seguintes
+    // (cascata normal) continuam respeitando a proteção contra avanço indevido.
+    const forceAnchor = !!(forceStartDate && idx === startIdx && anchorItemId === it.id);
+    const trioNext = tryInterleaveTrio(pending, idx, current, RATE_ANIM, forceAnchor);
+    if (trioNext) {
+      pending[idx + 1]._skip = true;
+      pending[idx + 2]._skip = true;
+      current = trioNext;
+      continue;
+    }
+
+    const dualExtraNext = tryDualExtra(pending, idx, current);
+    if (dualExtraNext) {
+      current = dualExtraNext;
+      continue;
+    }
+
+    const kind = scheduleKind(it);
+    if (isShortItem(it.text)) {
+      let dShort = new Date(current);
+      while (isPauseDay(dShort)) dShort.setDate(dShort.getDate() + 1);
+      const iso = fmtDateISO(dShort);
+      it.watchStart = iso; it.watchEnd = iso; it.watchKind = kind;
+      if (isSlowDay(dShort)) {
+        // maratona lenta: o curta não gruda mais no mesmo dia de outro item, ocupa o dia dele
+        current = new Date(dShort); current.setDate(current.getDate() + 1);
+      }
+      continue;
+    }
+    if (kind === 'jogo') {
+      let d = new Date(current);
+      let count = 0, startD = null, lastGood = null;
+      while (count < GAME_DAYS) {
+        if (!isPauseDay(d)) {
+          if (startD === null) startD = new Date(d);
+          count++;
+          lastGood = new Date(d);
+        }
+        d.setDate(d.getDate() + 1);
+      }
+      it.watchStart = fmtDateISO(startD); it.watchEnd = fmtDateISO(lastGood); it.watchKind = kind;
+      current = new Date(lastGood); current.setDate(current.getDate() + 1);
+    } else if (kind === 'filme') {
+      let d0 = new Date(current);
+      while (isPauseDay(d0)) d0.setDate(d0.getDate() + 1);
+      it.watchStart = fmtDateISO(d0); it.watchEnd = fmtDateISO(d0); it.watchKind = kind;
+      current = new Date(d0); current.setDate(current.getDate() + 1);
+    } else {
+      const normalRate = kind === 'anim' ? RATE_ANIM : RATE_LIVE;
+      const total = extractEpsCount(it.text) || 1;
+      let rem = total;
+      let d = new Date(current);
+      let startD = null, lastGood = null;
+      let guard = 0;
+      while (rem > 0 && guard < 3650) {
+        if (!isPauseDay(d)) {
+          if (startD === null) startD = new Date(d);
+          rem -= isSlowDay(d) ? 1 : normalRate;
+          lastGood = new Date(d);
+        }
+        d.setDate(d.getDate() + 1);
+        guard++;
+      }
+      it.watchStart = fmtDateISO(startD); it.watchEnd = fmtDateISO(lastGood); it.watchKind = kind;
+      current = new Date(lastGood); current.setDate(current.getDate() + 1);
+    }
+  }
+  save();
+}
+
+function autoReschedule(reason, anchorItemId) {
+  recomputeSchedule(anchorItemId);
+  render();
+  showToast(`🔄 Cronograma recalculado a partir daqui (${reason})`);
+}
+
+function populateMoveSelects() {
+  const moveSel = document.getElementById('moveItemSelect');
+  const phaseSel = document.getElementById('movePhaseSelect');
+  const posSel = document.getElementById('movePositionSelect');
+  moveSel.innerHTML = sortItems(items.slice()).map(i =>
+    `<option value="${i.id}">[${i.phase.slice(0,12)}] ${escapeHtml(i.text.slice(0,45))}</option>`
+  ).join('');
+  phaseSel.innerHTML = PHASE_ORDER.map(p => `<option value="${escapeHtml(p)}">${escapeHtml(p)}</option>`).join('');
+  updateMovePositionOptions();
+}
+function updateMovePositionOptions() {
+  const phase = document.getElementById('movePhaseSelect').value;
+  const posSel = document.getElementById('movePositionSelect');
+  const inPhase = sortItems(items.filter(i => i.phase === phase));
+  posSel.innerHTML = '<option value="__end__">No final da fase</option>' +
+    inPhase.map(i => `<option value="${i.id}">Depois de: ${escapeHtml(i.text.slice(0,45))}</option>`).join('');
+}
+document.getElementById('movePhaseSelect').addEventListener('change', updateMovePositionOptions);
+
+function moveItemToPhase() {
+  const id = parseInt(document.getElementById('moveItemSelect').value, 10);
+  const newPhase = document.getElementById('movePhaseSelect').value;
+  const posVal = document.getElementById('movePositionSelect').value;
+  const it = items.find(i => i.id === id);
+  if (!it) return;
+  it.phase = newPhase;
+  if (posVal === '__end__' || !posVal) {
+    const maxOrder = items.filter(i => i.phase === newPhase && i.id !== id).reduce((m,i) => Math.max(m, i.order ?? 0), -1);
+    it.order = maxOrder + 1;
+  } else {
+    const afterItem = items.find(i => i.id === parseInt(posVal, 10));
+    const inPhase = sortItems(items.filter(i => i.phase === newPhase && i.id !== id));
+    const idx = inPhase.findIndex(i => i.id === afterItem.id);
+    const nextItem = inPhase[idx + 1];
+    it.order = nextItem ? ((afterItem.order ?? 0) + (nextItem.order ?? afterItem.order + 2)) / 2 : (afterItem.order ?? 0) + 0.5;
+  }
+  save();
+  render();
+  populateMoveSelects();
+  populateInsertAfterSelect();
+  showToast('🔀 Item movido!');
+  autoReschedule('item movido de fase', id);
+}
+document.getElementById('moveBtn').addEventListener('click', moveItemToPhase);
+
+load();
+populateMoveSelects();
+populateInsertAfterSelect();
+let reloadTab = null;
+try {
+  reloadTab = localStorage.getItem('ucm-reload-tab');
+  if (reloadTab) localStorage.removeItem('ucm-reload-tab');
+} catch(e) {}
+let shortcutAction = null;
+try { shortcutAction = new URLSearchParams(location.search).get('action'); } catch(e) {}
+if (shortcutAction === 'watchnow') {
+  setTimeout(goToWatchNow, 100);
+} else if (reloadTab && document.getElementById(reloadTab)) {
+  switchTab(reloadTab);
+} else {
+  scrollToTodayItem(false);
+}
+setTimeout(maybeAutoBackup, 1500);
+initCloudSync();
+
+</script>
+<div class="toast-container" id="toastContainer"></div>
+<div class="marathon-screen" id="marathonScreen"></div>
+</body>
+</html>

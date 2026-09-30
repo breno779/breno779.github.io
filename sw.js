@@ -10,14 +10,14 @@
 //
 // Bump o CACHE_NAME sempre que fizer uma mudança que valha a pena forçar todo mundo a
 // buscar de novo (ele mesmo já limpa o cache antigo quando o nome muda).
-const CACHE_NAME = 'ucm-watchlist-v2';
+const CACHE_NAME = 'ucm-watchlist-v3';
+const PAGES = ['index.html', 'doomsday.html', 'doomsday-essenciais.html'];
 const CORE_ASSETS = [
   './',
-  './index.html',
-  './doomsday.html',
   './manifest.json',
   './icon-192.png',
   './icon-512.png',
+  ...PAGES.map((p) => `./${p}`),
 ];
 
 self.addEventListener('install', (event) => {
@@ -49,9 +49,10 @@ self.addEventListener('fetch', (event) => {
     // fallback por página: se a rede falhar (offline, ou um 404 momentâneo de deploy) e não
     // tiver essa página específica em cache ainda, cai pro app PRINCIPAL só se for mesmo o
     // app principal que foi pedido — nunca serve o index.html no lugar de outra página (era
-    // o bug: qualquer navegação com falha caía sempre no index.html, mesmo pedindo
-    // doomsday.html, mostrando a lista errada).
-    const fallbackAsset = url.pathname.endsWith('/doomsday.html') ? './doomsday.html' : './index.html';
+    // o bug: qualquer navegação com falha caía sempre no index.html, mesmo pedindo outra
+    // lista, mostrando a lista errada).
+    const matchedPage = PAGES.find((p) => url.pathname.endsWith('/' + p));
+    const fallbackAsset = matchedPage ? `./${matchedPage}` : './index.html';
     event.respondWith(
       fetch(req)
         .then((res) => {
