@@ -83,16 +83,22 @@ if ('serviceWorker' in navigator) {
   // mas cada uma continua 100% independente — são páginas separadas (principal.html e
   // doomsday.html) carregadas em iframes, cada uma com seu próprio progresso salvo.
   const SHELL_KEY = 'ucm-shell-active-tab';
+  // muda a cada deploy do app-mãe — garante que cada aba peça a URL certa de novo em vez de
+  // ficar presa em alguma resposta antiga guardada em cache (do navegador ou do service
+  // worker) de uma versão anterior deste index.html.
+  const SHELL_BUILD = 'b2';
   const tabs = Array.from(document.querySelectorAll('.shell-tab'));
   const frames = {
     frmPrincipal: document.getElementById('frmPrincipal'),
     frmDoomsday: document.getElementById('frmDoomsday'),
   };
+  frames.frmPrincipal.dataset.src = `principal.html?shell=${SHELL_BUILD}`;
+  frames.frmDoomsday.dataset.src = `doomsday.html?shell=${SHELL_BUILD}`;
 
   let shortcutAction = null;
   try { shortcutAction = new URLSearchParams(location.search).get('action'); } catch (e) {}
   if (shortcutAction === 'watchnow') {
-    frames.frmPrincipal.dataset.src = 'principal.html?action=watchnow';
+    frames.frmPrincipal.dataset.src = `principal.html?shell=${SHELL_BUILD}&action=watchnow`;
   }
 
   function activate(targetId) {
