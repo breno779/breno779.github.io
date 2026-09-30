@@ -788,6 +788,10 @@ if ('serviceWorker' in navigator) {
   .interleaved-row .iv-num { color: var(--muted); font-family: 'JetBrains Mono', monospace; font-size: 0.72rem; width: 26px; flex-shrink: 0; }
   .interleaved-row .iv-title { flex: 1; }
   .interleaved-row .iv-date { color: var(--gold); font-family: 'JetBrains Mono', monospace; font-size: 0.75rem; }
+  .interleaved-row.iv-today { background: rgba(255,209,0,0.14); }
+  .interleaved-row.iv-today .iv-date { background: #ffd100; color: #1a1400; font-weight: bold; padding: 2px 7px; border-radius: 8px; }
+  .interleaved-row.iv-overdue { background: rgba(182,51,44,0.16); }
+  .interleaved-row.iv-overdue .iv-date { background: var(--crimson); color: #fff; font-weight: bold; padding: 2px 7px; border-radius: 8px; }
   .interleaved-list { max-height: 65vh; overflow-y: auto; }
   .episode-list {
     margin-top: 4px; padding-left: 8px; border-left: 2px solid var(--line);
@@ -809,6 +813,8 @@ if ('serviceWorker' in navigator) {
   .watch-date.k-anim { color: var(--cobalt); background: rgba(43,76,140,0.15); border-color: var(--cobalt); }
   .watch-date.k-live { color: var(--crimson); background: rgba(182,51,44,0.12); border-color: var(--crimson); }
   .watch-date.k-jogo { color: #4c8c5a; background: rgba(76,140,90,0.12); border-color: #4c8c5a; }
+  .watch-date.is-today { background: #ffd100; color: #1a1400; border-color: #ffd100; font-weight: bold; }
+  .watch-date.is-overdue { background: var(--crimson); color: #fff; border-color: var(--crimson); font-weight: bold; }
   .no-results {
     text-align: center;
     color: var(--muted);
@@ -1790,7 +1796,10 @@ function buildItemRow(it) {
 
       if (it.watchStart && !it.done) {
         const dateEl = document.createElement('div');
-        dateEl.className = 'watch-date k-' + (it.watchKind || 'filme');
+        let dateStatus = '';
+        if (isToday(it)) dateStatus = ' is-today';
+        else if (it.watchEnd && it.watchEnd < todayIso()) dateStatus = ' is-overdue';
+        dateEl.className = 'watch-date k-' + (it.watchKind || 'filme') + dateStatus;
         dateEl.textContent = formatWatchDate(it.watchStart, it.watchEnd);
         mainCol.appendChild(dateEl);
       }
@@ -2062,6 +2071,26 @@ function showStats() {
   openModal(`<h3>📊 Progresso por mês</h3>${rows}`);
 }
 
+// destaca a linha de um episódio conforme a data: amarelo se é hoje, vermelho se passou e
+// ainda não foi marcado como visto (atrasado). Sem destaque se já foi visto.
+function epRowStatusClass(dateIso, checked) {
+  if (!dateIso || checked) return '';
+  const t = todayIso();
+  if (dateIso === t) return ' iv-today';
+  if (dateIso < t) return ' iv-overdue';
+  return '';
+}
+// rola a lista de episódios (dentro da modal) direto pro episódio de hoje (ou, se não tiver
+// nenhum exatamente hoje, pro primeiro atrasado) — evita ter que caçar manualmente na lista.
+function scrollEpisodeListToToday() {
+  setTimeout(() => {
+    const list = document.querySelector('.interleaved-list');
+    if (!list) return;
+    const target = list.querySelector('.interleaved-row.iv-today') || list.querySelector('.interleaved-row.iv-overdue');
+    if (target) target.scrollIntoView({ behavior: 'smooth', block: 'center' });
+  }, 50);
+}
+
 function showSingleSeriesModal(it) {
   const eps = extractEpsCount(it.text) || 1;
   if (!it.epDone) it.epDone = new Array(eps).fill(false);
@@ -2070,7 +2099,8 @@ function showSingleSeriesModal(it) {
     const dateIso = episodeDateFor(it, e, eps);
     const dateStr = dateIso ? dateIso.split('-').reverse().slice(0,2).join('/') : '';
     const checked = it.epDone[e] ? 'checked' : '';
-    rows += `<label class="interleaved-row">
+    const statusClass = epRowStatusClass(dateIso, it.epDone[e]);
+    rows += `<label class="interleaved-row${statusClass}">
       <input type="checkbox" data-ep="${e}" ${checked}>
       <span class="iv-num">${e+1}.</span>
       <span class="iv-title">Episódio ${e+1}</span>
@@ -2082,11 +2112,18 @@ function showSingleSeriesModal(it) {
     <button id="resetEpsBtn" style="margin-bottom:10px;background:none;border:1px solid var(--crimson);color:var(--crimson);border-radius:6px;padding:6px 12px;font-size:0.75rem;">↺ Desmarcar todos os episódios (rever do zero)</button>
     <div class="interleaved-list">${rows}</div>`);
   document.getElementById('modalBox').classList.add('wide-modal');
+  scrollEpisodeListToToday();
   document.querySelectorAll('.interleaved-list input[type="checkbox"]').forEach(cb => {
     cb.addEventListener('change', () => {
       const idx = parseInt(cb.dataset.ep, 10);
       it.epDone[idx] = cb.checked;
       save();
+      cb.closest('.interleaved-row').classList.remove('iv-today', 'iv-overdue');
+      if (!cb.checked) {
+        const dateIso = episodeDateFor(it, idx, eps);
+        const cls = epRowStatusClass(dateIso, false).trim();
+        if (cls) cb.closest('.interleaved-row').classList.add(cls);
+      }
     });
   });
   document.getElementById('resetEpsBtn').addEventListener('click', () => {
@@ -2118,7 +2155,8 @@ function showInterleavedModal() {
     const dateIso = show.epDates ? show.epDates[epFlatIdx] : null;
     const dateStr = dateIso ? dateIso.split('-').reverse().slice(0,2).join('/') : '';
     const checked = show.epDone[epFlatIdx] ? 'checked' : '';
-    return `<label class="interleaved-row">
+    const statusClass = epRowStatusClass(dateIso, show.epDone[epFlatIdx]);
+    return `<label class="interleaved-row${statusClass}">
       <input type="checkbox" data-show="${showIdx}" data-ep="${epFlatIdx}" ${checked}>
       <span class="iv-num">${i+1}.</span>
       <span class="iv-title">${escapeHtml(label)}</span>
@@ -2136,12 +2174,19 @@ function showInterleavedModal() {
     <div class="interleaved-list">${rows}</div>
   `);
   document.getElementById('modalBox').classList.add('wide-modal');
+  scrollEpisodeListToToday();
   document.querySelectorAll('.interleaved-list input[type="checkbox"]').forEach(cb => {
     cb.addEventListener('change', () => {
       const showIdx = parseInt(cb.dataset.show, 10);
       const epIdx = parseInt(cb.dataset.ep, 10);
       shows[showIdx].epDone[epIdx] = cb.checked;
       save();
+      cb.closest('.interleaved-row').classList.remove('iv-today', 'iv-overdue');
+      if (!cb.checked) {
+        const dateIso = shows[showIdx].epDates ? shows[showIdx].epDates[epIdx] : null;
+        const cls = epRowStatusClass(dateIso, false).trim();
+        if (cls) cb.closest('.interleaved-row').classList.add(cls);
+      }
     });
   });
   document.querySelectorAll('[data-reset-show]').forEach(btn => {
