@@ -18,6 +18,11 @@ if ('serviceWorker' in navigator) {
   });
 }
 </script>
+<!-- Firebase (só usado pra sincronizar entre aparelhos, manualmente — ver botões na aba Config).
+     Se estiver offline e isso não carregar, o app inteiro continua funcionando normalmente,
+     só a sincronização fica indisponível até ter internet de novo. -->
+<script src="https://www.gstatic.com/firebasejs/10.13.0/firebase-app-compat.js"></script>
+<script src="https://www.gstatic.com/firebasejs/10.13.0/firebase-firestore-compat.js"></script>
 <meta name="theme-color" content="#15141b">
 <link rel="apple-touch-icon" href="icon-192.png">
 <meta name="apple-mobile-web-app-capable" content="yes">
@@ -866,9 +871,21 @@ if ('serviceWorker' in navigator) {
     <button id="btnExport">⬇ Exportar backup</button>
     <button id="btnImport">⬆ Importar backup</button>
     <button id="btnTrash">🗑 Lixeira</button>
-    <button id="btnForceSync">🔄 Forçar sincronização (restaura dados originais)</button>
+    <button id="btnForceSync">🧨 Restaurar dados originais (reseta progresso)</button>
   </div>
   <p id="lastSavedInfo" style="font-size:0.7rem;color:var(--muted);text-align:center;margin-top:-8px;"></p>
+
+  <div style="margin-top:14px;padding:12px;border:1px solid var(--line);border-radius:10px;">
+    <p style="margin:0 0 8px;font-family:'Bangers',cursive;letter-spacing:0.5px;">☁️ Sincronizar entre aparelhos</p>
+    <p style="margin:0 0 10px;font-size:0.7rem;color:var(--muted);">Código deste aparelho: <b id="syncCodeDisplay">------</b><br>Use o MESMO código no celular e no tablet (aperte "usar outro código" no segundo aparelho e cole o código do primeiro). Nada muda sozinho — só quando você aperta Enviar ou Puxar.</p>
+    <button id="btnSyncJoin" style="width:100%;margin-bottom:8px;">🔗 Usar outro código</button>
+    <div style="display:flex;gap:8px;">
+      <button id="btnSyncPush" style="flex:1;">⬆️ Enviar pra nuvem</button>
+      <button id="btnSyncPull" style="flex:1;">⬇️ Puxar da nuvem</button>
+    </div>
+    <p id="syncStatus" style="font-size:0.7rem;color:var(--muted);text-align:center;margin-top:8px;"></p>
+  </div>
+
   <div class="music-player" id="musicPlayer"></div>
   <input type="file" id="importFile" accept="application/json" style="display:none;">
 </div>
@@ -1332,11 +1349,10 @@ function save() {
   }
 }
 
-// ===== Sincronização entre aparelhos (Firebase Firestore) — DESATIVADA =====
-// Removida depois de causar perda de progresso em dois incidentes reais. O código abaixo
-// fica desligado (nenhuma função é chamada em lugar nenhum do app); mantido comentado só
-// como referência caso a gente queira reconstruir isso do zero, com mais cuidado, depois.
-/*
+// ===== Sincronização entre aparelhos (Firebase Firestore) — MANUAL =====
+// Reativada com o modo 100% manual (nunca aplica nada da nuvem sozinha, em segundo plano —
+// foi o automático com onSnapshot que causou os 2 incidentes de progresso apagado antes).
+// Só existe "Enviar" (local → nuvem) e "Puxar" (nuvem → local, com confirmação explícita).
 const FIREBASE_CONFIG = {
   apiKey: "AIzaSyBD8SChYPL_qKrwIsa-9DWfICME1r9V66g",
   authDomain: "lista-ucm.firebaseapp.com",
@@ -1472,7 +1488,6 @@ function joinSyncCode(newCode) {
   if (disp) disp.textContent = newCode;
   showToast('🔗 Código atualizado: ' + newCode + ' — use "Enviar"/"Puxar" pra sincronizar');
 }
-*/
 
 function forceSync() {
   if (!confirm('Isso vai apagar seu progresso salvo e recarregar tudo do zero, do jeito mais recente que eu te mandei. Tem certeza?')) return;
@@ -2749,6 +2764,16 @@ document.getElementById('btnCompact').addEventListener('click', (e) => {
 document.getElementById('btnPalette').addEventListener('click', showPaletteMenu);
 document.getElementById('btnTrash').addEventListener('click', showTrash);
 document.getElementById('btnForceSync').addEventListener('click', forceSync);
+document.getElementById('btnSyncPush').addEventListener('click', () => {
+  setSyncStatus('🔄 Enviando pra nuvem...');
+  pushToCloudNow();
+});
+document.getElementById('btnSyncPull').addEventListener('click', pullFromCloudNow);
+document.getElementById('btnSyncJoin').addEventListener('click', () => {
+  const atual = getSyncCode();
+  const novo = prompt('Cole aqui o código de sincronização do outro aparelho (ou deixe igual pra manter o mesmo):', atual);
+  if (novo) joinSyncCode(novo);
+});
 document.getElementById('modalCloseX').addEventListener('click', closeModal);
 document.getElementById('btnShare').addEventListener('click', shareProgress);
 document.getElementById('btnMarathon').addEventListener('click', openMarathon);
@@ -3684,6 +3709,7 @@ if (reloadTab && document.getElementById(reloadTab)) {
   scrollToTodayItem(false);
 }
 setTimeout(maybeAutoBackup, 1500);
+initCloudSync();
 
 </script>
 <div class="toast-container" id="toastContainer"></div>
