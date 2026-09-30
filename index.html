@@ -491,6 +491,35 @@ if ('serviceWorker' in navigator) {
     color: var(--gold);
     white-space: nowrap;
   }
+  .phase-count-mini {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+  }
+  .phase-count-mini .mini-bar {
+    width: 48px;
+    height: 8px;
+    border-radius: 5px;
+    background: rgba(0,0,0,0.35);
+    overflow: hidden;
+    box-shadow: inset 0 0 0 1px rgba(255,255,255,0.1);
+  }
+  .phase-count-mini .mini-bar-fill {
+    display: block;
+    height: 100%;
+    border-radius: 5px;
+    background: linear-gradient(90deg, var(--crimson), var(--gold));
+    transition: width 0.3s ease;
+  }
+  .phase-count-mini.full .mini-bar-fill {
+    background: var(--gold);
+  }
+  .phase-count-mini .mini-bar-label {
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 0.68rem;
+    color: var(--gold);
+    white-space: nowrap;
+  }
   .chevron {
     font-size: 0.8rem;
     transition: transform 0.25s ease;
@@ -2642,7 +2671,8 @@ function render() {
 
       const head = document.createElement('div');
       head.className = 'phase-head';
-      head.innerHTML = `<span class="phase-title">${escapeHtml(phase)}</span><span style="display:flex;align-items:center;gap:8px;"><span class="phase-count">${doneCount}/${list.length}</span><span class="chevron">▾</span></span>`;
+      const phasePct = list.length ? Math.round(100 * doneCount / list.length) : 0;
+      head.innerHTML = `<span class="phase-title">${escapeHtml(phase)}</span><span style="display:flex;align-items:center;gap:8px;"><span class="phase-count-mini${phasePct >= 100 ? ' full' : ''}"><span class="mini-bar"><span class="mini-bar-fill" style="width:${phasePct}%"></span></span><span class="mini-bar-label">${doneCount}/${list.length}</span></span><span class="chevron">▾</span></span>`;
       head.addEventListener('click', () => {
         if (collapsedPhases.has(phase)) collapsedPhases.delete(phase);
         else collapsedPhases.add(phase);
