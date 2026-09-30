@@ -3565,6 +3565,12 @@ if (installBtn && !isStandalone) {
     deferredInstallPrompt = e;
   });
   installBtn.addEventListener('click', async () => {
+    // se estiver dentro do app-mãe (shell com as abas), quem escuta o beforeinstallprompt
+    // de verdade é o documento de topo — usa o prompt guardado lá em vez de tentar de novo aqui.
+    if (window.top !== window && typeof window.top.triggerAppInstall === 'function') {
+      await window.top.triggerAppInstall();
+      return;
+    }
     if (deferredInstallPrompt) {
       deferredInstallPrompt.prompt();
       await deferredInstallPrompt.userChoice;

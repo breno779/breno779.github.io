@@ -71,12 +71,12 @@ if ('serviceWorker' in navigator) {
 </head>
 <body>
 <div class="shell-tabbar">
-  <button class="shell-tab" id="shellTabPrincipal" data-target="frmPrincipal">🕐 PRINCIPAL</button>
+  <button class="shell-tab" id="shellTabPrincipal" data-target="frmPrincipal">🕐 GUERRAS SECRETAS</button>
   <button class="shell-tab" id="shellTabDoomsday" data-target="frmDoomsday">🎬 DOOMSDAY</button>
 </div>
 <div class="shell-frames">
   <iframe class="shell-frame" id="frmPrincipal" data-src="principal.html" title="Lista principal"></iframe>
-  <iframe class="shell-frame" id="frmDoomsday" data-src="doomsday.html" title="Lista Doomsday"></iframe>
+  <iframe class="shell-frame" id="frmDoomsday" data-src="doomsday-essenciais.html" title="Lista Essenciais pra Doomsday"></iframe>
 </div>
 <script>
   // App-mãe: junta as duas listas (principal e Doomsday) num só ícone/atalho na tela inicial,
@@ -86,14 +86,16 @@ if ('serviceWorker' in navigator) {
   // muda a cada deploy do app-mãe — garante que cada aba peça a URL certa de novo em vez de
   // ficar presa em alguma resposta antiga guardada em cache (do navegador ou do service
   // worker) de uma versão anterior deste index.html.
-  const SHELL_BUILD = 'b2';
+  const SHELL_BUILD = 'b3';
   const tabs = Array.from(document.querySelectorAll('.shell-tab'));
   const frames = {
     frmPrincipal: document.getElementById('frmPrincipal'),
     frmDoomsday: document.getElementById('frmDoomsday'),
   };
+  // a aba "Doomsday" é a lista curta dos essenciais (selo verde Disney+: 14 filmes + Loki),
+  // não a cronologia completa truncada (essa continua existindo à parte, em doomsday.html).
   frames.frmPrincipal.dataset.src = `principal.html?shell=${SHELL_BUILD}`;
-  frames.frmDoomsday.dataset.src = `doomsday.html?shell=${SHELL_BUILD}`;
+  frames.frmDoomsday.dataset.src = `doomsday-essenciais.html?shell=${SHELL_BUILD}`;
 
   let shortcutAction = null;
   try { shortcutAction = new URLSearchParams(location.search).get('action'); } catch (e) {}
