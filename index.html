@@ -2181,10 +2181,14 @@ function showInterleavedModal(clickedItem) {
   const shows = cfg.keys.map(k => items.find(i => i.key === k));
   if (shows.some(s => !s)) { showToast('Séries intercaladas não encontradas'); return; }
   shows.forEach((show, s) => {
-    if (!show.epDone) show.epDone = new Array(extractEpsCount(show.text) || 1).fill(false);
+    const total = cfg.seasonSizes[s].reduce((a, b) => a + b, 0);
+    if (!show.epDone) show.epDone = new Array(total).fill(false);
   });
 
-  const counts = shows.map(s => extractEpsCount(s.text) || 1);
+  // mesma fonte estável usada em tryInterleaveTrio — não parseia s.text (pode estar
+  // desatualizado/preservado de uma renomeação antiga), garante a mesma ordem que gerou as
+  // datas de verdade.
+  const counts = cfg.seasonSizes.map(seasons => seasons.reduce((a, b) => a + b, 0));
   const order = weightedInterleave(counts);
   const counters = counts.map(() => 0);
   const rows = order.map((showIdx, i) => {
@@ -3912,9 +3916,12 @@ function tryInterleaveTrio(pending, idx, current, RATE_ANIM, forceAnchor) {
     }
   }
 
-  // ordem de intercalação calculada a partir da contagem real de episódios de cada série
-  // (evita depender de uma lista gigante hardcoded — dá o mesmo resultado determinístico).
-  const counts = [it0, it1, it2].map(it => extractEpsCount(it.text) || 1);
+  // ordem de intercalação calculada a partir da contagem real de episódios de cada série.
+  // Usa cfg.seasonSizes (fonte estável) em vez de extrair "N eps" do texto do item — o texto
+  // pode ter sido preservado/editado pelo usuário (reconcileWithNewList mantém o texto antigo
+  // salvo no aparelho pra não perder progresso em renomeações), então parsear o texto aqui
+  // dava uma contagem errada e uma intercalação torta assim que o cronograma recalculasse.
+  const counts = cfg.seasonSizes.map(seasons => seasons.reduce((a, b) => a + b, 0));
   const order = weightedInterleave(counts);
   const totalEps = order.length;
   const epDatesPerShow = [[], [], []];
