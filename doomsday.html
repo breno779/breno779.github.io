@@ -1582,6 +1582,23 @@ function load() {
     try { localStorage.setItem('ucm-fix-slowgta-v1', '1'); } catch(e) {}
   }
 
+  // correção: o texto do item "Vingadores Unidos" (k53, trio 1) ainda dizia "T1 a T5
+  // (2013–2019) — 127 eps" num dado salvo antigo, de uma época em que Vingadores Unidos T5
+  // fazia parte desse trio — hoje T5 é um item separado (k171, trio 2) e esse aqui é só
+  // T1-T4, 104 eps de verdade (confirmado pelo TRIOS.seasonSizes). O texto certo já tava no
+  // DEFAULT_ITEMS, só faltava puxar pro dado já salvo — é só o texto, não toca em datas nem
+  // em progresso marcado episódio a episódio. Roda uma vez por aparelho.
+  let k53TextFixApplied = false;
+  try { k53TextFixApplied = localStorage.getItem('ucm-fix-k53-text-v1') === '1'; } catch(e) {}
+  if (!k53TextFixApplied) {
+    const itK53 = items.find(i => i.key === 'k53');
+    if (itK53) {
+      const defK53 = findDefaultFor(itK53);
+      if (defK53) itK53.text = defK53.text;
+    }
+    try { localStorage.setItem('ucm-fix-k53-text-v1', '1'); } catch(e) {}
+  }
+
   // correção definitiva #3: garante que o trio intercalado sempre comece em 21/09/2026 de
   // verdade. Roda em TODO load (não só uma vez), porque dados vindos de outro aparelho pela
   // sincronização podem trazer essa data errada de volta — não dá pra confiar só no flag local.
