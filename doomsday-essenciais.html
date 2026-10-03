@@ -947,7 +947,13 @@ if ('serviceWorker' in navigator) {
 
   <div style="margin-top:14px;padding:12px;border:1px solid var(--line);border-radius:10px;">
     <p style="margin:0 0 8px;font-family:'Bangers',cursive;letter-spacing:0.5px;">☁️ Sincronizar entre aparelhos</p>
-    <p style="margin:0 0 10px;font-size:0.7rem;color:var(--muted);">Código deste aparelho: <b id="syncCodeDisplay">------</b><br>Use o MESMO código no celular e no tablet (aperte "usar outro código" no segundo aparelho e cole o código do primeiro). Nada muda sozinho — só quando você aperta Enviar ou Puxar.</p>
+    <p style="margin:0 0 10px;font-size:0.7rem;color:var(--muted);">Código deste aparelho: <b id="syncCodeDisplay">------</b><br>Use o MESMO código no celular e no tablet (aperte "usar outro código" no segundo aparelho e cole o código do primeiro). Nada muda sozinho — só quando você aperta Enviar ou Puxar (a menos que a sincronização automática abaixo esteja ligada).</p>
+    <label style="display:flex;align-items:center;gap:8px;margin:0 0 6px;font-size:0.78rem;cursor:pointer;">
+      <input type="checkbox" id="chkAutoSync">
+      🔄 Sincronização automática (experimental)
+    </label>
+    <p style="margin:0 0 10px;font-size:0.68rem;color:var(--muted);">Ligada: envia pra nuvem sozinho a cada mudança, e só puxa sozinho quando a nuvem tem algo mais novo — sempre validado antes de aplicar, e guarda uma cópia de antes pra poder desfazer. Desligar volta pro manual na hora, sem apagar nada salvo.</p>
+    <button id="btnUndoAutoSync" style="width:100%;display:none;margin-bottom:8px;background:none;border:1px solid var(--crimson);color:var(--crimson);border-radius:6px;padding:8px;font-size:0.75rem;">↩️ Desfazer última sincronização automática</button>
     <button id="btnSyncJoin" style="width:100%;margin-bottom:8px;">🔗 Usar outro código</button>
     <div style="display:flex;gap:8px;">
       <button id="btnSyncPush" style="flex:1;">⬆️ Enviar pra nuvem</button>
@@ -1543,6 +1549,9 @@ function save() {
   } catch (e) {
     console.error('storage error', e);
   }
+  // só tem efeito se a sincronização automática estiver ligada (ver schedulePushToCloud) —
+  // com ela desligada isso não faz nada, igual sempre foi.
+  schedulePushToCloud();
 }
 
 // ===== Sincronização entre aparelhos (Firebase Firestore) — MANUAL =====
@@ -1558,6 +1567,19 @@ const FIREBASE_CONFIG = {
   appId: "1:168065399604:web:c9dfa1a2e97564609d4361"
 };
 const SYNC_CODE_KEY = 'ucm-sync-code';
+// Identifica essa lista especificamente dentro da nuvem — as 3 listas (principal, doomsday,
+// essenciais) compartilham a mesma origem, e por isso o MESMO código de pareamento salvo em
+// SYNC_CODE_KEY; sem esse sufixo, sincronizar uma lista sobrescreveria o documento da nuvem
+// usado pela outra (itens com estrutura totalmente diferente). "principal" mantém o caminho
+// antigo (sem sufixo) pra não perder o que já estava sincronizado antes dessa correção.
+const SYNC_APP_ID = 'essenciais';
+function syncDocId(code) {
+  return SYNC_APP_ID === 'principal' ? code : (code + '-' + SYNC_APP_ID);
+}
+const AUTO_SYNC_KEY = STORAGE_KEY + '-auto-sync-enabled';
+const AUTO_SYNC_SAFETY_KEY = STORAGE_KEY + '-pre-autosync-backup';
+const AUTO_SYNC_LAST_APPLIED_KEY = STORAGE_KEY + '-auto-sync-last-applied';
+let autoSyncIntervalTimer = null;
 let syncDb = null;
 let syncUnsub = null;
 let applyingRemoteUpdate = false;
@@ -1581,7 +1603,9 @@ function getSyncCode() {
 }
 
 function schedulePushToCloud() {
-  if (!syncDb || applyingRemoteUpdate) return;
+  // só sobe sozinho pra nuvem se a sincronização automática estiver ligada — com ela desligada
+  // (padrão), nada muda sem você apertar "Enviar".
+  if (!syncDb || applyingRemoteUpdate || !isAutoSyncEnabled()) return;
   clearTimeout(pushToCloudTimer);
   pushToCloudTimer = setTimeout(pushToCloudNow, 700);
 }
@@ -1595,7 +1619,7 @@ function pushToCloudNow() {
     return;
   }
   const code = getSyncCode();
-  syncDb.collection('syncs').doc(code).set({
+  syncDb.collection('syncs').doc(syncDocId(code)).set({
     items: items,
     trash: trash,
     listVersion: LIST_VERSION,
@@ -1629,7 +1653,7 @@ function pullFromCloudNow() {
   if (!syncDb) { showToast('⚠️ Sincronização ainda não conectou'); return; }
   const code = getSyncCode();
   setSyncStatus('🔄 Buscando da nuvem...');
-  syncDb.collection('syncs').doc(code).get().then(snap => {
+  syncDb.collection('syncs').doc(syncDocId(code)).get().then(snap => {
     if (!snap.exists) {
       setSyncStatus('⚠️ Nenhum dado salvo nesse código ainda');
       return;
@@ -1670,10 +1694,93 @@ function initCloudSync() {
     const disp = document.getElementById('syncCodeDisplay');
     if (disp) disp.textContent = code;
     setSyncStatus('☁️ Conectado — use os botões pra enviar/puxar quando quiser');
+    if (isAutoSyncEnabled()) startAutoSyncLoop();
   } catch(e) {
     console.error('initCloudSync error', e);
     setSyncStatus('⚠️ Sincronização indisponível');
   }
+}
+
+// ===== Sincronização automática (opcional, desligada por padrão) =====
+// Ligada: ainda usa os mesmos pushToCloudNow/validações de sempre (nunca sobe lista inválida),
+// e só puxa automaticamente quando a nuvem tem uma versão mais nova do que a última já aplicada
+// aqui (nunca um onSnapshot em tempo real — isso foi o que causou os 2 incidentes antigos).
+// Antes de aplicar qualquer coisa puxada automaticamente, guarda uma cópia do estado local
+// atual em AUTO_SYNC_SAFETY_KEY, pra dar pra desfazer com 1 toque. Desligar o interruptor só
+// para os timers — não toca em nada já salvo, então voltar pro manual é instantâneo.
+function isAutoSyncEnabled() {
+  try { return localStorage.getItem(AUTO_SYNC_KEY) === '1'; } catch(e) { return false; }
+}
+
+function setAutoSyncEnabled(on) {
+  try { localStorage.setItem(AUTO_SYNC_KEY, on ? '1' : '0'); } catch(e) {}
+  if (on) startAutoSyncLoop(); else stopAutoSyncLoop();
+}
+
+function startAutoSyncLoop() {
+  if (autoSyncIntervalTimer) return;
+  autoPullCheck();
+  autoSyncIntervalTimer = setInterval(autoPullCheck, 3 * 60 * 1000);
+}
+
+function stopAutoSyncLoop() {
+  if (autoSyncIntervalTimer) { clearInterval(autoSyncIntervalTimer); autoSyncIntervalTimer = null; }
+}
+
+function autoPullCheck() {
+  if (!syncDb || !isAutoSyncEnabled() || applyingRemoteUpdate) return;
+  if (pushToCloudTimer) return; // tem mudança local recente esperando subir — não pisa nela
+  const code = getSyncCode();
+  syncDb.collection('syncs').doc(syncDocId(code)).get().then(snap => {
+    if (!snap.exists) return;
+    const data = snap.data();
+    if (!isValidRemoteItems(data && data.items)) return;
+    const remoteAt = data.updatedAt && data.updatedAt.toMillis ? data.updatedAt.toMillis() : 0;
+    let lastApplied = 0;
+    try { lastApplied = parseInt(localStorage.getItem(AUTO_SYNC_LAST_APPLIED_KEY) || '0', 10); } catch(e) {}
+    if (!remoteAt || remoteAt <= lastApplied) return; // nada mais novo do que o que já foi aplicado
+    try {
+      localStorage.setItem(AUTO_SYNC_SAFETY_KEY, JSON.stringify({ items: items, trash: trash, savedAt: new Date().toISOString() }));
+    } catch(e) {}
+    applyingRemoteUpdate = true;
+    items = withOrder(data.items);
+    trash = data.trash || [];
+    nextId = items.reduce((m,i) => Math.max(m, i.id), 0) + 1;
+    enforceTrioAnchor();
+    save();
+    render();
+    applyingRemoteUpdate = false;
+    try { localStorage.setItem(AUTO_SYNC_LAST_APPLIED_KEY, String(remoteAt)); } catch(e) {}
+    setSyncStatus('🔄 Atualizado automaticamente (' + data.items.length + ' itens)');
+    showToast('🔄 Sincronizado automaticamente a partir de outro aparelho');
+    updateAutoSyncUndoUI();
+  }).catch(err => {
+    console.error('auto-pull error', err);
+  });
+}
+
+function undoLastAutoSync() {
+  let backup = null;
+  try { backup = JSON.parse(localStorage.getItem(AUTO_SYNC_SAFETY_KEY) || 'null'); } catch(e) {}
+  if (!backup) { showToast('⚠️ Não tem nenhuma sincronização automática pra desfazer'); return; }
+  const quando = backup.savedAt ? new Date(backup.savedAt).toLocaleString('pt-BR') : 'antes';
+  if (!confirm(`Isso vai voltar pro estado de ${quando} (de antes da última sincronização automática). Confirma?`)) return;
+  items = withOrder(backup.items);
+  trash = backup.trash || [];
+  nextId = items.reduce((m,i) => Math.max(m, i.id), 0) + 1;
+  save();
+  render();
+  try { localStorage.removeItem(AUTO_SYNC_SAFETY_KEY); } catch(e) {}
+  updateAutoSyncUndoUI();
+  showToast('↩️ Desfeito — voltou pro estado anterior');
+}
+
+function updateAutoSyncUndoUI() {
+  const btn = document.getElementById('btnUndoAutoSync');
+  if (!btn) return;
+  let hasBackup = false;
+  try { hasBackup = !!localStorage.getItem(AUTO_SYNC_SAFETY_KEY); } catch(e) {}
+  btn.style.display = hasBackup ? 'block' : 'none';
 }
 
 function joinSyncCode(newCode) {
@@ -3307,6 +3414,16 @@ document.getElementById('btnSyncPush').addEventListener('click', () => {
   pushToCloudNow();
 });
 document.getElementById('btnSyncPull').addEventListener('click', pullFromCloudNow);
+(() => {
+  const chk = document.getElementById('chkAutoSync');
+  if (chk) {
+    chk.checked = isAutoSyncEnabled();
+    chk.addEventListener('change', () => setAutoSyncEnabled(chk.checked));
+  }
+  const undoBtn = document.getElementById('btnUndoAutoSync');
+  if (undoBtn) undoBtn.addEventListener('click', undoLastAutoSync);
+  updateAutoSyncUndoUI();
+})();
 document.getElementById('btnSyncJoin').addEventListener('click', () => {
   const atual = getSyncCode();
   const novo = prompt('Cole aqui o código de sincronização do outro aparelho (ou deixe igual pra manter o mesmo):', atual);
