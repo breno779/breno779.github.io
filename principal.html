@@ -2085,6 +2085,19 @@ function buildItemRow(it) {
         pctEl.className = 'series-pct-line';
         pctEl.dataset.id = it.id;
         pctEl.textContent = `📊 ${pct}% (${doneCount}/${eps} eps)`;
+        if (it.epDates) {
+          // faz parte de um trio intercalado — mostra também o progresso combinado das 3 séries
+          const trioCfg = TRIOS.find(c => c.keys.includes(it.key));
+          if (trioCfg) {
+            const trioTotal = trioCfg.seasonSizes.reduce((sum, szArr) => sum + szArr.reduce((a, b) => a + b, 0), 0);
+            const trioDone = trioCfg.keys.reduce((sum, k) => {
+              const s = items.find(i => i.key === k);
+              return sum + (s && s.epDone ? s.epDone.filter(Boolean).length : 0);
+            }, 0);
+            const trioPct = Math.round(100 * trioDone / trioTotal);
+            pctEl.textContent += ` · 🧩 Trio: ${trioPct}% (${trioDone}/${trioTotal} eps)`;
+          }
+        }
         mainCol.appendChild(pctEl);
 
         const nextIdx = epDone.findIndex(v => !v);
