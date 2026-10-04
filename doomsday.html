@@ -2959,15 +2959,15 @@ function updateDelayCounter() {
       remainingToday = 0;
       epsLateCount = 0;
       perShow.forEach(p => {
-        // conta a partir do próximo episódio dessa série (por quantidade já assistida) e
-        // para assim que achar uma data que não é mais "antes de hoje" — as datas só crescem,
-        // então o resto da série também não tá atrasado.
+        // conta a partir do próximo episódio dessa série (por quantidade já assistida) até
+        // passar da data mais atrasada/de hoje (nextStart) — uma série pode ter mais de um
+        // episódio no mesmo dia (ritmo de vários eps/dia), então não para no primeiro que
+        // encontra, só quando a data passa de nextStart (já é dia futuro).
         for (let e = p.idx; e < p.eps; e++) {
           const d = episodeDateFor(p.show, e, p.eps);
-          if (!d) break;
+          if (!d || d > nextStart) break;
           if (d === nextStart) remainingToday++;
           if (d < t) epsLateCount++;
-          else break;
         }
       });
       lateLabel = trioCfg.labels.join(' + ');
@@ -2979,17 +2979,15 @@ function updateDelayCounter() {
       const epDone = first.epDone || [];
       const idx = epDone.filter(Boolean).length;
       nextStart = episodeDateFor(first, Math.min(idx, eps - 1), eps) || first.watchStart;
-      // conta a partir do próximo episódio (por quantidade já assistida), parando assim que
-      // achar uma data que não é mais "antes de hoje" (as datas só crescem) — hoje ainda não
-      // conta como atrasado, só a partir de amanhã.
+      // conta a partir do próximo episódio (por quantidade já assistida) até passar da data
+      // de nextStart — pode ter mais de um episódio no mesmo dia, então não para no primeiro.
       remainingToday = 0;
       epsLateCount = 0;
       for (let e = idx; e < eps; e++) {
         const d = episodeDateFor(first, e, eps);
-        if (!d) break;
+        if (!d || d > nextStart) break;
         if (d === nextStart) remainingToday++;
         if (d < t) epsLateCount++;
-        else break;
       }
     }
   }
