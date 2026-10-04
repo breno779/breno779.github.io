@@ -2926,27 +2926,61 @@ function updateDelayCounter() {
   let remainingToday = null;
   let epsLateCount = null;
   let isSerie = false;
+  let lateLabel = null;
   if (first.watchStart === first.watchEnd || kindHere === 'jogo') {
     // filme/curta/jogo: um dia só (ou o jogo inteiro), sem granularidade por episódio
     nextStart = first.watchStart;
   } else {
     isSerie = true;
-    // série de vários dias: acha o primeiro episódio ainda não marcado — a data dele é
-    // que define se está em dia, adiantado ou atrasado (não a série inteira).
-    const eps = extractEpsCount(first.text) || 1;
-    const epDone = first.epDone || [];
-    const nextEpIdx = epDone.findIndex(v => !v);
-    const idx = nextEpIdx === -1 ? Math.min(epDone.length, eps - 1) : nextEpIdx;
-    nextStart = episodeDateFor(first, idx, eps) || first.watchStart;
-    // conta só os episódios cuja data agendada é a mesma do próximo não marcado
-    // (ou seja, "quantos faltam daquele dia específico", não da série inteira)
-    remainingToday = 0;
-    epsLateCount = 0;
-    for (let e = 0; e < eps; e++) {
-      if (epDone[e]) continue;
-      const d = episodeDateFor(first, e, eps);
-      if (d === nextStart) remainingToday++;
-      if (d && d <= t) epsLateCount++;
+    const trioCfg = first.epDates ? TRIOS.find(c => c.keys.includes(first.key)) : null;
+    if (trioCfg) {
+      // item faz parte de um trio intercalado: o próximo episódio "de verdade" pode ser de
+      // qualquer uma das 3 séries (não só da que aparece primeiro na lista) — olha o próximo
+      // não marcado de cada uma das 3 e usa o mais atrasado/antigo pra decidir se tá em dia.
+      // Sem isso, um atraso só na 2ª ou 3ª série do trio nunca aparecia no contador da home.
+      const perShow = trioCfg.keys.map((k, si) => {
+        const show = items.find(i => i.key === k);
+        if (!show) return null;
+        const epsShow = trioCfg.seasonSizes[si].reduce((a, b) => a + b, 0);
+        const epDoneShow = show.epDone || [];
+        const nextIdx = epDoneShow.findIndex(v => !v);
+        const idx = nextIdx === -1 ? Math.min(epDoneShow.length, epsShow - 1) : nextIdx;
+        const d = episodeDateFor(show, idx, epsShow) || show.watchStart;
+        return { show, eps: epsShow, epDone: epDoneShow, nextDate: d };
+      }).filter(Boolean);
+      nextStart = first.watchStart;
+      perShow.forEach(p => {
+        if (p.nextDate && (!nextStart || p.nextDate < nextStart)) nextStart = p.nextDate;
+      });
+      remainingToday = 0;
+      epsLateCount = 0;
+      perShow.forEach(p => {
+        for (let e = 0; e < p.eps; e++) {
+          if (p.epDone[e]) continue;
+          const d = episodeDateFor(p.show, e, p.eps);
+          if (d === nextStart) remainingToday++;
+          if (d && d <= t) epsLateCount++;
+        }
+      });
+      lateLabel = trioCfg.labels.join(' + ');
+    } else {
+      // série de vários dias: acha o primeiro episódio ainda não marcado — a data dele é
+      // que define se está em dia, adiantado ou atrasado (não a série inteira).
+      const eps = extractEpsCount(first.text) || 1;
+      const epDone = first.epDone || [];
+      const nextEpIdx = epDone.findIndex(v => !v);
+      const idx = nextEpIdx === -1 ? Math.min(epDone.length, eps - 1) : nextEpIdx;
+      nextStart = episodeDateFor(first, idx, eps) || first.watchStart;
+      // conta só os episódios cuja data agendada é a mesma do próximo não marcado
+      // (ou seja, "quantos faltam daquele dia específico", não da série inteira)
+      remainingToday = 0;
+      epsLateCount = 0;
+      for (let e = 0; e < eps; e++) {
+        if (epDone[e]) continue;
+        const d = episodeDateFor(first, e, eps);
+        if (d === nextStart) remainingToday++;
+        if (d && d <= t) epsLateCount++;
+      }
     }
   }
 
@@ -2972,7 +3006,7 @@ function updateDelayCounter() {
     el.textContent = `⏰ ${days} dia${days===1?'':'s'} atrasado no cronograma`;
     if (detailEl) {
       if (isSerie && epsLateCount > 0) {
-        const title = first.text.replace(/^[^\wÀ-ÿ]+\s*/, '');
+        const title = lateLabel || first.text.replace(/^[^\wÀ-ÿ]+\s*/, '');
         detailEl.className = 'delay-counter late';
         detailEl.textContent = `(${title}: ${epsLateCount} episódio${epsLateCount===1?'':'s'} atrasado${epsLateCount===1?'':'s'})`;
       } else {
