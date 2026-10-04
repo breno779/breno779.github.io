@@ -2936,50 +2936,59 @@ function updateDelayCounter() {
     if (trioCfg) {
       // item faz parte de um trio intercalado: o próximo episódio "de verdade" pode ser de
       // qualquer uma das 3 séries (não só da que aparece primeiro na lista) — olha o próximo
-      // não marcado de cada uma das 3 e usa o mais atrasado/antigo pra decidir se tá em dia.
-      // Sem isso, um atraso só na 2ª ou 3ª série do trio nunca aparecia no contador da home.
+      // de cada uma das 3 e usa o mais atrasado/antigo pra decidir se tá em dia. Usa QUANTOS
+      // episódios já foram marcados (doneCount), não a posição exata do primeiro não marcado
+      // (findIndex) — assim uma marcação fora de ordem/antiga isolada em alguma posição lá
+      // atrás não faz a série inteira parecer "começando do zero" nessa conta.
       const perShow = trioCfg.keys.map((k, si) => {
         const show = items.find(i => i.key === k);
         if (!show) return null;
         const epsShow = trioCfg.seasonSizes[si].reduce((a, b) => a + b, 0);
         const epDoneShow = show.epDone || [];
-        const nextIdx = epDoneShow.findIndex(v => !v);
-        const idx = nextIdx === -1 ? Math.min(epDoneShow.length, epsShow - 1) : nextIdx;
-        const d = episodeDateFor(show, idx, epsShow) || show.watchStart;
-        return { show, eps: epsShow, epDone: epDoneShow, nextDate: d };
+        const doneCount = epDoneShow.filter(Boolean).length;
+        return { show, eps: epsShow, idx: doneCount };
       }).filter(Boolean);
-      nextStart = first.watchStart;
+      nextStart = null;
       perShow.forEach(p => {
-        if (p.nextDate && (!nextStart || p.nextDate < nextStart)) nextStart = p.nextDate;
+        if (p.idx >= p.eps) return; // essa série do trio já terminou
+        const d = episodeDateFor(p.show, p.idx, p.eps);
+        if (d && (!nextStart || d < nextStart)) nextStart = d;
       });
+      nextStart = nextStart || first.watchStart;
       remainingToday = 0;
       epsLateCount = 0;
       perShow.forEach(p => {
-        for (let e = 0; e < p.eps; e++) {
-          if (p.epDone[e]) continue;
+        // conta a partir do próximo episódio dessa série (por quantidade já assistida) e
+        // para assim que achar uma data que não é mais "antes de hoje" — as datas só crescem,
+        // então o resto da série também não tá atrasado.
+        for (let e = p.idx; e < p.eps; e++) {
           const d = episodeDateFor(p.show, e, p.eps);
+          if (!d) break;
           if (d === nextStart) remainingToday++;
-          if (d && d <= t) epsLateCount++;
+          if (d < t) epsLateCount++;
+          else break;
         }
       });
       lateLabel = trioCfg.labels.join(' + ');
     } else {
-      // série de vários dias: acha o primeiro episódio ainda não marcado — a data dele é
-      // que define se está em dia, adiantado ou atrasado (não a série inteira).
+      // série de vários dias: usa quantos episódios já foram marcados (doneCount) pra achar
+      // o próximo — a data dele é que define se está em dia, adiantado ou atrasado (não a
+      // série inteira).
       const eps = extractEpsCount(first.text) || 1;
       const epDone = first.epDone || [];
-      const nextEpIdx = epDone.findIndex(v => !v);
-      const idx = nextEpIdx === -1 ? Math.min(epDone.length, eps - 1) : nextEpIdx;
-      nextStart = episodeDateFor(first, idx, eps) || first.watchStart;
-      // conta só os episódios cuja data agendada é a mesma do próximo não marcado
-      // (ou seja, "quantos faltam daquele dia específico", não da série inteira)
+      const idx = epDone.filter(Boolean).length;
+      nextStart = episodeDateFor(first, Math.min(idx, eps - 1), eps) || first.watchStart;
+      // conta a partir do próximo episódio (por quantidade já assistida), parando assim que
+      // achar uma data que não é mais "antes de hoje" (as datas só crescem) — hoje ainda não
+      // conta como atrasado, só a partir de amanhã.
       remainingToday = 0;
       epsLateCount = 0;
-      for (let e = 0; e < eps; e++) {
-        if (epDone[e]) continue;
+      for (let e = idx; e < eps; e++) {
         const d = episodeDateFor(first, e, eps);
+        if (!d) break;
         if (d === nextStart) remainingToday++;
-        if (d && d <= t) epsLateCount++;
+        if (d < t) epsLateCount++;
+        else break;
       }
     }
   }
