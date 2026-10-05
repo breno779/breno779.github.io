@@ -761,6 +761,14 @@ if ('serviceWorker' in navigator) {
     border-radius: 4px; text-align: center; font-family: 'JetBrains Mono', monospace; font-size: 0.9rem;
     padding: 2px 0;
   }
+  .ep-rate {
+    width: 46px; flex-shrink: 0; background: var(--ink); color: var(--gold); border: 1px solid var(--line);
+    border-radius: 6px; text-align: center; font-family: 'JetBrains Mono', monospace; font-size: 0.78rem;
+    padding: 3px 0; -moz-appearance: textfield;
+  }
+  .ep-rate::-webkit-outer-spin-button, .ep-rate::-webkit-inner-spin-button { -webkit-appearance: none; margin: 0; }
+  .ep-rate:focus { border-color: var(--gold); outline: none; }
+  .rating-widget .rating-auto { font-size: 0.62rem; color: var(--muted); font-family: 'Baloo 2', sans-serif; }
   .media-info {
     font-size: 0.68rem; color: var(--muted); margin-top: 5px; line-height: 1.5;
   }
@@ -1183,6 +1191,7 @@ function reconcileWithNewList(oldItems, oldVersion) {
         if (match.epDates) fresh.epDates = match.epDates;
       }
       if (match.epDone) fresh.epDone = match.epDone;
+      if (match.epRatings) fresh.epRatings = match.epRatings;
       if (match.completedAt) fresh.completedAt = match.completedAt;
       if (match.note) fresh.note = match.note;
     }
@@ -2018,19 +2027,31 @@ function buildItemRow(it) {
 
       const starsEl = document.createElement('div');
       starsEl.className = 'rating-widget';
-      const ratingDownBtn = document.createElement('button');
-      ratingDownBtn.textContent = '▼';
-      ratingDownBtn.addEventListener('click', (ev) => { ev.stopPropagation(); adjustRating(it.id, -1); });
+      const autoRating = simpleKind(it) === 'serie' && seriesHasEpRatings(it);
       const numSpan = document.createElement('span');
       numSpan.className = 'rating-num';
       numSpan.textContent = it.rating || 0;
-      numSpan.addEventListener('click', (ev) => { ev.stopPropagation(); startRatingEdit(it.id, numSpan); });
-      const ratingUpBtn = document.createElement('button');
-      ratingUpBtn.textContent = '▲';
-      ratingUpBtn.addEventListener('click', (ev) => { ev.stopPropagation(); adjustRating(it.id, 1); });
-      starsEl.appendChild(ratingDownBtn);
-      starsEl.appendChild(numSpan);
-      starsEl.appendChild(ratingUpBtn);
+      if (autoRating) {
+        // série com notas por episódio: nota geral é a média, automática (sem ▲▼ nem edição)
+        numSpan.style.cursor = 'default';
+        numSpan.title = 'Média das notas dos episódios';
+        const autoTag = document.createElement('span');
+        autoTag.className = 'rating-auto';
+        autoTag.textContent = 'média';
+        starsEl.appendChild(numSpan);
+        starsEl.appendChild(autoTag);
+      } else {
+        const ratingDownBtn = document.createElement('button');
+        ratingDownBtn.textContent = '▼';
+        ratingDownBtn.addEventListener('click', (ev) => { ev.stopPropagation(); adjustRating(it.id, -1); });
+        numSpan.addEventListener('click', (ev) => { ev.stopPropagation(); startRatingEdit(it.id, numSpan); });
+        const ratingUpBtn = document.createElement('button');
+        ratingUpBtn.textContent = '▲';
+        ratingUpBtn.addEventListener('click', (ev) => { ev.stopPropagation(); adjustRating(it.id, 1); });
+        starsEl.appendChild(ratingDownBtn);
+        starsEl.appendChild(numSpan);
+        starsEl.appendChild(ratingUpBtn);
+      }
       const noteBtn = document.createElement('button');
       noteBtn.textContent = it.note ? '📝' : '📝+';
       noteBtn.title = 'Anotação';
@@ -2359,6 +2380,47 @@ function scrollEpisodeListToToday() {
   }, 50);
 }
 
+// nota por episódio: it.epRatings é paralelo a it.epDone (null = sem nota). A nota geral da
+// série (it.rating) passa a ser a média das notas dos episódios — automática, 1 casa decimal.
+function seriesHasEpRatings(it) {
+  return Array.isArray(it.epRatings) && it.epRatings.some(v => typeof v === 'number');
+}
+function recomputeSeriesRating(it) {
+  if (!seriesHasEpRatings(it)) return;
+  const vals = it.epRatings.filter(v => typeof v === 'number');
+  it.rating = Math.round((vals.reduce((a, b) => a + b, 0) / vals.length) * 10) / 10;
+}
+function epRatingValue(it, idx) {
+  const v = it.epRatings ? it.epRatings[idx] : null;
+  return typeof v === 'number' ? v : '';
+}
+function epRateInputHtml(it, idx, showIdx) {
+  const sAttr = showIdx === undefined ? '' : ` data-show="${showIdx}"`;
+  return `<input class="ep-rate" type="number" min="0" max="10" step="0.1" inputmode="decimal" placeholder="—" title="Nota do episódio (0-10)" data-rate-ep="${idx}"${sAttr} value="${epRatingValue(it, idx)}">`;
+}
+// liga os campos de nota: resolve a série (getShow) e o total de episódios dela (getTotal)
+function wireEpRateInputs(getShow, getTotal) {
+  document.querySelectorAll('.interleaved-list .ep-rate').forEach(inp => {
+    inp.addEventListener('click', ev => ev.stopPropagation());
+    inp.addEventListener('change', () => {
+      const show = getShow(inp);
+      if (!show) return;
+      const idx = parseInt(inp.dataset.rateEp, 10);
+      if (!Array.isArray(show.epRatings)) show.epRatings = new Array(getTotal(inp)).fill(null);
+      let val = inp.value === '' ? null : parseFloat(inp.value);
+      if (val !== null) {
+        if (isNaN(val)) val = null;
+        else val = Math.round(Math.max(0, Math.min(10, val)) * 10) / 10;
+      }
+      show.epRatings[idx] = val;
+      inp.value = val === null ? '' : val;
+      recomputeSeriesRating(show);
+      save();
+      render();
+    });
+  });
+}
+
 function showSingleSeriesModal(it) {
   const eps = extractEpsCount(it.text) || 1;
   if (!it.epDone) it.epDone = new Array(eps).fill(false);
@@ -2374,6 +2436,7 @@ function showSingleSeriesModal(it) {
       <input type="checkbox" data-ep="${e}" ${checked}>
       <span class="iv-num">${e+1}.</span>
       <span class="iv-title">${epLabel}</span>
+      ${epRateInputHtml(it, e)}
       <span class="iv-date">${dateStr}</span>
     </label>`;
   }
@@ -2383,6 +2446,7 @@ function showSingleSeriesModal(it) {
     <div class="interleaved-list">${rows}</div>`);
   document.getElementById('modalBox').classList.add('wide-modal');
   scrollEpisodeListToToday();
+  wireEpRateInputs(() => it, () => eps);
   document.querySelectorAll('.interleaved-list input[type="checkbox"]').forEach(cb => {
     cb.addEventListener('change', () => {
       const idx = parseInt(cb.dataset.ep, 10);
@@ -2437,6 +2501,7 @@ function showInterleavedModal(clickedItem) {
       <input type="checkbox" data-show="${showIdx}" data-ep="${epFlatIdx}" ${checked}>
       <span class="iv-num">${i+1}.</span>
       <span class="iv-title">${escapeHtml(label)}</span>
+      ${epRateInputHtml(show, epFlatIdx, showIdx)}
       <span class="iv-date">${dateStr}</span>
     </label>`;
   }).join('');
@@ -2452,6 +2517,7 @@ function showInterleavedModal(clickedItem) {
   `);
   document.getElementById('modalBox').classList.add('wide-modal');
   scrollEpisodeListToToday();
+  wireEpRateInputs(inp => shows[parseInt(inp.dataset.show, 10)], inp => cfg.seasonSizes[parseInt(inp.dataset.show, 10)].reduce((a, b) => a + b, 0));
   document.querySelectorAll('.interleaved-list input[type="checkbox"]').forEach(cb => {
     cb.addEventListener('change', () => {
       const showIdx = parseInt(cb.dataset.show, 10);
