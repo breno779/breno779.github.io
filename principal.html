@@ -2453,7 +2453,9 @@ function scrollEpisodeListToToday() {
   setTimeout(() => {
     const list = document.querySelector('.interleaved-list');
     if (!list) return;
-    const target = list.querySelector('.interleaved-row.iv-today') || list.querySelector('.interleaved-row.iv-overdue');
+    // hoje -> atrasado -> (se já fez tudo de hoje) o PRÓXIMO episódio ainda não marcado
+    const target = list.querySelector('.interleaved-row.iv-today') || list.querySelector('.interleaved-row.iv-overdue')
+      || [...list.querySelectorAll('.interleaved-row')].find(r => { const c = r.querySelector('input[type="checkbox"]'); return c && !c.checked; });
     if (target) target.scrollIntoView({ behavior: 'smooth', block: 'center' });
   }, 50);
 }
