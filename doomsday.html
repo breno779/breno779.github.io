@@ -2442,9 +2442,12 @@ function showStats() {
 // destaca a linha de um episódio conforme a data: amarelo se é hoje, vermelho se passou e
 // ainda não foi marcado como visto (atrasado). Sem destaque se já foi visto.
 function epRowStatusClass(dateIso, checked) {
-  if (!dateIso || checked) return '';
+  if (!dateIso) return '';
   const t = todayIso();
+  // os episódios de HOJE ficam em amarelo mesmo depois de marcados; vermelho só pros atrasados
+  // que ainda não foram marcados
   if (dateIso === t) return ' iv-today';
+  if (checked) return '';
   if (dateIso < t) return ' iv-overdue';
   return '';
 }
@@ -2569,9 +2572,9 @@ function showSingleSeriesModal(it) {
       updateDelayCounter();
       updateEndBadge();
       cb.closest('.interleaved-row').classList.remove('iv-today', 'iv-overdue');
-      if (!cb.checked) {
+      {
         const dateIso = episodeDateFor(it, idx, eps);
-        const cls = epRowStatusClass(dateIso, false).trim();
+        const cls = epRowStatusClass(dateIso, cb.checked).trim();
         if (cls) cb.closest('.interleaved-row').classList.add(cls);
       }
     });
@@ -2645,9 +2648,9 @@ function showInterleavedModal(clickedItem) {
       updateDelayCounter();
       updateEndBadge();
       cb.closest('.interleaved-row').classList.remove('iv-today', 'iv-overdue');
-      if (!cb.checked) {
+      {
         const dateIso = shows[showIdx].epDates ? shows[showIdx].epDates[epIdx] : null;
-        const cls = epRowStatusClass(dateIso, false).trim();
+        const cls = epRowStatusClass(dateIso, cb.checked).trim();
         if (cls) cb.closest('.interleaved-row').classList.add(cls);
       }
     });
