@@ -2441,12 +2441,9 @@ function showStats() {
 // destaca a linha de um episódio conforme a data: amarelo se é hoje, vermelho se passou e
 // ainda não foi marcado como visto (atrasado). Sem destaque se já foi visto.
 function epRowStatusClass(dateIso, checked) {
-  if (!dateIso) return '';
+  if (!dateIso || checked) return '';
   const t = todayIso();
-  // os episódios de HOJE ficam em amarelo mesmo depois de marcados; vermelho só pros atrasados
-  // que ainda não foram marcados
   if (dateIso === t) return ' iv-today';
-  if (checked) return '';
   if (dateIso < t) return ' iv-overdue';
   return '';
 }
