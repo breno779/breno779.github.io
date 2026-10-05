@@ -1669,16 +1669,30 @@ function enforceKnownCorrections() {
 // trouxer dados sem as notas. A nota geral vira a média automática.
 function applyTrio1Ratings() {
   let changed = false;
+  // limpeza única por aparelho: a 1ª versão pôs 10 também em episódios ainda NÃO assistidos —
+  // tira esses (só os que são exatamente 10 e não estão marcados, nos eps 1-43)
+  let cleaned = false;
+  try { cleaned = localStorage.getItem('ucm-trio1-unwatched-clean-v1') === '1'; } catch(e) {}
   ['k52', 'k53'].forEach(k => {
     const sh = items.find(i => i.key === k);
-    if (!sh || seriesHasEpRatings(sh)) return;
-    const arr = Array.isArray(sh.epRatings) ? sh.epRatings.slice() : [];
-    while (arr.length < 43) arr.push(null);
-    for (let e = 0; e < 43; e++) arr[e] = 10;
-    sh.epRatings = arr;
-    recomputeSeriesRating(sh);
-    changed = true;
+    if (!sh) return;
+    const done = Array.isArray(sh.epDone) ? sh.epDone : [];
+    if (!cleaned && Array.isArray(sh.epRatings)) {
+      for (let e = 0; e < 43 && e < sh.epRatings.length; e++) {
+        if (!done[e] && sh.epRatings[e] === 10) { sh.epRatings[e] = null; changed = true; }
+      }
+    }
+    // preenche com 10 só os episódios JÁ marcados como assistidos (1 a 43), e só se a série
+    // ainda não tem nenhuma nota de episódio
+    if (!seriesHasEpRatings(sh)) {
+      const arr = Array.isArray(sh.epRatings) ? sh.epRatings.slice() : [];
+      while (arr.length < 43) arr.push(null);
+      let any = false;
+      for (let e = 0; e < 43; e++) if (done[e]) { arr[e] = 10; any = true; }
+      if (any) { sh.epRatings = arr; changed = true; }
+    }
   });
+  if (!cleaned) { try { localStorage.setItem('ucm-trio1-unwatched-clean-v1', '1'); } catch(e) {} }
   return changed;
 }
 
