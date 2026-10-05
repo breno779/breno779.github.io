@@ -1954,7 +1954,7 @@ function buildItemRow(it) {
 
       const starsEl = document.createElement('div');
       starsEl.className = 'rating-widget';
-      const autoRating = simpleKind(it) === 'serie' && seriesHasEpRatings(it);
+      const autoRating = simpleKind(it) === 'serie' && seriesHasEpRatings(it) && seriesFullyWatched(it);
       const numSpan = document.createElement('span');
       numSpan.className = 'rating-num';
       numSpan.textContent = it.rating || 0;
@@ -2299,16 +2299,48 @@ function scrollEpisodeListToToday() {
 function seriesHasEpRatings(it) {
   return Array.isArray(it.epRatings) && it.epRatings.some(v => typeof v === 'number');
 }
-function recomputeSeriesRating(it) {
-  if (!seriesHasEpRatings(it)) return;
-  const vals = it.epRatings.filter(v => typeof v === 'number');
-  it.rating = Math.round((vals.reduce((a, b) => a + b, 0) / vals.length) * 10) / 10;
+// a nota geral só vira a média quando o ÚLTIMO episódio é marcado — durante o progresso a
+// série fica sem nota geral (ou com a que você pôs na mão). Séries que você já tinha visto, sem
+// notas por episódio, continuam só com a nota geral manual.
+function seriesFullyWatched(it) {
+  if (it.done) return true;
+  return Array.isArray(it.epDone) && it.epDone.length > 0 && it.epDone.every(Boolean);
 }
+function epRatingAvg(it) {
+  const vals = it.epRatings.filter(v => typeof v === 'number');
+  return Math.round((vals.reduce((a, b) => a + b, 0) / vals.length) * 10) / 10;
+}
+// devolve true se mexeu na nota geral
+function syncOneSeriesRating(it) {
+  if (!seriesHasEpRatings(it)) {
+    if (it.ratingAuto) { delete it.rating; it.ratingAuto = false; return true; }
+    return false;
+  }
+  const avg = epRatingAvg(it);
+  if (seriesFullyWatched(it)) {
+    if (it.rating !== avg || !it.ratingAuto) { it.rating = avg; it.ratingAuto = true; return true; }
+    return false;
+  }
+  // em andamento: tira a média automática (inclusive a que a primeira versão gravou sem marca)
+  if (it.ratingAuto || (it.ratingAuto === undefined && it.rating === avg)) {
+    delete it.rating; it.ratingAuto = false; return true;
+  }
+  return false;
+}
+function syncSeriesRatings() {
+  let changed = false;
+  items.forEach(i => { if (syncOneSeriesRating(i)) changed = true; });
+  return changed;
+}
+function recomputeSeriesRating(it) { syncOneSeriesRating(it); }
+// campo de nota por episódio: some nas séries já concluídas sem notas por episódio
+function epRatingInputsVisible(it) { return seriesHasEpRatings(it) || !seriesFullyWatched(it); }
 function epRatingValue(it, idx) {
   const v = it.epRatings ? it.epRatings[idx] : null;
   return typeof v === 'number' ? v : '';
 }
 function epRateInputHtml(it, idx, showIdx) {
+  if (!epRatingInputsVisible(it)) return '';
   const sAttr = showIdx === undefined ? '' : ` data-show="${showIdx}"`;
   return `<input class="ep-rate" type="number" min="0" max="10" step="0.1" inputmode="decimal" placeholder="—" title="Nota do episódio (0-10)" data-rate-ep="${idx}"${sAttr} value="${epRatingValue(it, idx)}">`;
 }
@@ -2366,6 +2398,7 @@ function showSingleSeriesModal(it) {
       const idx = parseInt(cb.dataset.ep, 10);
       it.epDone[idx] = cb.checked;
       save();
+      if (syncSeriesRatings()) { save(); render(); }
       updateDelayCounter();
       updateEndBadge();
       cb.closest('.interleaved-row').classList.remove('iv-today', 'iv-overdue');
@@ -2438,6 +2471,7 @@ function showInterleavedModal(clickedItem) {
       const epIdx = parseInt(cb.dataset.ep, 10);
       shows[showIdx].epDone[epIdx] = cb.checked;
       save();
+      if (syncSeriesRatings()) { save(); render(); }
       // atualiza os indicadores da home (dias adiantado/atrasado, "restam N episódios de
       // hoje") na hora — antes só recalculava no próximo load(), porque esse checkbox nunca
       // chamava nada disso, só save().
@@ -2963,6 +2997,7 @@ function updateDelayCounter() {
 }
 
 function render() {
+  if (syncSeriesRatings()) save();
   const banner = document.getElementById('rescheduleBanner');
   if (banner) banner.style.display = 'none';
   const main = document.getElementById('main');
