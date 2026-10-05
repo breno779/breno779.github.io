@@ -1622,24 +1622,6 @@ function load() {
     try { localStorage.setItem('ucm-fix-k53-text-v1', '1'); } catch(e) {}
   }
 
-  // pedido do usuário: nota 10 nos episódios 1 a 43 das duas séries do trio 1 (Ultimate
-  // Homem-Aranha e Vingadores Unidos). Roda uma vez por aparelho; depois disso as notas são
-  // livres pra editar. A nota geral de cada série vira a média automática.
-  let trio1RateApplied = false;
-  try { trio1RateApplied = localStorage.getItem('ucm-trio1-rate10-v1') === '1'; } catch(e) {}
-  if (!trio1RateApplied) {
-    ['k52', 'k53'].forEach(k => {
-      const sh = items.find(i => i.key === k);
-      if (!sh) return;
-      const arr = Array.isArray(sh.epRatings) ? sh.epRatings.slice() : [];
-      while (arr.length < 43) arr.push(null);
-      for (let e = 0; e < 43; e++) arr[e] = 10;
-      sh.epRatings = arr;
-      recomputeSeriesRating(sh);
-    });
-    try { localStorage.setItem('ucm-trio1-rate10-v1', '1'); } catch(e) {}
-  }
-
   // correção definitiva #3: garante que o trio intercalado sempre comece em 21/09/2026 de
   // verdade. Roda em TODO load (não só uma vez), porque dados vindos de outro aparelho pela
   // sincronização podem trazer essa data errada de volta — não dá pra confiar só no flag local.
@@ -1680,8 +1662,29 @@ function enforceKnownCorrections() {
   return changed;
 }
 
+// pedido do usuário: nota 10 nos episódios 1 a 43 das duas séries do trio 1 (Ultimate
+// Homem-Aranha e Vingadores Unidos). Roda em todo load e depois de puxar/importar dados (via
+// enforceTrioAnchor), mas só preenche a série que ainda não tem NENHUMA nota de episódio —
+// então não sobrescreve notas que você mudar depois, e volta a aplicar se uma sincronização
+// trouxer dados sem as notas. A nota geral vira a média automática.
+function applyTrio1Ratings() {
+  let changed = false;
+  ['k52', 'k53'].forEach(k => {
+    const sh = items.find(i => i.key === k);
+    if (!sh || seriesHasEpRatings(sh)) return;
+    const arr = Array.isArray(sh.epRatings) ? sh.epRatings.slice() : [];
+    while (arr.length < 43) arr.push(null);
+    for (let e = 0; e < 43; e++) arr[e] = 10;
+    sh.epRatings = arr;
+    recomputeSeriesRating(sh);
+    changed = true;
+  });
+  return changed;
+}
+
 function enforceTrioAnchor() {
   const removed = dropRemovedItems();
+  const rated = applyTrio1Ratings();
   const corrected = enforceKnownCorrections();
   const usm = items.find(i => i.text.includes('Ultimate Homem-Aranha'));
   // se algo saiu do trio (ou uma correção de dados mudou o cronograma), recalcula tudo a partir
@@ -1695,7 +1698,7 @@ function enforceTrioAnchor() {
     try { localStorage.setItem('ucm-rate3-v1', '1'); } catch(e) {}
     return true;
   }
-  return removed || corrected;
+  return removed || corrected || rated;
 }
 
 function save() {
