@@ -1674,37 +1674,41 @@ function enforceKnownCorrections() {
   return changed;
 }
 
-// pedido do usuário: nota 10 nos episódios 1 a 43 das duas séries do trio 1 (Ultimate
-// Homem-Aranha e Vingadores Unidos). Roda em todo load e depois de puxar/importar dados (via
-// enforceTrioAnchor), mas só preenche a série que ainda não tem NENHUMA nota de episódio —
-// então não sobrescreve notas que você mudar depois, e volta a aplicar se uma sincronização
-// trouxer dados sem as notas. A nota geral vira a média automática.
+// pedido do usuário: nota 10 nos episódios 1 a 43 da DUPLA (Ultimate Homem-Aranha + Vingadores
+// Unidos) — os 43 primeiros da lista intercalada (a numeração 1., 2., 3. da modal), e só os já
+// marcados como assistidos. Corrige a versão anterior, que punha 10 em até 43 episódios de CADA
+// série. Roda uma vez por aparelho: dá 10 nos 43 primeiros da lista e tira o 10 de todo o resto
+// (esses 10 fora da faixa vieram da versão errada). Depois disso as notas são livres.
 function applyTrio1Ratings() {
+  let applied = false;
+  try { applied = localStorage.getItem('ucm-trio1-rate-pos43-v1') === '1'; } catch(e) {}
+  if (applied) return false;
+  const cfg = TRIOS.find(c => c.keys.includes('k52'));
+  if (!cfg) return false;
+  const shows = cfg.keys.map(k => items.find(i => i.key === k));
+  if (shows.some(sh => !sh)) return false;
+  const order = computeTrioOrder(cfg);
+  const keep = cfg.keys.map(() => new Set());
+  const counters = cfg.keys.map(() => 0);
+  for (let pos = 0; pos < 43 && pos < order.length; pos++) {
+    const si = order[pos];
+    keep[si].add(counters[si]++);
+  }
   let changed = false;
-  // limpeza única por aparelho: a 1ª versão pôs 10 também em episódios ainda NÃO assistidos —
-  // tira esses (só os que são exatamente 10 e não estão marcados, nos eps 1-43)
-  let cleaned = false;
-  try { cleaned = localStorage.getItem('ucm-trio1-unwatched-clean-v1') === '1'; } catch(e) {}
-  ['k52', 'k53'].forEach(k => {
-    const sh = items.find(i => i.key === k);
-    if (!sh) return;
+  shows.forEach((sh, si) => {
+    const total = cfg.seasonSizes[si].reduce((a, b) => a + b, 0);
     const done = Array.isArray(sh.epDone) ? sh.epDone : [];
-    if (!cleaned && Array.isArray(sh.epRatings)) {
-      for (let e = 0; e < 43 && e < sh.epRatings.length; e++) {
-        if (!done[e] && sh.epRatings[e] === 10) { sh.epRatings[e] = null; changed = true; }
-      }
+    const arr = Array.isArray(sh.epRatings) ? sh.epRatings.slice() : [];
+    while (arr.length < total) arr.push(null);
+    for (let e = 0; e < arr.length; e++) {
+      if (keep[si].has(e)) {
+        if (done[e] && arr[e] !== 10) { arr[e] = 10; changed = true; }
+        if (!done[e] && arr[e] === 10) { arr[e] = null; changed = true; }
+      } else if (arr[e] === 10) { arr[e] = null; changed = true; }
     }
-    // preenche com 10 só os episódios JÁ marcados como assistidos (1 a 43), e só se a série
-    // ainda não tem nenhuma nota de episódio
-    if (!seriesHasEpRatings(sh)) {
-      const arr = Array.isArray(sh.epRatings) ? sh.epRatings.slice() : [];
-      while (arr.length < 43) arr.push(null);
-      let any = false;
-      for (let e = 0; e < 43; e++) if (done[e]) { arr[e] = 10; any = true; }
-      if (any) { sh.epRatings = arr; changed = true; }
-    }
+    sh.epRatings = arr;
   });
-  if (!cleaned) { try { localStorage.setItem('ucm-trio1-unwatched-clean-v1', '1'); } catch(e) {} }
+  try { localStorage.setItem('ucm-trio1-rate-pos43-v1', '1'); } catch(e) {}
   return changed;
 }
 
@@ -4004,7 +4008,7 @@ document.getElementById('tabLista').classList.add('tab-visible');
 
 // versão do app (acompanha o CACHE_NAME do sw.js): aparece entre parênteses nos botões de
 // recarregar de todas as abas
-const APP_VERSION = 'v38';
+const APP_VERSION = 'v39';
 (function () {
   const home = document.getElementById('btnReloadHome');
   if (home) home.textContent = '🔄 Recarregar (' + APP_VERSION + ')';
