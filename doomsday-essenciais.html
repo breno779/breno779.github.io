@@ -3779,7 +3779,7 @@ document.querySelectorAll('.tabbar-btn').forEach(btn => {
 document.getElementById('tabLista').classList.add('tab-visible');
 
 // versão do app, pequena embaixo em todas as abas (acompanha o CACHE_NAME do sw.js)
-const APP_VERSION = 'v33';
+const APP_VERSION = 'v34';
 (function () {
   const el = document.getElementById('appVersion');
   const bar = document.getElementById('tabbar');
@@ -3926,8 +3926,13 @@ function heroAveragesHtml() {
   });
   if (!rows.length) return '<p style="font-size:0.75rem;color:var(--muted);">Dê nota a títulos concluídos pra ver a média por herói.</p>';
   rows.sort((a, b) => b.all - a.all);
+  // concluídos de algum herói mas SEM nota: não entram na média — lista pra você achar o que falta
+  const unrated = items.filter(i => i.done && !(i.rating > 0) && simpleKind(i) !== 'jogo' && heroGroupsOf(i).length);
+  const unratedHtml = unrated.length
+    ? `<div class="hero-avg-item"><div class="hero-avg-row hero-avg-tap" style="grid-template-columns:1fr;color:var(--muted);" onclick="this.nextElementSibling.hidden=!this.nextElementSibling.hidden"><div>⚠️ ${unrated.length} concluído${unrated.length === 1 ? '' : 's'} sem nota (fora da média) — toque pra ver</div></div><div class="hero-avg-list" hidden>${unrated.map(i => `<div class="hlist-i"><span>${escapeHtml(cleanName(i))}</span><b>—</b></div>`).join('')}</div></div>`
+    : '';
   return `<div class="hero-avg-row head"><div>HERÓI / GRUPO <span style="opacity:.7">(toque pra ver os títulos)</span></div><div style="text-align:center;">🎨 ANIMAÇÃO</div><div style="text-align:center;">🎬 LIVE ACTION</div></div>` +
-    rows.map(r => `<div class="hero-avg-item"><div class="hero-avg-row hero-avg-tap" onclick="this.nextElementSibling.hidden=!this.nextElementSibling.hidden"><div class="hname">${r.g.emoji} ${escapeHtml(r.g.label)}</div>${fmt(r.anim)}${fmt(r.live)}</div><div class="hero-avg-list" hidden>${listHtml('🎨 Animação', r.anim)}${listHtml('🎬 Live action', r.live)}</div></div>`).join('');
+    rows.map(r => `<div class="hero-avg-item"><div class="hero-avg-row hero-avg-tap" onclick="this.nextElementSibling.hidden=!this.nextElementSibling.hidden"><div class="hname">${r.g.emoji} ${escapeHtml(r.g.label)}</div>${fmt(r.anim)}${fmt(r.live)}</div><div class="hero-avg-list" hidden>${listHtml('🎨 Animação', r.anim)}${listHtml('🎬 Live action', r.live)}</div></div>`).join('') + unratedHtml;
 }
 
 function renderStatsPage() {
