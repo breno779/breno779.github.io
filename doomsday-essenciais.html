@@ -3778,7 +3778,7 @@ document.getElementById('tabLista').classList.add('tab-visible');
 
 // versão do app (acompanha o CACHE_NAME do sw.js): aparece entre parênteses nos botões de
 // recarregar de todas as abas
-const APP_VERSION = 'v36';
+const APP_VERSION = 'v37';
 (function () {
   const home = document.getElementById('btnReloadHome');
   if (home) home.textContent = '🔄 Recarregar (' + APP_VERSION + ')';
@@ -3902,32 +3902,31 @@ function heroAveragesHtml() {
   const fmt = list => list.length
     ? `<div class="hval">${(Math.round(list.reduce((s, i) => s + i.rating, 0) / list.length * 10) / 10).toFixed(1)}<small>${list.length} ${list.length === 1 ? 'título' : 'títulos'}</small></div>`
     : `<div class="hval none">—</div>`;
+  const noNoteHtml = list => list.length
+    ? `<div class="hlist-h">⚠️ Concluídos sem nota (fora da média)</div>` + list.map(i => `<div class="hlist-i"><span>${escapeHtml(cleanName(i))}</span><b>—</b></div>`).join('')
+    : '';
   const listHtml = (label, list) => list.length
     ? `<div class="hlist-h">${label}</div>` + list.map(i => `<div class="hlist-i"><span>${escapeHtml(cleanName(i))}</span><b>${i.rating}</b></div>`).join('')
     : '';
+  // TODOS os heróis/grupos aparecem na lista (mesmo sem nota ainda); os com média primeiro
   const byGroup = new Map();
-  rated.forEach(i => {
-    heroGroupsOf(i).forEach(g => {
-      if (!byGroup.has(g.id)) byGroup.set(g.id, { g, mine: [] });
-      byGroup.get(g.id).mine.push(i);
-    });
-  });
+  HERO_GROUPS.forEach(g => byGroup.set(g.id, { g, mine: [], noNote: [] }));
+  rated.forEach(i => heroGroupsOf(i).forEach(g => byGroup.get(g.id).mine.push(i)));
+  items.filter(i => i.done && !(i.rating > 0) && simpleKind(i) !== 'jogo')
+    .forEach(i => heroGroupsOf(i).forEach(g => byGroup.get(g.id).noNote.push(i)));
   const rows = [];
-  byGroup.forEach(({ g, mine }) => {
+  byGroup.forEach(({ g, mine, noNote }) => {
     const anim = mine.filter(i => i.text.includes('🎨'));
     const live = mine.filter(i => !i.text.includes('🎨'));
-    const all = mine.reduce((s, i) => s + i.rating, 0) / mine.length;
-    rows.push({ g, anim, live, all });
+    const all = mine.length ? mine.reduce((s, i) => s + i.rating, 0) / mine.length : -1;
+    rows.push({ g, anim, live, all, noNote });
   });
-  if (!rows.length) return '<p style="font-size:0.75rem;color:var(--muted);">Dê nota a títulos concluídos pra ver a média por herói.</p>';
-  rows.sort((a, b) => b.all - a.all);
-  // concluídos de algum herói mas SEM nota: não entram na média — lista pra você achar o que falta
-  const unrated = items.filter(i => i.done && !(i.rating > 0) && simpleKind(i) !== 'jogo' && heroGroupsOf(i).length);
-  const unratedHtml = unrated.length
-    ? `<div class="hero-avg-item"><div class="hero-avg-row hero-avg-tap" style="grid-template-columns:1fr;color:var(--muted);" onclick="this.nextElementSibling.hidden=!this.nextElementSibling.hidden"><div>⚠️ ${unrated.length} concluído${unrated.length === 1 ? '' : 's'} sem nota (fora da média) — toque pra ver</div></div><div class="hero-avg-list" hidden>${unrated.map(i => `<div class="hlist-i"><span>${escapeHtml(cleanName(i))}</span><b>—</b></div>`).join('')}</div></div>`
-    : '';
+  // com média (maior primeiro) -> só concluídos sem nota -> ainda sem nada
+  const rank = r => r.all >= 0 ? 0 : (r.noNote.length ? 1 : 2);
+  rows.sort((a, b) => rank(a) - rank(b) || b.all - a.all);
+  const unratedHtml = '';
   return `<div class="hero-avg-row head"><div>HERÓI / GRUPO <span style="opacity:.7">(toque pra ver os títulos)</span></div><div style="text-align:center;">🎨 ANIMAÇÃO</div><div style="text-align:center;">🎬 LIVE ACTION</div></div>` +
-    rows.map(r => `<div class="hero-avg-item"><div class="hero-avg-row hero-avg-tap" onclick="this.nextElementSibling.hidden=!this.nextElementSibling.hidden"><div class="hname">${r.g.emoji} ${escapeHtml(r.g.label)}</div>${fmt(r.anim)}${fmt(r.live)}</div><div class="hero-avg-list" hidden>${listHtml('🎨 Animação', r.anim)}${listHtml('🎬 Live action', r.live)}</div></div>`).join('') + unratedHtml;
+    rows.map(r => `<div class="hero-avg-item"><div class="hero-avg-row hero-avg-tap" onclick="this.nextElementSibling.hidden=!this.nextElementSibling.hidden"><div class="hname">${r.g.emoji} ${escapeHtml(r.g.label)}</div>${fmt(r.anim)}${fmt(r.live)}</div><div class="hero-avg-list" hidden>${listHtml('🎨 Animação', r.anim)}${listHtml('🎬 Live action', r.live)}${noNoteHtml(r.noNote)}${(!r.anim.length && !r.live.length && !r.noNote.length) ? '<div class="hlist-h">Nenhum título concluído ainda</div>' : ''}</div></div>`).join('') + unratedHtml;
 }
 
 function renderStatsPage() {
