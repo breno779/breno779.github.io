@@ -4000,7 +4000,7 @@ document.getElementById('tabLista').classList.add('tab-visible');
 
 // versão do app (acompanha o CACHE_NAME do sw.js): aparece entre parênteses nos botões de
 // recarregar de todas as abas
-const APP_VERSION = 'v35';
+const APP_VERSION = 'v36';
 (function () {
   const home = document.getElementById('btnReloadHome');
   if (home) home.textContent = '🔄 Recarregar (' + APP_VERSION + ')';
@@ -4094,7 +4094,7 @@ document.getElementById('btnWatchNow').addEventListener('click', goToWatchNow);
 const HERO_TITLE_OVERRIDES = [
   { re: /x-men origens:?\s*wolverine/, ids: ['wolverine'] },
   // exceção: conta nos DOIS heróis
-  { re: /deadpool\s*(&|e)\s*wolverine/, ids: ['deadpool', 'wolverine'] },
+  { re: /deadpool.{0,12}wolverine|wolverine.{0,12}deadpool/, ids: ['deadpool', 'wolverine'] },
 ];
 function heroTitleText(it) {
   let t = it.text.replace(/\([^)]*\)/g, ' ');
