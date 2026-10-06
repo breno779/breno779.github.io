@@ -4082,16 +4082,18 @@ document.getElementById('btnWatchNow').addEventListener('click', goToWatchNow);
 // subtítulo). Se o título citar mais de um herói, vale o que aparece primeiro; alguns casos
 // específicos têm exceção na lista abaixo.
 const HERO_TITLE_OVERRIDES = [
-  { re: /x-men origens:?\s*wolverine/, id: 'wolverine' },
+  { re: /x-men origens:?\s*wolverine/, ids: ['wolverine'] },
+  // exceção: conta nos DOIS heróis
+  { re: /deadpool\s*(&|e)\s*wolverine/, ids: ['deadpool', 'wolverine'] },
 ];
 function heroTitleText(it) {
   let t = it.text.replace(/\([^)]*\)/g, ' ');
   if (!/what if/i.test(t)) t = t.split(' — ')[0];
   return normalizeStr(t);
 }
-function heroGroupOf(it) {
+function heroGroupsOf(it) {
   const norm = heroTitleText(it);
-  for (const o of HERO_TITLE_OVERRIDES) if (o.re.test(norm)) return HERO_GROUPS.find(g => g.id === o.id) || null;
+  for (const o of HERO_TITLE_OVERRIDES) if (o.re.test(norm)) return o.ids.map(id => HERO_GROUPS.find(g => g.id === id)).filter(Boolean);
   let best = null;
   HERO_GROUPS.forEach(g => {
     if (g.exclude && g.exclude.some(k => textHasKeyword(norm, k))) return;
@@ -4104,7 +4106,7 @@ function heroGroupOf(it) {
       if (!best || pos < best.pos || (pos === best.pos && nk.length > best.len)) best = { g, pos, len: nk.length };
     });
   });
-  return best ? best.g : null;
+  return best ? [best.g] : [];
 }
 function heroAveragesHtml() {
   const rated = items.filter(i => i.done && i.rating > 0 && simpleKind(i) !== 'jogo');
@@ -4117,10 +4119,10 @@ function heroAveragesHtml() {
     : '';
   const byGroup = new Map();
   rated.forEach(i => {
-    const g = heroGroupOf(i);
-    if (!g) return;
-    if (!byGroup.has(g.id)) byGroup.set(g.id, { g, mine: [] });
-    byGroup.get(g.id).mine.push(i);
+    heroGroupsOf(i).forEach(g => {
+      if (!byGroup.has(g.id)) byGroup.set(g.id, { g, mine: [] });
+      byGroup.get(g.id).mine.push(i);
+    });
   });
   const rows = [];
   byGroup.forEach(({ g, mine }) => {
