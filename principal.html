@@ -328,6 +328,10 @@ if ('serviceWorker' in navigator) {
   .hero-avg-row .hval small { display: block; font-family: inherit; font-weight: 400; font-size: 0.58rem; color: var(--muted); }
   .hero-avg-row .hval.none { color: var(--muted); font-weight: 400; }
   .hero-avg-tap { cursor: pointer; }
+  .hero-avg-row .hrank { display: inline-block; min-width: 1.9em; font-family: 'JetBrains Mono', monospace; font-weight: 700; color: var(--muted); }
+  .hero-avg-row .hmove { font-family: 'JetBrains Mono', monospace; font-size: 0.68rem; font-weight: 700; margin-left: 4px; white-space: nowrap; }
+  .hero-avg-row .hmove.up { color: #3ecf6e; }
+  .hero-avg-row .hmove.down { color: #ff5b4f; }
   .hero-avg-list { padding: 2px 4px 8px; font-size: 0.72rem; }
   .hero-avg-list .hlist-h { color: var(--muted); font-size: 0.62rem; margin-top: 6px; }
   .hero-avg-list .hlist-i { display: flex; justify-content: space-between; gap: 10px; padding: 2px 0; }
@@ -4000,7 +4004,7 @@ document.getElementById('tabLista').classList.add('tab-visible');
 
 // versão do app (acompanha o CACHE_NAME do sw.js): aparece entre parênteses nos botões de
 // recarregar de todas as abas
-const APP_VERSION = 'v37';
+const APP_VERSION = 'v38';
 (function () {
   const home = document.getElementById('btnReloadHome');
   if (home) home.textContent = '🔄 Recarregar (' + APP_VERSION + ')';
@@ -4145,10 +4149,30 @@ function heroAveragesHtml() {
   });
   // com média (maior primeiro) -> só concluídos sem nota -> ainda sem nada
   const rank = r => r.all >= 0 ? 0 : (r.noNote.length ? 1 : 2);
-  rows.sort((a, b) => rank(a) - rank(b) || b.all - a.all);
+  rows.sort((a, b) => rank(a) - rank(b) || b.all - a.all || (b.anim.length + b.live.length) - (a.anim.length + a.live.length));
+  // ranking: posição de cada herói + quanto subiu/desceu desde a ÚLTIMA vez que o ranking mudou.
+  // Guarda a ordem anterior (por aparelho); a 1ª vez usa a ordem de agora como ponto de partida.
+  const order = rows.map(r => r.g.id);
+  const curPos = {}; order.forEach((id, i) => { curPos[id] = i + 1; });
+  const RK = 'ucm-hero-rank-' + STORAGE_KEY;
+  let st = null;
+  try { st = JSON.parse(localStorage.getItem(RK) || 'null'); } catch (e) {}
+  if (!st || !Array.isArray(st.last) || !st.base) {
+    st = { base: curPos, last: order };
+  } else if (st.last.join('|') !== order.join('|')) {
+    const lastPos = {}; st.last.forEach((id, i) => { lastPos[id] = i + 1; });
+    st = { base: lastPos, last: order };
+  }
+  try { localStorage.setItem(RK, JSON.stringify(st)); } catch (e) {}
+  rows.forEach((r, i) => {
+    r.pos = i + 1;
+    const prev = st.base[r.g.id];
+    r.move = (prev && r.all >= 0) ? prev - r.pos : 0; // positivo = subiu; sem nota ainda = sem seta
+  });
+  const moveHtml = r => r.move > 0 ? `<span class="hmove up">▲${r.move}</span>` : (r.move < 0 ? `<span class="hmove down">▼${-r.move}</span>` : '');
   const unratedHtml = '';
   return `<div class="hero-avg-row head"><div>HERÓI / GRUPO <span style="opacity:.7">(toque pra ver os títulos)</span></div><div style="text-align:center;">🎨 ANIMAÇÃO</div><div style="text-align:center;">🎬 LIVE ACTION</div></div>` +
-    rows.map(r => `<div class="hero-avg-item"><div class="hero-avg-row hero-avg-tap" onclick="this.nextElementSibling.hidden=!this.nextElementSibling.hidden"><div class="hname">${r.g.emoji} ${escapeHtml(r.g.label)}</div>${fmt(r.anim)}${fmt(r.live)}</div><div class="hero-avg-list" hidden>${listHtml('🎨 Animação', r.anim)}${listHtml('🎬 Live action', r.live)}${noNoteHtml(r.noNote)}${(!r.anim.length && !r.live.length && !r.noNote.length) ? '<div class="hlist-h">Nenhum título concluído ainda</div>' : ''}</div></div>`).join('') + unratedHtml;
+    rows.map(r => `<div class="hero-avg-item"><div class="hero-avg-row hero-avg-tap" onclick="this.nextElementSibling.hidden=!this.nextElementSibling.hidden"><div class="hname"><span class="hrank">${r.pos}º</span> ${r.g.emoji} ${escapeHtml(r.g.label)} ${moveHtml(r)}</div>${fmt(r.anim)}${fmt(r.live)}</div><div class="hero-avg-list" hidden>${listHtml('🎨 Animação', r.anim)}${listHtml('🎬 Live action', r.live)}${noNoteHtml(r.noNote)}${(!r.anim.length && !r.live.length && !r.noNote.length) ? '<div class="hlist-h">Nenhum título concluído ainda</div>' : ''}</div></div>`).join('') + unratedHtml;
 }
 
 function renderStatsPage() {
