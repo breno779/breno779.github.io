@@ -326,6 +326,11 @@ if ('serviceWorker' in navigator) {
   .hero-avg-row .hval { text-align: center; font-family: 'JetBrains Mono', monospace; font-weight: 700; color: var(--gold); }
   .hero-avg-row .hval small { display: block; font-family: inherit; font-weight: 400; font-size: 0.58rem; color: var(--muted); }
   .hero-avg-row .hval.none { color: var(--muted); font-weight: 400; }
+  .hero-avg-tap { cursor: pointer; }
+  .hero-avg-list { padding: 2px 4px 8px; font-size: 0.72rem; }
+  .hero-avg-list .hlist-h { color: var(--muted); font-size: 0.62rem; margin-top: 6px; }
+  .hero-avg-list .hlist-i { display: flex; justify-content: space-between; gap: 10px; padding: 2px 0; }
+  .hero-avg-list .hlist-i b { color: var(--gold); font-family: 'JetBrains Mono', monospace; }
   .achv-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; }
   .achv-cat-title {
     font-family: 'Bangers', cursive; color: var(--cobalt); font-size: 0.95rem;
@@ -1042,7 +1047,7 @@ const HERO_GROUPS = [
   { id: 'homem-formiga', emoji: '🐜', label: 'Homem-Formiga', keywords: ['homem-formiga'] },
   { id: 'capita-marvel', emoji: '⭐', label: 'Capitã Marvel', keywords: ['capitã marvel', 'as marvels'] },
   { id: 'thor', emoji: '🌩️', label: 'Thor', keywords: ['thor'] },
-  { id: 'hulk', emoji: '💚', label: 'Hulk', keywords: ['hulk'] },
+  { id: 'hulk', emoji: '💚', label: 'Hulk', keywords: ['hulk'], exclude: ['mulher-hulk', 'she-hulk'] },
   { id: 'hit-monkey', emoji: '🐒', label: 'Hit-Monkey (extra)', keywords: ['hit-monkey'] },
   { id: 'modok', emoji: '🧠', label: 'M.O.D.O.K. (extra)', keywords: ['m.o.d.o.k.'] },
   { id: 'loki', emoji: '🐍', label: 'Loki', keywords: ['loki'] },
@@ -3844,13 +3849,21 @@ document.getElementById('btnWatchNow').addEventListener('click', goToWatchNow);
 // de fora. Um título pode contar em mais de um grupo (igual ao filtro).
 function heroAveragesHtml() {
   const rated = items.filter(i => i.done && i.rating > 0 && simpleKind(i) !== 'jogo');
+  // casa só pelo TÍTULO: tira as observações entre parênteses (ex.: 'O Incrível Hulk (mesma
+  // semana do Fury de IM2/Thor)' não conta como título do Thor)
+  const matchText = it => normalizeStr(it.text.replace(/\([^)]*\)/g, ' '));
+  const cleanName = it => it.text.replace(/\([^)]*\)/g, '').replace(/^[^\wÀ-ÿ]+\s*/, '').replace(/\s+/g, ' ').trim();
   const fmt = list => list.length
     ? `<div class="hval">${(Math.round(list.reduce((s, i) => s + i.rating, 0) / list.length * 10) / 10).toFixed(1)}<small>${list.length} ${list.length === 1 ? 'título' : 'títulos'}</small></div>`
     : `<div class="hval none">—</div>`;
+  const listHtml = (label, list) => list.length
+    ? `<div class="hlist-h">${label}</div>` + list.map(i => `<div class="hlist-i"><span>${escapeHtml(cleanName(i))}</span><b>${i.rating}</b></div>`).join('')
+    : '';
   const rows = [];
   HERO_GROUPS.forEach(g => {
     const mine = rated.filter(i => {
-      const norm = normalizeStr(i.text);
+      const norm = matchText(i);
+      if (g.exclude && g.exclude.some(k => textHasKeyword(norm, k))) return false;
       return g.keywords.some(k => textHasKeyword(norm, k));
     });
     if (!mine.length) return;
@@ -3861,8 +3874,8 @@ function heroAveragesHtml() {
   });
   if (!rows.length) return '<p style="font-size:0.75rem;color:var(--muted);">Dê nota a títulos concluídos pra ver a média por herói.</p>';
   rows.sort((a, b) => b.all - a.all);
-  return `<div class="hero-avg-row head"><div>HERÓI / GRUPO</div><div style="text-align:center;">🎨 ANIMAÇÃO</div><div style="text-align:center;">🎬 LIVE ACTION</div></div>` +
-    rows.map(r => `<div class="hero-avg-row"><div class="hname">${r.g.emoji} ${escapeHtml(r.g.label)}</div>${fmt(r.anim)}${fmt(r.live)}</div>`).join('');
+  return `<div class="hero-avg-row head"><div>HERÓI / GRUPO <span style="opacity:.7">(toque pra ver os títulos)</span></div><div style="text-align:center;">🎨 ANIMAÇÃO</div><div style="text-align:center;">🎬 LIVE ACTION</div></div>` +
+    rows.map(r => `<div class="hero-avg-item"><div class="hero-avg-row hero-avg-tap" onclick="this.nextElementSibling.hidden=!this.nextElementSibling.hidden"><div class="hname">${r.g.emoji} ${escapeHtml(r.g.label)}</div>${fmt(r.anim)}${fmt(r.live)}</div><div class="hero-avg-list" hidden>${listHtml('🎨 Animação', r.anim)}${listHtml('🎬 Live action', r.live)}</div></div>`).join('');
 }
 
 function renderStatsPage() {
