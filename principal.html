@@ -1048,6 +1048,7 @@ const HERO_GROUPS = [
   { id: 'capita-marvel', emoji: '⭐', label: 'Capitã Marvel', keywords: ['capitã marvel', 'as marvels'] },
   { id: 'thor', emoji: '🌩️', label: 'Thor', keywords: ['thor'] },
   { id: 'hulk', emoji: '💚', label: 'Hulk', keywords: ['hulk'], exclude: ['mulher-hulk', 'she-hulk'] },
+  { id: 'mulher-hulk', emoji: '⚖️', label: 'Mulher-Hulk', keywords: ['mulher-hulk', 'she-hulk'] },
   { id: 'hit-monkey', emoji: '🐒', label: 'Hit-Monkey (extra)', keywords: ['hit-monkey'] },
   { id: 'modok', emoji: '🧠', label: 'M.O.D.O.K. (extra)', keywords: ['m.o.d.o.k.'] },
   { id: 'loki', emoji: '🐍', label: 'Loki', keywords: ['loki'] },
@@ -2052,6 +2053,7 @@ function matchesKindFilter(it) {
     const group = HERO_GROUPS.find(g => g.id === heroFilter);
     if (group) {
       const norm = normalizeStr(it.text);
+      if (group.exclude && group.exclude.some(k => textHasKeyword(norm, k))) return false;
       if (!group.keywords.some(k => textHasKeyword(norm, k))) return false;
     }
   }
@@ -4069,11 +4071,37 @@ document.getElementById('btnWatchNow').addEventListener('click', goToWatchNow);
 // média de nota por herói/grupo, separando ANIMAÇÃO (🎨) de LIVE ACTION (🎬 🎥 📺). Usa os mesmos
 // grupos/palavras-chave do filtro de heróis; só entram títulos concluídos e com nota; jogos ficam
 // de fora. Um título pode contar em mais de um grupo (igual ao filtro).
+// cada título conta em UM herói/grupo só (o dele): casa pelo TÍTULO — sem observações entre
+// parênteses nem o texto depois de ' — ' (exceto episódios de What If…?, em que o herói está no
+// subtítulo). Se o título citar mais de um herói, vale o que aparece primeiro; alguns casos
+// específicos têm exceção na lista abaixo.
+const HERO_TITLE_OVERRIDES = [
+  { re: /x-men origens:?\s*wolverine/, id: 'wolverine' },
+];
+function heroTitleText(it) {
+  let t = it.text.replace(/\([^)]*\)/g, ' ');
+  if (!/what if/i.test(t)) t = t.split(' — ')[0];
+  return normalizeStr(t);
+}
+function heroGroupOf(it) {
+  const norm = heroTitleText(it);
+  for (const o of HERO_TITLE_OVERRIDES) if (o.re.test(norm)) return HERO_GROUPS.find(g => g.id === o.id) || null;
+  let best = null;
+  HERO_GROUPS.forEach(g => {
+    if (g.exclude && g.exclude.some(k => textHasKeyword(norm, k))) return;
+    g.keywords.forEach(k => {
+      const nk = normalizeStr(k);
+      const esc = nk.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+      const m = new RegExp('(^|[^a-z0-9])' + esc + '($|[^a-z0-9])').exec(norm);
+      if (!m) return;
+      const pos = m.index + m[1].length;
+      if (!best || pos < best.pos || (pos === best.pos && nk.length > best.len)) best = { g, pos, len: nk.length };
+    });
+  });
+  return best ? best.g : null;
+}
 function heroAveragesHtml() {
   const rated = items.filter(i => i.done && i.rating > 0 && simpleKind(i) !== 'jogo');
-  // casa só pelo TÍTULO: tira as observações entre parênteses (ex.: 'O Incrível Hulk (mesma
-  // semana do Fury de IM2/Thor)' não conta como título do Thor)
-  const matchText = it => normalizeStr(it.text.replace(/\([^)]*\)/g, ' '));
   const cleanName = it => it.text.replace(/\([^)]*\)/g, '').replace(/^[^\wÀ-ÿ]+\s*/, '').replace(/\s+/g, ' ').trim();
   const fmt = list => list.length
     ? `<div class="hval">${(Math.round(list.reduce((s, i) => s + i.rating, 0) / list.length * 10) / 10).toFixed(1)}<small>${list.length} ${list.length === 1 ? 'título' : 'títulos'}</small></div>`
@@ -4081,14 +4109,15 @@ function heroAveragesHtml() {
   const listHtml = (label, list) => list.length
     ? `<div class="hlist-h">${label}</div>` + list.map(i => `<div class="hlist-i"><span>${escapeHtml(cleanName(i))}</span><b>${i.rating}</b></div>`).join('')
     : '';
+  const byGroup = new Map();
+  rated.forEach(i => {
+    const g = heroGroupOf(i);
+    if (!g) return;
+    if (!byGroup.has(g.id)) byGroup.set(g.id, { g, mine: [] });
+    byGroup.get(g.id).mine.push(i);
+  });
   const rows = [];
-  HERO_GROUPS.forEach(g => {
-    const mine = rated.filter(i => {
-      const norm = matchText(i);
-      if (g.exclude && g.exclude.some(k => textHasKeyword(norm, k))) return false;
-      return g.keywords.some(k => textHasKeyword(norm, k));
-    });
-    if (!mine.length) return;
+  byGroup.forEach(({ g, mine }) => {
     const anim = mine.filter(i => i.text.includes('🎨'));
     const live = mine.filter(i => !i.text.includes('🎨'));
     const all = mine.reduce((s, i) => s + i.rating, 0) / mine.length;
