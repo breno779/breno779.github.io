@@ -3757,6 +3757,14 @@ function ensureTabReloadBtn(name) {
   b.textContent = '🔄 Recarregar';
   b.addEventListener('click', () => reloadAppNoCache(name));
   page.insertBefore(b, page.firstChild);
+  // mostra qual versão do app está rodando (nome do cache do service worker), pra dar pra
+  // conferir se o aparelho já pegou a atualização
+  try {
+    if (window.caches) caches.keys().then(ks => {
+      const v = ks.map(k => (/^ucm-watchlist-(v\d+)$/.exec(k) || [])[1]).filter(Boolean).sort((a, c) => parseInt(c.slice(1), 10) - parseInt(a.slice(1), 10))[0];
+      if (v) b.textContent = '🔄 Recarregar (' + v + ')';
+    }).catch(() => {});
+  } catch (e) {}
 }
 function switchTab(name) {
   switchTabSilent(name);
