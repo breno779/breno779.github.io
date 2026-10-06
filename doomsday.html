@@ -295,7 +295,6 @@ if ('serviceWorker' in navigator) {
   }
   .tabbar-btn span { font-size: 0.55rem; font-family: 'Baloo 2', sans-serif; }
   .tabbar-btn.tab-active { color: var(--gold); }
-  .app-version { position: fixed; left: 0; right: 0; text-align: center; font-size: 0.55rem; color: var(--muted); opacity: 0.6; pointer-events: none; z-index: 44; font-family: 'JetBrains Mono', monospace; }
   .big-action {
     width: 100%; background: var(--gold); color: var(--ink); border: none;
     border-radius: 10px; padding: 14px; font-family: 'Bangers', cursive;
@@ -986,7 +985,6 @@ if ('serviceWorker' in navigator) {
   <input type="file" id="importFile" accept="application/json" style="display:none;">
 </div>
 
-<div class="app-version" id="appVersion"></div>
 <div class="tabbar" id="tabbar">
   <button class="tabbar-btn" data-tab="tabInicio">🏠<span>Início</span></button>
   <button class="tabbar-btn tab-active" data-tab="tabLista">🎬<span>Lista</span></button>
@@ -3977,7 +3975,7 @@ function ensureTabReloadBtn(name) {
   if (!page || page.querySelector(':scope > .tab-reload-btn')) return;
   const b = document.createElement('button');
   b.className = 'tab-reload-btn';
-  b.textContent = '🔄 Recarregar';
+  b.textContent = '🔄 Recarregar (' + APP_VERSION + ')';
   b.addEventListener('click', () => reloadAppNoCache(name));
   page.insertBefore(b, page.firstChild);
 }
@@ -3999,17 +3997,14 @@ document.querySelectorAll('.tabbar-btn').forEach(btn => {
 });
 document.getElementById('tabLista').classList.add('tab-visible');
 
-// versão do app, pequena embaixo em todas as abas (acompanha o CACHE_NAME do sw.js)
-const APP_VERSION = 'v34';
+// versão do app (acompanha o CACHE_NAME do sw.js): aparece entre parênteses nos botões de
+// recarregar de todas as abas
+const APP_VERSION = 'v35';
 (function () {
-  const el = document.getElementById('appVersion');
-  const bar = document.getElementById('tabbar');
-  if (!el) return;
-  el.textContent = APP_VERSION;
-  const place = () => { el.style.bottom = (bar ? bar.offsetHeight + 2 : 56) + 'px'; };
-  place();
-  window.addEventListener('resize', place);
-  window.addEventListener('load', place);
+  const home = document.getElementById('btnReloadHome');
+  if (home) home.textContent = '🔄 Recarregar (' + APP_VERSION + ')';
+  const lista = document.getElementById('btnReloadApp');
+  if (lista) { lista.textContent = '🔄 (' + APP_VERSION + ')'; lista.style.width = 'auto'; lista.style.padding = '0 10px'; lista.style.fontSize = '0.8rem'; lista.style.whiteSpace = 'nowrap'; }
 })();
 
 document.getElementById('btnGoToday').addEventListener('click', goToTodayItem);
