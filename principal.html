@@ -295,6 +295,7 @@ if ('serviceWorker' in navigator) {
   }
   .tabbar-btn span { font-size: 0.55rem; font-family: 'Baloo 2', sans-serif; }
   .tabbar-btn.tab-active { color: var(--gold); }
+  .app-version { position: fixed; left: 0; right: 0; text-align: center; font-size: 0.55rem; color: var(--muted); opacity: 0.6; pointer-events: none; z-index: 44; font-family: 'JetBrains Mono', monospace; }
   .big-action {
     width: 100%; background: var(--gold); color: var(--ink); border: none;
     border-radius: 10px; padding: 14px; font-family: 'Bangers', cursive;
@@ -985,6 +986,7 @@ if ('serviceWorker' in navigator) {
   <input type="file" id="importFile" accept="application/json" style="display:none;">
 </div>
 
+<div class="app-version" id="appVersion"></div>
 <div class="tabbar" id="tabbar">
   <button class="tabbar-btn" data-tab="tabInicio">🏠<span>Início</span></button>
   <button class="tabbar-btn tab-active" data-tab="tabLista">🎬<span>Lista</span></button>
@@ -3979,14 +3981,6 @@ function ensureTabReloadBtn(name) {
   b.textContent = '🔄 Recarregar';
   b.addEventListener('click', () => reloadAppNoCache(name));
   page.insertBefore(b, page.firstChild);
-  // mostra qual versão do app está rodando (nome do cache do service worker), pra dar pra
-  // conferir se o aparelho já pegou a atualização
-  try {
-    if (window.caches) caches.keys().then(ks => {
-      const v = ks.map(k => (/^ucm-watchlist-(v\d+)$/.exec(k) || [])[1]).filter(Boolean).sort((a, c) => parseInt(c.slice(1), 10) - parseInt(a.slice(1), 10))[0];
-      if (v) b.textContent = '🔄 Recarregar (' + v + ')';
-    }).catch(() => {});
-  } catch (e) {}
 }
 function switchTab(name) {
   switchTabSilent(name);
@@ -4005,6 +3999,19 @@ document.querySelectorAll('.tabbar-btn').forEach(btn => {
   btn.addEventListener('click', () => switchTab(btn.dataset.tab));
 });
 document.getElementById('tabLista').classList.add('tab-visible');
+
+// versão do app, pequena embaixo em todas as abas (acompanha o CACHE_NAME do sw.js)
+const APP_VERSION = 'v33';
+(function () {
+  const el = document.getElementById('appVersion');
+  const bar = document.getElementById('tabbar');
+  if (!el) return;
+  el.textContent = APP_VERSION;
+  const place = () => { el.style.bottom = (bar ? bar.offsetHeight + 2 : 56) + 'px'; };
+  place();
+  window.addEventListener('resize', place);
+  window.addEventListener('load', place);
+})();
 
 document.getElementById('btnGoToday').addEventListener('click', goToTodayItem);
 document.getElementById('btnScrollTop').addEventListener('click', () => {
