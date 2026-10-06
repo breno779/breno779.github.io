@@ -281,6 +281,7 @@ if ('serviceWorker' in navigator) {
   /* ---- sistema de abas ---- */
   .tab-page { display: none; padding: 14px 14px 0; max-width: 640px; margin: 0 auto; }
   .tab-page.tab-visible { display: block; }
+  .tab-reload-btn { display: block; margin: 0 0 10px auto; background: var(--ink2); color: var(--paper); border: 1px solid var(--line); border-radius: 8px; padding: 7px 12px; font-size: 0.78rem; cursor: pointer; }
   #tabLista.tab-visible { display: flex; flex-direction: column; padding: 0; }
   .tabbar {
     position: fixed; bottom: 0; left: 0; right: 0; z-index: 45;
@@ -3975,11 +3976,25 @@ function switchTabSilent(name) {
   document.querySelectorAll('.tabbar-btn').forEach(b => b.classList.toggle('tab-active', b.dataset.tab === name));
 }
 
+// botão 🔄 Recarregar no topo das abas que não tinham (Stats, Troféus, Add, Config). Stats e
+// Troféus são re-renderizadas (innerHTML), então o botão é (re)posto a cada troca de aba.
+function ensureTabReloadBtn(name) {
+  if (name === 'tabInicio' || name === 'tabLista') return;
+  const page = document.getElementById(name);
+  if (!page || page.querySelector(':scope > .tab-reload-btn')) return;
+  const b = document.createElement('button');
+  b.className = 'tab-reload-btn';
+  b.textContent = '🔄 Recarregar';
+  b.addEventListener('click', () => reloadAppNoCache(name));
+  page.insertBefore(b, page.firstChild);
+}
 function switchTab(name) {
   switchTabSilent(name);
+  // (o botão de recarregar é posto depois que a aba é renderizada, logo abaixo)
   if (name === 'tabEstatisticas') renderStatsPage();
   if (name === 'tabConquistas') renderAchievementsPage();
   if (name === 'tabConfig') { updateLastSavedInfo(); }
+  ensureTabReloadBtn(name);
   if (name === 'tabLista') {
     scrollToTodayItem(false);
   } else {
