@@ -1572,19 +1572,15 @@ function load() {
     if (Array.isArray(savedCollapsed)) collapsedPhases = new Set(savedCollapsed);
   } catch(e) {}
 
-  // correção/novidade: fases 100% completas agora fecham sozinhas. Pra quem já tinha fases
-  // inteiras terminadas antes dessa mudança existir, fecha elas de uma vez aqui também — só
-  // uma vez, depois disso respeita se você reabrir uma fase completa de propósito.
-  let autoCollapseApplied = false;
-  try { autoCollapseApplied = localStorage.getItem('ucm-fix-autocollapse-v1') === '1'; } catch(e) {}
-  if (!autoCollapseApplied) {
-    const phasesSeen = new Set(items.map(i => i.phase));
-    phasesSeen.forEach(p => {
-      const list = items.filter(i => i.phase === p);
-      if (list.length > 0 && list.every(i => i.done)) collapsedPhases.add(p);
-    });
+  // pedido do usuário: fases completas NÃO fecham mais sozinhas. Abre de uma vez as que o
+  // fechamento automático tinha deixado recolhidas (uma vez por aparelho); daí em diante só
+  // fecha/abre quando você toca no título da fase.
+  let expandPhasesApplied = false;
+  try { expandPhasesApplied = localStorage.getItem('ucm-expand-phases-v1') === '1'; } catch(e) {}
+  if (!expandPhasesApplied) {
+    collapsedPhases.clear();
     saveCollapsedPhases();
-    try { localStorage.setItem('ucm-fix-autocollapse-v1', '1'); } catch(e) {}
+    try { localStorage.setItem('ucm-expand-phases-v1', '1'); } catch(e) {}
   }
 
   // correção: a ordem dos itens dentro de cada fase tinha ficado fora da ordem cronológica
@@ -3397,12 +3393,7 @@ function startRatingEdit(id, spanEl) {
 // instante da transição (não força fechado toda vez que renderiza, senão reabrir a fase pra
 // olhar de novo depois nunca ficaria aberto).
 function maybeAutoCollapsePhase(phase) {
-  if (!phase) return;
-  const list = items.filter(i => i.phase === phase);
-  if (list.length > 0 && list.every(i => i.done)) {
-    collapsedPhases.add(phase);
-    saveCollapsedPhases();
-  }
+  // desligado a pedido do usuário: fase completa não fecha mais sozinha
 }
 
 function toggleDone(id, el) {
