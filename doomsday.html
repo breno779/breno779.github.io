@@ -1713,9 +1713,33 @@ function applyTrio1Ratings() {
   return changed;
 }
 
+// roda em TODO load e depois de puxar/importar dados: episódio da dupla que NÃO foi assistido e
+// está fora dos 43 primeiros da lista não pode ter nota 10 (sobra da versão errada, que pode
+// voltar por sincronização com um aparelho ainda desatualizado)
+function cleanTrio1Unwatched() {
+  const cfg = TRIOS.find(c => c.keys.includes('k52'));
+  if (!cfg) return false;
+  const shows = cfg.keys.map(k => items.find(i => i.key === k));
+  if (shows.some(sh => !sh)) return false;
+  const order = computeTrioOrder(cfg);
+  const inFirst43 = cfg.keys.map(() => new Set());
+  const counters = cfg.keys.map(() => 0);
+  order.forEach((si, pos) => { const e = counters[si]++; if (pos < 43) inFirst43[si].add(e); });
+  let changed = false;
+  shows.forEach((sh, si) => {
+    if (!Array.isArray(sh.epRatings)) return;
+    const done = Array.isArray(sh.epDone) ? sh.epDone : [];
+    for (let e = 0; e < sh.epRatings.length; e++) {
+      if (sh.epRatings[e] === 10 && !done[e] && !inFirst43[si].has(e)) { sh.epRatings[e] = null; changed = true; }
+    }
+  });
+  return changed;
+}
+
 function enforceTrioAnchor() {
   const removed = dropRemovedItems();
   const rated = applyTrio1Ratings();
+  const cleaned = cleanTrio1Unwatched();
   const corrected = enforceKnownCorrections();
   const usm = items.find(i => i.text.includes('Ultimate Homem-Aranha'));
   // se algo saiu do trio (ou uma correção de dados mudou o cronograma), recalcula tudo a partir
@@ -1729,7 +1753,7 @@ function enforceTrioAnchor() {
     try { localStorage.setItem('ucm-rate3-v1', '1'); } catch(e) {}
     return true;
   }
-  return removed || corrected || rated;
+  return removed || corrected || rated || cleaned;
 }
 
 function save() {
@@ -4007,7 +4031,7 @@ document.getElementById('tabLista').classList.add('tab-visible');
 
 // versão do app (acompanha o CACHE_NAME do sw.js): aparece entre parênteses nos botões de
 // recarregar de todas as abas
-const APP_VERSION = 'v39';
+const APP_VERSION = 'v40';
 (function () {
   const home = document.getElementById('btnReloadHome');
   if (home) home.textContent = '🔄 Recarregar (' + APP_VERSION + ')';
