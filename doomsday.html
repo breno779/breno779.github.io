@@ -321,8 +321,9 @@ if ('serviceWorker' in navigator) {
   .stat-box { text-align: center; }
   .stat-box .num { font-family: 'JetBrains Mono', monospace; font-size: 1.3rem; color: var(--gold); font-weight: 700; }
   .stat-box .lbl { font-size: 0.65rem; color: var(--muted); }
-  .hero-avg-row { display: grid; grid-template-columns: minmax(0,1.3fr) minmax(0,1fr) minmax(0,1fr); gap: 6px 8px; align-items: center; padding: 7px 0; border-top: 1px solid rgba(255,255,255,0.07); font-size: 0.78rem; }
-  .hero-avg-row.head { border-top: none; font-size: 0.62rem; color: var(--muted); padding-top: 0; }
+  .hero-avg-row { display: grid; grid-template-columns: minmax(0,1.3fr) minmax(0,1fr) minmax(0,1fr) minmax(0,.8fr); gap: 6px 8px; align-items: center; padding: 7px 0; border-top: 1px solid rgba(255,255,255,0.07); font-size: 0.78rem; }
+  .hval.geral { color: var(--gold); font-weight: 700; }
+.hero-avg-row.head { border-top: none; font-size: 0.62rem; color: var(--muted); padding-top: 0; }
   .hero-avg-row .hname { overflow-wrap: anywhere; }
   .hero-avg-row .hval { text-align: center; font-family: 'JetBrains Mono', monospace; font-weight: 700; color: var(--gold); }
   .hero-avg-row .hval small { display: block; font-family: inherit; font-weight: 400; font-size: 0.58rem; color: var(--muted); }
@@ -4033,7 +4034,7 @@ document.getElementById('tabLista').classList.add('tab-visible');
 
 // versão do app (acompanha o CACHE_NAME do sw.js): aparece entre parênteses nos botões de
 // recarregar de todas as abas
-const APP_VERSION = 'v39.2';
+const APP_VERSION = 'v39.3';
 (function () {
   const home = document.getElementById('btnReloadHome');
   if (home) home.textContent = '🔄 Recarregar (' + APP_VERSION + ')';
@@ -4152,16 +4153,24 @@ function heroGroupsOf(it) {
   return best ? [best.g] : [];
 }
 function heroAveragesHtml() {
-  const rated = items.filter(i => i.done && i.rating > 0 && simpleKind(i) !== 'jogo');
+  // nota usada no ranking: filme/série concluído -> nota dele; série em andamento -> média dos episódios já avaliados
+  const effRating = i => {
+    if (i.done && i.rating > 0) return i.rating;
+    if (!i.done && simpleKind(i) !== 'jogo' && seriesHasEpRatings(i) && Array.isArray(i.epDone) && i.epDone.some(Boolean)) return epRatingAvg(i);
+    return 0;
+  };
+  const isLive = i => !i.text.includes('🎨');
+  const rated = items.filter(i => simpleKind(i) !== 'jogo' && effRating(i) > 0);
   const cleanName = it => it.text.replace(/\([^)]*\)/g, '').replace(/^[^\wÀ-ÿ]+\s*/, '').replace(/\s+/g, ' ').trim();
   const fmt = list => list.length
-    ? `<div class="hval">${(Math.round(list.reduce((s, i) => s + i.rating, 0) / list.length * 10) / 10).toFixed(1)}<small>${list.length} ${list.length === 1 ? 'título' : 'títulos'}</small></div>`
+    ? `<div class="hval">${(Math.round(list.reduce((s, i) => s + effRating(i), 0) / list.length * 10) / 10).toFixed(1)}<small>${list.length} ${list.length === 1 ? 'título' : 'títulos'}</small></div>`
     : `<div class="hval none">—</div>`;
+  const fmtGeral = r => r.all >= 0 ? `<div class="hval geral">${(Math.round(r.all * 10) / 10).toFixed(1)}</div>` : `<div class="hval none">—</div>`;
   const noNoteHtml = list => list.length
     ? `<div class="hlist-h">⚠️ Concluídos sem nota (fora da média)</div>` + list.map(i => `<div class="hlist-i"><span>${escapeHtml(cleanName(i))}</span><b>—</b></div>`).join('')
     : '';
   const listHtml = (label, list) => list.length
-    ? `<div class="hlist-h">${label}</div>` + list.map(i => `<div class="hlist-i"><span>${escapeHtml(cleanName(i))}</span><b>${i.rating}</b></div>`).join('')
+    ? `<div class="hlist-h">${label}</div>` + list.map(i => `<div class="hlist-i"><span>${escapeHtml(cleanName(i))}</span><b>${effRating(i)}${i.done ? '' : ' <small>(em andamento)</small>'}</b></div>`).join('')
     : '';
   // TODOS os heróis/grupos aparecem na lista (mesmo sem nota ainda); os com média primeiro
   const byGroup = new Map();
@@ -4173,7 +4182,10 @@ function heroAveragesHtml() {
   byGroup.forEach(({ g, mine, noNote }) => {
     const anim = mine.filter(i => i.text.includes('🎨'));
     const live = mine.filter(i => !i.text.includes('🎨'));
-    const all = mine.length ? mine.reduce((s, i) => s + i.rating, 0) / mine.length : -1;
+    const avgOf = l => l.reduce((s, i) => s + effRating(i), 0) / l.length;
+    // Geral = média da média da animação/séries com a média do live action/filmes (ou a única que existir)
+    const parts = [anim, live].filter(l => l.length).map(avgOf);
+    const all = parts.length ? parts.reduce((a, b) => a + b, 0) / parts.length : -1;
     rows.push({ g, anim, live, all, noNote });
   });
   // com média (maior primeiro) -> só concluídos sem nota -> ainda sem nada
@@ -4200,8 +4212,8 @@ function heroAveragesHtml() {
   });
   const moveHtml = r => r.move > 0 ? `<span class="hmove up">▲${r.move}</span>` : (r.move < 0 ? `<span class="hmove down">▼${-r.move}</span>` : '');
   const unratedHtml = '';
-  return `<div class="hero-avg-row head"><div>HERÓI / GRUPO <span style="opacity:.7">(toque pra ver os títulos)</span></div><div style="text-align:center;">🎨 ANIMAÇÃO</div><div style="text-align:center;">🎬 LIVE ACTION</div></div>` +
-    rows.map(r => `<div class="hero-avg-item"><div class="hero-avg-row hero-avg-tap" onclick="this.nextElementSibling.hidden=!this.nextElementSibling.hidden"><div class="hname"><span class="hrank">${r.pos}º</span> ${r.g.emoji} ${escapeHtml(r.g.label)} ${moveHtml(r)}</div>${fmt(r.anim)}${fmt(r.live)}</div><div class="hero-avg-list" hidden>${listHtml('🎨 Animação', r.anim)}${listHtml('🎬 Live action', r.live)}${noNoteHtml(r.noNote)}${(!r.anim.length && !r.live.length && !r.noNote.length) ? '<div class="hlist-h">Nenhum título concluído ainda</div>' : ''}</div></div>`).join('') + unratedHtml;
+  return `<div class="hero-avg-row head"><div>HERÓI / GRUPO <span style="opacity:.7">(toque pra ver os títulos)</span></div><div style="text-align:center;">🎨 ANIMAÇÃO</div><div style="text-align:center;">🎬 LIVE ACTION</div><div style="text-align:center;">⭐ GERAL</div></div>` +
+    rows.map(r => `<div class="hero-avg-item"><div class="hero-avg-row hero-avg-tap" onclick="this.nextElementSibling.hidden=!this.nextElementSibling.hidden"><div class="hname"><span class="hrank">${r.pos}º</span> ${r.g.emoji} ${escapeHtml(r.g.label)} ${moveHtml(r)}</div>${fmt(r.anim)}${fmt(r.live)}${fmtGeral(r)}</div><div class="hero-avg-list" hidden>${listHtml('🎨 Animação', r.anim)}${listHtml('🎬 Live action', r.live)}${noNoteHtml(r.noNote)}${(!r.anim.length && !r.live.length && !r.noNote.length) ? '<div class="hlist-h">Nenhum título concluído ainda</div>' : ''}</div></div>`).join('') + unratedHtml;
 }
 
 function renderStatsPage() {

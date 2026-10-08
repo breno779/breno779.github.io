@@ -10,7 +10,7 @@
 //
 // Bump o CACHE_NAME sempre que fizer uma mudança que valha a pena forçar todo mundo a
 // buscar de novo (ele mesmo já limpa o cache antigo quando o nome muda).
-const CACHE_NAME = 'ucm-watchlist-v39.2';
+const CACHE_NAME = 'ucm-watchlist-v39.3';
 const PAGES = ['index.html', 'principal.html', 'doomsday.html', 'doomsday-essenciais.html'];
 const CORE_ASSETS = [
   './',
