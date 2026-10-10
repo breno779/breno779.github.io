@@ -920,7 +920,7 @@
     .progress-fill { transition: none; }
   }
 </style>
-<link rel="stylesheet" href="v40.css?b=202610092323">
+<link rel="stylesheet" href="v40.css?b=202610092332">
 </head>
 <body>
 <div class="v40-beta-ribbon" id="v40BetaRibbon">🧪 V40 BETA — testes à vontade: seu app de verdade não é afetado</div>
@@ -1711,6 +1711,7 @@ function load() {
   // verdade. Roda em TODO load (não só uma vez), porque dados vindos de outro aparelho pela
   // sincronização podem trazer essa data errada de volta — não dá pra confiar só no flag local.
   enforceTrioAnchor();
+  trimStaleEpisodes();
   repairMissingDates();
   save();
   render();
@@ -1813,6 +1814,26 @@ function cleanTrio1Unwatched() {
 // marcado como visto) — recalcula a partir dele pra ele ganhar data de novo. Não mexe nos itens
 // que nunca tiveram data de propósito (antes do primeiro item com data) nem nos "sem data" de
 // propósito (noSchedule) ou com data fixa.
+// sobra de quando a série tinha mais episódios no mesmo item (ex.: Vingadores Unidos era T1–T5
+// = 127 eps antes da T5 virar um item separado): corta os espaços extras de episódio que ficaram
+// sobrando no fim — só se estiverem todos desmarcados e sem nota (nada de progresso se perde).
+function trimStaleEpisodes() {
+  let changed = false;
+  items.forEach(it => {
+    const n = extractEpsCount(it.text);
+    if (!n) return;
+    ['epDone', 'epRatings'].forEach(f => {
+      const arr = it[f];
+      if (!Array.isArray(arr) || arr.length <= n) return;
+      const extra = arr.slice(n);
+      if (extra.some(v => v === true || typeof v === 'number')) return;
+      it[f] = arr.slice(0, n);
+      changed = true;
+    });
+  });
+  return changed;
+}
+
 function repairMissingDates() {
   const pending = sortItems(items.filter(i => !i.done));
   const firstDated = pending.findIndex(i => i.watchStart);
@@ -4958,14 +4979,14 @@ if (shortcutAction === 'watchnow') {
 </script>
 <div class="toast-container" id="toastContainer"></div>
 <div class="marathon-screen" id="marathonScreen"></div>
-<script src="v40-catalog.js?b=202610092323"></script>
-<script src="v40-core.js?b=202610092323"></script>
-<script src="v40-liga.js?b=202610092323"></script>
-<script src="v40-stats.js?b=202610092323"></script>
-<script src="v40-fun.js?b=202610092323"></script>
-<script src="v40-data.js?b=202610092323"></script>
-<script src="v40-content.js?b=202610092323"></script>
-<script src="v40-sync.js?b=202610092323"></script>
-<script src="v40-system.js?b=202610092323"></script>
+<script src="v40-catalog.js?b=202610092332"></script>
+<script src="v40-core.js?b=202610092332"></script>
+<script src="v40-liga.js?b=202610092332"></script>
+<script src="v40-stats.js?b=202610092332"></script>
+<script src="v40-fun.js?b=202610092332"></script>
+<script src="v40-data.js?b=202610092332"></script>
+<script src="v40-content.js?b=202610092332"></script>
+<script src="v40-sync.js?b=202610092332"></script>
+<script src="v40-system.js?b=202610092332"></script>
 </body>
 </html>
