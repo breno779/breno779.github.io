@@ -276,11 +276,18 @@
   }
 
   // ---------- aplicar no app ----------
+  // Séries animadas da dupla/trio: a base pública numera pela ordem de exibição na TV, que não
+  // bate com a ordem que você assiste (Disney+). Até conferir com você, os nomes delas ficam
+  // escondidos (o resto continua mostrando).
+  V40.ORDER_UNCONFIRMED = ['k52', 'k53', 'k171', 'k54', 'k170'];
+  V40.namesHidden = function (key) {
+    return V40.ORDER_UNCONFIRMED.includes(key) && !(V40.settings.showUnconfirmedNames || {})[key];
+  };
   V40.applyExt = function () {
     Object.keys(V40.ext).forEach(k => {
       if (!k.startsWith('item:')) return;
       const info = V40.ext[k];
-      if (info && info.epCheck === 'ok' && Array.isArray(info.epNames)) EPISODE_TITLES[info.key] = info.epNames;
+      if (info && info.epCheck === 'ok' && Array.isArray(info.epNames) && !V40.namesHidden(info.key)) EPISODE_TITLES[info.key] = info.epNames;
       else if (info && EPISODE_TITLES[info.key]) delete EPISODE_TITLES[info.key];
     });
   };
@@ -418,10 +425,19 @@
         <div><b>${epOk}</b><small>SÉRIES C/ NOMES</small></div>
       </div>
       <p class="v40-muted">Nomes de episódio só aparecem quando a quantidade de episódios bate com a da sua lista. Os que não bateram ficam sem nome — me mande print daqui que eu corrijo.</p>
+      <h4>🔒 Nomes escondidos (ordem a confirmar)</h4><p class="v40-muted">Na dupla e no trio animado a ordem da base pública não bate com a sua. Os nomes ficam escondidos até a gente acertar.</p>
+      ${V40.ORDER_UNCONFIRMED.map(k => items.find(i => i.key === k)).filter(Boolean).map(it => `<label class="v40-check-row"><input type="checkbox" data-shownames="${it.key}" ${!V40.namesHidden(it.key) ? 'checked' : ''}><span>Mostrar mesmo assim: ${V40.esc(V40.cleanName(it))}</span></label>`).join('')}
       ${epDiff.length ? `<h4>⚠️ Episódios a conferir (${epDiff.length})</h4>${epDiff.map(line).join('')}` : ''}
       ${noTv.length ? `<h4>❔ Não achados no TVmaze (${noTv.length})</h4>${noTv.map(line).join('')}` : ''}
       ${noTmdb.length ? `<h4>❔ Não achados no TMDB (${noTmdb.length})</h4>${noTmdb.map(line).join('')}` : ''}
       <details class="v40-help"><summary>Ver tudo o que foi encontrado</summary>${got.map(line).join('')}</details>`, true);
+    document.querySelectorAll('[data-shownames]').forEach(cb => cb.addEventListener('change', () => {
+      V40.settings.showUnconfirmedNames = V40.settings.showUnconfirmedNames || {};
+      V40.settings.showUnconfirmedNames[cb.dataset.shownames] = cb.checked;
+      V40.saveSettings();
+      if (!cb.checked) delete EPISODE_TITLES[cb.dataset.shownames];
+      V40.applyExt(); render();
+    }));
   };
 
   // ---------- 📇 ficha do título ----------
@@ -465,7 +481,7 @@
   // ---------- 📺 último episódio (recap) na lista de episódios ----------
   V40.recapHtml = function (it) {
     const info = V40.extInfo(it);
-    if (!info || info.epCheck !== 'ok' || !Array.isArray(info.epNames)) return '';
+    if (!info || info.epCheck !== 'ok' || !Array.isArray(info.epNames) || V40.namesHidden(it.key)) return '';
     const done = Array.isArray(it.epDone) ? it.epDone.filter(Boolean).length : 0;
     const parts = [];
     if (done > 0) {
