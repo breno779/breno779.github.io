@@ -11,7 +11,12 @@
   const V40 = window.V40;
   const FB_VER = '10.13.0';
   const COL = 'syncs';
-  const PREFIX = 'v40b-';
+  const MODE = window.V40_MODE || 'beta';
+  const BETA = MODE === 'beta';
+  // beta: documentos próprios ("v40b-…"). Oficial/amigo: o MESMO documento da sincronização de
+  // sempre (o código), e os extras (backups, perfil) com prefixo "v40-".
+  const PREFIX = BETA ? 'v40b-' : 'v40-';
+  const docMain = () => BETA ? PREFIX + V40.syncCode() : (typeof syncDocId === 'function' ? syncDocId(V40.syncCode()) : V40.syncCode());
 
   // =================== FIREBASE (carrega só quando precisa) ===================
   let fbp = null;
@@ -44,6 +49,7 @@
     return c;
   }
   V40.syncCode = function () {
+    if (!BETA && typeof getSyncCode === 'function') return getSyncCode();
     let c = V40.get('sync-code', null);
     if (!c) {
       // usa o MESMO código do app de sempre (só lê), pra o celular e o iPad já se acharem
@@ -105,7 +111,7 @@
       const db = await V40.firestore();
       const p = payload();
       p.updatedAt = firebase.firestore.FieldValue.serverTimestamp();
-      await db.collection(COL).doc(PREFIX + V40.syncCode()).set(p);
+      await db.collection(COL).doc(docMain()).set(p);
       V40.syncState.lastPushAt = p.clientAt;
       V40.syncState.lastSeenCloudAt = p.clientAt;
       V40.syncState.dirty = false;
@@ -122,7 +128,7 @@
   };
   V40.syncFetch = async function () {
     const db = await V40.firestore();
-    const snap = await db.collection(COL).doc(PREFIX + V40.syncCode()).get();
+    const snap = await db.collection(COL).doc(docMain()).get();
     return snap.exists ? snap.data() : null;
   };
 
@@ -183,7 +189,7 @@
     let remote;
     try { remote = await V40.syncFetch(); } catch (e) { V40.modal(`<h3>☁️ Nuvem</h3><p>⚠️ Não consegui falar com a nuvem: ${V40.esc(e.message || e)}</p>`); return; }
     if (!remote) {
-      V40.modal(`<h3>☁️ Nuvem</h3><p>Ainda não tem nada da beta na nuvem com o código <b>${V40.syncCode()}</b>.</p><button class="v40-primary" id="v40SyncFirst">⬆️ Enviar deste aparelho</button>`);
+      V40.modal(`<h3>☁️ Nuvem</h3><p>Ainda não tem nada na nuvem com o código <b>${V40.syncCode()}</b>.</p><button class="v40-primary" id="v40SyncFirst">⬆️ Enviar deste aparelho</button>`);
       document.getElementById('v40SyncFirst').addEventListener('click', async () => { await V40.syncPush(); closeModal(); });
       return;
     }
@@ -241,6 +247,9 @@
       await V40.syncPush(); closeModal();
     });
   };
+
+  V40.diffLists = diffLists;
+  V40.mergeLists = mergeLists;
 
   // =================== AUTOMÁTICO (seguro) ===================
   // Envia sozinho depois de mudar algo. Ao abrir, só AVISA se a nuvem tem coisa mais nova
@@ -310,13 +319,13 @@
   // =================== TELA DE SINCRONIZAÇÃO ===================
   V40.openSync = function () {
     const st = V40.syncState;
-    V40.modal(`<h3>☁️ Sincronização da beta</h3>
-      <p class="v40-muted">Separada da do app de sempre (documentos próprios na nuvem). Nada da nuvem entra sem você escolher.</p>
+    V40.modal(`<h3>☁️ Sincronização${BETA ? ' da beta' : ''}</h3>
+      <p class="v40-muted">${BETA ? 'Separada da do app de sempre (documentos próprios na nuvem).' : 'Usa o mesmo código da sincronização de sempre.'} Nada da nuvem entra sem você escolher.</p>
       <div class="v40-form">
         <label>Código <input type="text" id="v40SyncCodeIn" value="${V40.esc(V40.syncCode())}" maxlength="12" style="max-width:9em;font-family:'JetBrains Mono',monospace;text-transform:uppercase;"></label>
         <label>Nome deste aparelho <input type="text" id="v40DevName" value="${V40.esc(V40.deviceName())}" maxlength="24"></label>
       </div>
-      <p class="v40-muted">Use o MESMO código no celular e no iPad. Por padrão a beta já pega o código do seu app de sempre.</p>
+      <p class="v40-muted">Use o MESMO código no celular e no iPad.</p>
       <label class="v40-check-row"><input type="checkbox" id="v40SyncAuto" ${st.auto ? 'checked' : ''}><span>🔄 Automática: envia sozinha depois de mudar, e AVISA quando o outro aparelho tem algo mais novo</span></label>
       <div class="v40-sim" id="v40SyncStatus">${V40.syncMsg || (st.lastPushAt ? 'Último envio: ' + new Date(st.lastPushAt).toLocaleString('pt-BR') : 'Ainda não enviou nada')}</div>
       <div style="display:flex;gap:8px;flex-wrap:wrap;margin-top:10px;">
@@ -327,7 +336,8 @@
     document.getElementById('v40SyncCodeIn').addEventListener('change', e => {
       const c = e.target.value.trim().toUpperCase().replace(/[^A-Z0-9]/g, '');
       if (c.length < 4) { alert('Código muito curto'); e.target.value = V40.syncCode(); return; }
-      V40.set('sync-code', c); V40.syncState.lastSeenCloudAt = null; saveState(); V40.toast('🔗 Código trocado');
+      if (!BETA && typeof joinSyncCode === 'function') joinSyncCode(c); else V40.set('sync-code', c);
+      V40.syncState.lastSeenCloudAt = null; saveState(); V40.toast('🔗 Código trocado');
     });
     document.getElementById('v40DevName').addEventListener('change', e => { V40.set('device-name', e.target.value.trim() || V40.deviceName()); });
     document.getElementById('v40SyncAuto').addEventListener('change', e => { st.auto = e.target.checked; saveState(); if (st.auto) V40.syncPush(true); });
@@ -352,7 +362,7 @@
     const ratings = {};
     items.forEach(it => { if (it.key && V40.effRating(it) > 0) ratings[it.key] = V40.round1(V40.effRating(it)); });
     return {
-      name: V40.get('profile-name', 'Breno'), at: new Date().toISOString(),
+      name: V40.get('profile-name', MODE === 'oficial' ? 'Breno' : 'Eu'), at: new Date().toISOString(),
       done: items.filter(i => i.done).length, total: items.length,
       level: lv.level, levelName: lv.cur.name, streak: V40.bestStreak(),
       table, heroes, champ, ratings
@@ -363,14 +373,14 @@
     const link = `${location.origin}${location.pathname}?perfil=${code}`;
     V40.modal(`<h3>👥 Seu perfil pra amigos</h3>
       <p class="v40-muted">Seus amigos veem (só ver, sem mexer) seu progresso, top 15 da Liga, top 10 heróis e o seu "verdadeiro 10". O código do perfil é diferente do código da sincronização — ninguém consegue mudar sua lista com ele.</p>
-      <div class="v40-form"><label>Seu nome <input type="text" id="v40ProfName" value="${V40.esc(V40.get('profile-name', 'Breno'))}" maxlength="20"></label></div>
+      <div class="v40-form"><label>Seu nome <input type="text" id="v40ProfName" value="${V40.esc(V40.get('profile-name', MODE === 'oficial' ? 'Breno' : ''))}" placeholder="Seu nome" maxlength="20"></label></div>
       <div class="v40-sim">Código do perfil: <b style="font-family:'JetBrains Mono',monospace;">${code}</b><br><small>${V40.esc(link)}</small></div>
       <div style="display:flex;gap:8px;flex-wrap:wrap;margin-top:10px;">
         <button class="v40-primary" id="v40ProfPub">📤 Publicar/atualizar e compartilhar</button>
         <button id="v40ProfView">👀 Ver perfil de um amigo</button>
       </div>
       <p class="v40-muted" id="v40ProfMsg"></p>`);
-    document.getElementById('v40ProfName').addEventListener('change', e => V40.set('profile-name', e.target.value.trim() || 'Breno'));
+    document.getElementById('v40ProfName').addEventListener('change', e => V40.set('profile-name', e.target.value.trim() || 'Eu'));
     document.getElementById('v40ProfPub').addEventListener('click', async () => {
       const msg = document.getElementById('v40ProfMsg');
       msg.textContent = 'Publicando…';
@@ -452,7 +462,7 @@
     const cfg = V40.lockCfg();
     const bio = await V40.bioAvailable();
     V40.modal(`<h3>🔒 Senha / biometria</h3>
-      <p class="v40-muted">Pede um PIN (ou digital/rosto) ao abrir a beta. É uma trava de privacidade neste aparelho — não criptografa os dados.</p>
+      <p class="v40-muted">Pede um PIN (ou digital/rosto) ao abrir o app. É uma trava de privacidade neste aparelho — não criptografa os dados.</p>
       ${cfg ? `<p>✅ Trava ligada${cfg.bio ? ' · com biometria' : ''}.</p>
         <div style="display:flex;gap:8px;flex-wrap:wrap;">${bio && !cfg.bio ? '<button id="v40LockBio">👆 Ativar digital/rosto</button>' : ''}<button id="v40LockOff" class="v40-danger">Desligar trava</button></div>`
       : `<div class="v40-form"><label>Novo PIN (4 a 8 números) <input type="password" inputmode="numeric" id="v40Pin1" maxlength="8" style="max-width:8em;"></label>
@@ -487,7 +497,7 @@
     return new Promise(resolve => {
       const el = document.createElement('div');
       el.className = 'v40-lock';
-      el.innerHTML = `<div class="box"><div class="big">🔒</div><div class="t">${confirmOnly ? 'Confirme com o PIN' : 'UCM v40 beta'}</div>
+      el.innerHTML = `<div class="box"><div class="big">🔒</div><div class="t">${confirmOnly ? 'Confirme com o PIN' : (BETA ? 'UCM beta' : 'UCM Watchlist')}</div>
         <input type="password" inputmode="numeric" maxlength="8" placeholder="PIN" id="v40LockPin">
         <button class="v40-primary" id="v40LockGo">Entrar</button>
         ${cfg.bio ? '<button id="v40LockBioGo">👆 Digital / rosto</button>' : ''}
@@ -564,7 +574,7 @@
       const summaryTxt = `🎬 UCM: ${count ? count + ' ep.' : ''}${count && titles ? ' + ' : ''}${titles ? titles + ' título(s)' : ''}`;
       const ds = d.replace(/-/g, '');
       lines.push('BEGIN:VEVENT', `UID:ucm-${ds}-${V40.deviceId()}@breno779.github.io`, `DTSTAMP:${stamp}`,
-        `DTSTART:${ds}T${hh}${mm}00`, `DURATION:PT1H`, `SUMMARY:${icsEscape(summaryTxt)}`, `DESCRIPTION:${icsEscape(desc + '\n\nhttps://breno779.github.io/beta/')}`,
+        `DTSTART:${ds}T${hh}${mm}00`, `DURATION:PT1H`, `SUMMARY:${icsEscape(summaryTxt)}`, `DESCRIPTION:${icsEscape(desc + '\n\n' + location.origin + location.pathname.replace(/index\.html$/, ''))}`,
         'BEGIN:VALARM', 'ACTION:DISPLAY', `DESCRIPTION:${icsEscape(summaryTxt)}`, 'TRIGGER:PT0M', 'END:VALARM', 'END:VEVENT');
       n++;
     }
@@ -603,7 +613,7 @@
         <li>No celular, toque em <b>Baixar APK</b> (abre o GitHub e baixa o arquivo <i>ucm-watchlist.apk</i>).</li>
         <li>Abra o arquivo baixado. O Android vai pedir pra <b>permitir instalar apps desta fonte</b> (do Chrome ou do app de Arquivos) — permita só pra isso.</li>
         <li>Toque em <b>Instalar</b>. Se o Play Protect avisar, toque em "Instalar mesmo assim" (é porque o app não é da Play Store).</li>
-        <li>Abra o <b>UCM Watchlist</b>. Segure o ícone pra ver os atalhos: v40 beta, Hoje e Liga.</li>
+        <li>Abra o <b>UCM Watchlist</b>. Segure o ícone pra ver os atalhos: Hoje, Liga e beta.</li>
       </ol>
       <h4 style="margin:10px 0 4px;">Seus dados</h4>
       <p class="v40-muted">O app guarda os dados dele separados do Chrome. Pra levar seu progresso: no Chrome, <b>Config ▸ ⬆️ Enviar pra nuvem</b>; no app, use o MESMO código e <b>⬇️ Puxar da nuvem</b>. Ou exporte um backup e importe no app.</p>

@@ -2,6 +2,40 @@
 <html lang="pt-BR">
 <head>
 <meta charset="UTF-8">
+<script>
+// ===== v40: modo da página + ritmo configurável + pausas extras =====
+window.V40_MODE = 'amigo';
+(function () {
+  // ritmo (episódios por dia) com histórico: cada mudança vale A PARTIR de uma data
+  window.v40RateHistory = function () {
+    try {
+      var h = JSON.parse(localStorage.getItem('v40-rate-history') || 'null');
+      if (Array.isArray(h) && h.length) return h;
+    } catch (e) {}
+    return [{ from: '0000-00-00', anim: 3, live: 2 }];
+  };
+  function isoOf(d) {
+    if (typeof d === 'string') return d;
+    return d.getFullYear() + '-' + String(d.getMonth() + 1).padStart(2, '0') + '-' + String(d.getDate()).padStart(2, '0');
+  }
+  window.v40RateAt = function (d, kind) {
+    var iso = isoOf(d);
+    var h = window.v40RateHistory().slice().sort(function (a, b) { return a.from < b.from ? -1 : 1; });
+    var cur = h[0];
+    for (var i = 0; i < h.length; i++) if (h[i].from <= iso) cur = h[i];
+    var o = window.__v40RateOverride;
+    if (o && (!o.from || iso >= o.from)) return kind === 'live' ? o.live : o.anim;
+    return kind === 'live' ? (cur.live || 2) : (cur.anim || 3);
+  };
+  window.v40IsExtraPause = function (d) {
+    var iso = isoOf(d);
+    var list = [];
+    try { list = JSON.parse(localStorage.getItem('v40-extra-pauses') || '[]'); } catch (e) {}
+    for (var i = 0; i < list.length; i++) if (iso >= list[i][0] && iso <= list[i][1]) return true;
+    return false;
+  };
+})();
+</script>
 <meta http-equiv="Cache-Control" content="no-cache, no-store, must-revalidate">
 <meta http-equiv="Pragma" content="no-cache">
 <meta http-equiv="Expires" content="0">
@@ -23,7 +57,7 @@
       var iso = d.getFullYear() + '-' + String(d.getMonth() + 1).padStart(2, '0') + '-' + String(d.getDate()).padStart(2, '0');
       localStorage.setItem('amigo-start', iso);
       ["ucm-expand-phases-v1", "ucm-fix-2109", "ucm-fix-completedat-v1", "ucm-fix-doomsday-rename-v1", "ucm-fix-doomsday-undo-v1", "ucm-fix-epdone-v2", "ucm-fix-extras-v1", "ucm-fix-full-v5", "ucm-fix-guardioes-trio2-v1", "ucm-fix-k53-text-v1", "ucm-fix-order-v1", "ucm-fix-pace-v3", "ucm-fix-qf2015-order-v1", "ucm-fix-seuamigao-punho-v1", "ucm-fix-slowgta-v1", "ucm-fix-trio1-phases-v1", "ucm-rate3-v1", "ucm-trio1-rate-pos43-v1"].forEach(function (f) { localStorage.setItem(f, '1'); });
-      localStorage.setItem('ucm-last-auto-backup', new Date().toISOString()); // sem backup baixando na 1ª abertura
+      localStorage.setItem('ucm-last-auto-backup', new Date().toISOString());
       window.__amigoFirstRun = true;
     }
   } catch (e) {}
@@ -880,6 +914,7 @@ if ('serviceWorker' in navigator) {
     .progress-fill { transition: none; }
   }
 </style>
+<link rel="stylesheet" href="../v40/v40.css?b=202610092348">
 </head>
 <body>
 <div class="sticky-progress" id="stickyProgress">
@@ -1100,7 +1135,7 @@ const HERO_GROUPS = [
 // ritmo dos trios intercalados: 3 eps/dia até 29/09/2026, 4 eps/dia a partir de 30/09/2026
 // (subiu por causa da entrada de Guardiões da Galáxia no trio 2 — combinação votada com o usuário).
 const TRIO_RATE_SWITCH_DATE = '2026-09-30';
-function trioRateFor(dateIso) { return 3; } // voltou pra 3 eps/dia (4 estava puxado demais)
+function trioRateFor(dateIso) { return window.v40RateAt ? v40RateAt(dateIso, 'anim') : 3; } // voltou pra 3 eps/dia (4 estava puxado demais)
 
 // grupos intercalados: cada um é identificado pelas "key" dos 3 itens que o compõem (nessa
 // ordem). A ordem de intercalação em si (TRIO_ORDER de cada grupo) é calculada com
@@ -1900,7 +1935,7 @@ function pushToCloudNow() {
     trash: trash,
     listVersion: LIST_VERSION,
     updatedAt: firebase.firestore.FieldValue.serverTimestamp()
-  }).then(() => {
+  }, { merge: true }).then(() => {
     setSyncStatus('✅ Sincronizado agora');
   }).catch(err => {
     console.error('sync push error', err);
@@ -2163,7 +2198,8 @@ function groupByPhase(searchTerm) {
   PHASE_ORDER.forEach(p => map.set(p, []));
   const term = normalizeStr(searchTerm || '');
   sortItems(items).forEach(it => {
-    if (term && !normalizeStr(it.text).includes(term)) return;
+    if (term && !(window.v40TermMatch ? v40TermMatch(it, term) : normalizeStr(it.text).includes(term))) return;
+    if (window.v40Filter && !v40Filter(it)) return;
     if (onlyPending && it.done) return;
     if (favOnly && !it.favorite) return;
     if (!matchesKindFilter(it)) return;
@@ -2187,6 +2223,7 @@ function getNext7Items() {
 function buildItemRow(it) {
       const row = document.createElement('div');
       row.className = 'item' + (it.done ? ' done' : '') + (isToday(it) ? ' today' : '');
+      row.dataset.id = it.id;
 
       if (multiSelectMode) {
         const sel = document.createElement('input');
@@ -2248,19 +2285,7 @@ function buildItemRow(it) {
         starsEl.appendChild(numSpan);
         starsEl.appendChild(ratingUpBtn);
       }
-      const noteBtn = document.createElement('button');
-      noteBtn.textContent = it.note ? '📝' : '📝+';
-      noteBtn.title = 'Anotação';
-      noteBtn.addEventListener('click', (ev) => { ev.stopPropagation(); openNoteEditor(it.id); });
-      starsEl.appendChild(noteBtn);
       mainCol.appendChild(starsEl);
-
-      if (it.note) {
-        const noteDisp = document.createElement('div');
-        noteDisp.style.cssText = 'font-size:0.72rem;color:var(--muted);font-style:italic;margin-top:2px;white-space:pre-wrap;';
-        noteDisp.textContent = '📝 ' + it.note;
-        mainCol.appendChild(noteDisp);
-      }
 
       if (it.watchStart && !it.done) {
         const dateEl = document.createElement('div');
@@ -2395,6 +2420,7 @@ function buildItemRow(it) {
       stamp.className = 'stamp';
       stamp.textContent = 'VISTO!';
       row.appendChild(stamp);
+      if (window.v40DecorateRow) { try { v40DecorateRow(row, it, mainCol, actions); } catch (e) { console.error(e); } }
 
       return row;
 }
@@ -3333,13 +3359,14 @@ function render() {
   const doneTotal = items.filter(i => i.done).length;
   const allTotal = items.length;
 
-  if (showNext7 || alphaMode || calendarFilter) {
+  if (showNext7 || alphaMode || calendarFilter || (window.v40SortActive && v40SortActive())) {
     let list;
     if (calendarFilter) {
       list = sortItems(items.filter(it => {
         const searchTerm = document.getElementById('searchInput') ? document.getElementById('searchInput').value : '';
         const term = normalizeStr(searchTerm || '');
-        if (term && !normalizeStr(it.text).includes(term)) return false;
+        if (term && !(window.v40TermMatch ? v40TermMatch(it, term) : normalizeStr(it.text).includes(term))) return false;
+        if (window.v40Filter && !v40Filter(it)) return false;
         if (onlyPending && it.done) return false;
         if (favOnly && !it.favorite) return false;
         if (!matchesKindFilter(it)) return false;
@@ -3351,13 +3378,15 @@ function render() {
       list = sortItems(items.filter(it => {
         const searchTerm = document.getElementById('searchInput') ? document.getElementById('searchInput').value : '';
         const term = normalizeStr(searchTerm || '');
-        if (term && !normalizeStr(it.text).includes(term)) return false;
+        if (term && !(window.v40TermMatch ? v40TermMatch(it, term) : normalizeStr(it.text).includes(term))) return false;
+        if (window.v40Filter && !v40Filter(it)) return false;
         if (onlyPending && it.done) return false;
         if (favOnly && !it.favorite) return false;
         if (!matchesKindFilter(it)) return false;
         return true;
       }));
     }
+    if (window.v40SortList) list = v40SortList(list);
     if (list.length === 0) {
       const noRes = document.createElement('div');
       noRes.className = 'no-results';
@@ -3433,6 +3462,7 @@ function render() {
   updateCountdownDoomsday();
   updateEndBadge();
   renderPhaseTimeline();
+  if (window.v40AfterRender) { try { v40AfterRender(); } catch (e) { console.error(e); } }
 
   const sel = document.getElementById('phaseSelect');
   sel.innerHTML = '';
@@ -4100,7 +4130,7 @@ document.getElementById('tabLista').classList.add('tab-visible');
 
 // versão do app (acompanha o CACHE_NAME do sw.js): aparece entre parênteses nos botões de
 // recarregar de todas as abas
-const APP_VERSION = 'v39.5';
+const APP_VERSION = 'v40';
 (function () {
   const home = document.getElementById('btnReloadHome');
   if (home) home.textContent = '🔄 Recarregar (' + APP_VERSION + ')';
@@ -4584,6 +4614,7 @@ const PAUSE_WINDOWS = [];
 function isPauseDay(d) {
   // períodos de "férias" de verdade: nada avança nesses dias, ritmo normal no resto.
   const iso = fmtDateISO(d);
+  if (window.v40IsExtraPause && v40IsExtraPause(iso)) return true;
   return PAUSE_WINDOWS.some(([start, end]) => iso >= start && iso <= end);
 }
 const SLOW_WINDOWS = [];
@@ -4843,7 +4874,7 @@ function recomputeSchedule(anchorItemId, forceStartDate) {
       while (rem > 0 && guard < 3650) {
         if (!isPauseDay(d)) {
           if (startD === null) startD = new Date(d);
-          rem -= isSlowDay(d) ? 1 : normalRate;
+          rem -= isSlowDay(d) ? 1 : (window.v40RateAt ? v40RateAt(d, kind === 'anim' ? 'anim' : 'live') : normalRate);
           lastGood = new Date(d);
         }
         d.setDate(d.getDate() + 1);
@@ -4946,5 +4977,15 @@ initCloudSync();
 </script>
 <div class="toast-container" id="toastContainer"></div>
 <div class="marathon-screen" id="marathonScreen"></div>
+<script src="../v40/v40-catalog.js?b=202610092348"></script>
+<script src="../v40/v40-core.js?b=202610092348"></script>
+<script src="../v40/v40-liga.js?b=202610092348"></script>
+<script src="../v40/v40-stats.js?b=202610092348"></script>
+<script src="../v40/v40-fun.js?b=202610092348"></script>
+<script src="../v40/v40-data.js?b=202610092348"></script>
+<script src="../v40/v40-content.js?b=202610092348"></script>
+<script src="../v40/v40-sync.js?b=202610092348"></script>
+<script src="../v40/v40-pedidos.js?b=202610092348"></script>
+<script src="../v40/v40-system.js?b=202610092348"></script>
 </body>
 </html>

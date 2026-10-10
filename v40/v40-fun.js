@@ -555,11 +555,16 @@
 
   // =================== TOUR DE BOAS-VINDAS ===================
   const TOUR = [
-    ['🧪', 'Bem-vindo à v40 beta', 'Esta é uma cópia separada do app. Ela tem a gaveta dela: o que você marcar aqui <b>não muda</b> o seu app de verdade. Seu progresso foi copiado de lá quando você abriu a beta.'],
+    (window.V40_MODE === 'beta'
+      ? ['🧪', 'Bem-vindo à beta', 'Esta é uma cópia separada do app pra testar novidades. Ela tem a gaveta dela: o que você marcar aqui <b>não muda</b> o seu app de verdade.']
+      : window.V40_MODE === 'amigo'
+        ? ['🍿', 'Bem-vindo à sua lista UCM', 'Todos os filmes e séries da Marvel em ordem cronológica, com cronograma que começou hoje. Tudo fica salvo no seu aparelho.']
+        : ['🎉', 'Bem-vindo à v40', 'A maior atualização do app: Liga, novo Início, capas, planejamento, troféus, aba de Pedidos e muito mais. Seu progresso continua o mesmo.']),
     ['🥇', 'Liga UCM', 'Aba nova: campeonato de pontos corridos (nota arredondada = pontos), campeonato de heróis (filmes, séries e geral), mata-mata dos títulos nota 10, duelo e histórico.'],
     ['🏠', 'Início novo', 'Card de hoje com a meta de episódios, nível/XP, sequência, meta do mês, desafio da semana, modo cinema, sorteio, "hoje não vou assistir", modo viagem e simulador.'],
     ['🎬', 'Lista turbinada', 'Toque no nome de um título pra ver os extras (quero rever, coleções, notas detalhadas, cartão do herói, duelo). Deslize pra direita pra marcar como visto. Filtrar ▸ modo foco, ordenar, filtro avançado.'],
-    ['⚙️', 'Config', 'Temas por herói, claro/escuro/automático, tamanho da letra, sons, modo bateria, só leitura, layout do início, apelidos dos heróis, lixeira de 30 dias, histórico de versões, verificação de erros e mais.']
+    ['⚙️', 'Config', 'Temas por herói, claro/escuro/automático, tamanho da letra, sons, modo bateria, só leitura, layout do início, apelidos dos heróis, lixeira de 30 dias, histórico de versões, verificação de erros e mais. "Adicionar/mover títulos" agora fica aqui.'],
+    ['💬', 'Pedidos', 'Aba nova: um assistente que responde dúvidas do app e monta o pedido de bug ou ideia, com as informações do aparelho, pra mandar pro Claude (ou pelo WhatsApp).']
   ];
   V40.openTour = function (i) {
     i = i || 0;

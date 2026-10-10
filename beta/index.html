@@ -2,57 +2,11 @@
 <html lang="pt-BR">
 <head>
 <meta charset="UTF-8">
-<meta http-equiv="Cache-Control" content="no-cache, no-store, must-revalidate">
-<meta http-equiv="Pragma" content="no-cache">
-<meta http-equiv="Expires" content="0">
-<meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>UCM v40 beta</title>
-<link rel="manifest" href="manifest.json">
 <script>
-// ===== v40 beta: armazenamento próprio =====
-// Toda chave do localStorage desta página ganha o prefixo 'v40b:'. Assim a beta tem a
-// "gaveta" dela e nunca mexe no progresso do app atual (que usa as chaves sem prefixo).
+// ===== v40: modo da página + ritmo configurável + pausas extras =====
+window.V40_MODE = 'beta';
 (function () {
-  var P = 'v40b:';
-  var S = Storage.prototype;
-  var g = S.getItem, s = S.setItem, r = S.removeItem, k = S.key;
-  window.__v40real = {
-    get: function (key) { try { return g.call(window.localStorage, key); } catch (e) { return null; } },
-    keys: function () {
-      var out = [];
-      try { for (var i = 0; i < window.localStorage.length; i++) out.push(k.call(window.localStorage, i)); } catch (e) {}
-      return out;
-    },
-    setRaw: function (key, v) { return s.call(window.localStorage, key, v); },
-    removeRaw: function (key) { return r.call(window.localStorage, key); }
-  };
-  S.getItem = function (key) { return g.call(this, P + key); };
-  S.setItem = function (key, v) { return s.call(this, P + key, v); };
-  S.removeItem = function (key) { return r.call(this, P + key); };
-
-  // cópia do progresso do app atual (só leitura) — na 1ª abertura, ou quando pedido em Config
-  var SKIP = /sync|reload-tab/i;
-  window.v40CopyFromMainApp = function () {
-    var copied = 0;
-    window.__v40real.keys().forEach(function (key) {
-      if (!key || key.indexOf(P) === 0) return;
-      if (key.indexOf('ucm-') !== 0 || SKIP.test(key)) return;
-      var v = window.__v40real.get(key);
-      if (v === null) return;
-      s.call(window.localStorage, P + key, v);
-      copied++;
-    });
-    s.call(window.localStorage, P + 'v40-copied-at', new Date().toISOString());
-    return copied;
-  };
-  try {
-    var hasBeta = g.call(window.localStorage, P + 'ucm-watchlist-items-v1');
-    var hasMain = g.call(window.localStorage, 'ucm-watchlist-items-v1');
-    if (!hasBeta && hasMain) { window.v40CopyFromMainApp(); window.__v40JustCopied = true; }
-  } catch (e) {}
-
-  // ritmo (episódios por dia) configurável, com histórico: cada mudança vale A PARTIR de uma
-  // data, pra não reescrever o passado. [{from:'YYYY-MM-DD', anim:3, live:2}]
+  // ritmo (episódios por dia) com histórico: cada mudança vale A PARTIR de uma data
   window.v40RateHistory = function () {
     try {
       var h = JSON.parse(localStorage.getItem('v40-rate-history') || 'null');
@@ -73,7 +27,6 @@
     if (o && (!o.from || iso >= o.from)) return kind === 'live' ? o.live : o.anim;
     return kind === 'live' ? (cur.live || 2) : (cur.anim || 3);
   };
-  // pausas extras (botão "hoje não vou assistir", modo viagem, recomeçar de hoje)
   window.v40IsExtraPause = function (d) {
     var iso = isoOf(d);
     var list = [];
@@ -83,6 +36,52 @@
   };
 })();
 </script>
+<meta http-equiv="Cache-Control" content="no-cache, no-store, must-revalidate">
+<meta http-equiv="Pragma" content="no-cache">
+<meta http-equiv="Expires" content="0">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>UCM beta</title>
+<link rel="manifest" href="manifest.json">
+<script>
+// ===== v40 beta: armazenamento próprio (prefixo 'v40b:') =====
+(function () {
+  var P = 'v40b:';
+  var S = Storage.prototype;
+  var g = S.getItem, s = S.setItem, r = S.removeItem, k = S.key;
+  window.__v40real = {
+    get: function (key) { try { return g.call(window.localStorage, key); } catch (e) { return null; } },
+    keys: function () {
+      var out = [];
+      try { for (var i = 0; i < window.localStorage.length; i++) out.push(k.call(window.localStorage, i)); } catch (e) {}
+      return out;
+    },
+    setRaw: function (key, v) { return s.call(window.localStorage, key, v); },
+    removeRaw: function (key) { return r.call(window.localStorage, key); }
+  };
+  S.getItem = function (key) { return g.call(this, P + key); };
+  S.setItem = function (key, v) { return s.call(this, P + key, v); };
+  S.removeItem = function (key) { return r.call(this, P + key); };
+  var SKIP = /sync|reload-tab/i;
+  window.v40CopyFromMainApp = function () {
+    var copied = 0;
+    window.__v40real.keys().forEach(function (key) {
+      if (!key || key.indexOf(P) === 0 || key.indexOf('amigo:') === 0) return;
+      if ((key.indexOf('ucm-') !== 0 && key.indexOf('v40-') !== 0) || SKIP.test(key)) return;
+      var v = window.__v40real.get(key);
+      if (v === null) return;
+      s.call(window.localStorage, P + key, v);
+      copied++;
+    });
+    s.call(window.localStorage, P + 'v40-copied-at', JSON.stringify(new Date().toISOString()));
+    return copied;
+  };
+  try {
+    var hasBeta = g.call(window.localStorage, P + 'ucm-watchlist-items-v1');
+    var hasMain = g.call(window.localStorage, 'ucm-watchlist-items-v1');
+    if (!hasBeta && hasMain) { window.v40CopyFromMainApp(); window.__v40JustCopied = true; }
+  } catch (e) {}
+})();
+</script>
 <!-- Firebase (só usado pra sincronizar entre aparelhos, manualmente — ver botões na aba Config).
      Se estiver offline e isso não carregar, o app inteiro continua funcionando normalmente,
      só a sincronização fica indisponível até ter internet de novo. -->
@@ -90,7 +89,7 @@
 <link rel="apple-touch-icon" href="../icon-192.png">
 <meta name="apple-mobile-web-app-capable" content="yes">
 <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
-<meta name="apple-mobile-web-app-title" content="UCM v40 beta">
+<meta name="apple-mobile-web-app-title" content="UCM beta">
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link href="https://fonts.googleapis.com/css2?family=Bangers&family=Baloo+2:wght@400;500;600;700;800&family=JetBrains+Mono:wght@500;700&display=swap" rel="stylesheet">
 <style>
@@ -920,17 +919,17 @@
     .progress-fill { transition: none; }
   }
 </style>
-<link rel="stylesheet" href="v40.css?b=202610092332">
+<link rel="stylesheet" href="../v40/v40.css?b=202610092348">
 </head>
 <body>
-<div class="v40-beta-ribbon" id="v40BetaRibbon">🧪 V40 BETA — testes à vontade: seu app de verdade não é afetado</div>
+<div class="v40-beta-ribbon" id="v40BetaRibbon">🧪 BETA — área de testes: o seu app de verdade não é afetado</div>
 <div class="sticky-progress" id="stickyProgress">
   <span id="stickyProgressText">0/0</span>
   <span id="stickyProgressPct">0%</span>
 </div>
 <div class="halftone"></div>
 <header>
-  <h1>ORDEM CRONOLÓGICA UCM <span class="v40-h1-tag">V40 BETA</span></h1>
+  <h1>ORDEM CRONOLÓGICA UCM <span class="v40-h1-tag">BETA</span></h1>
 </header>
 
 <div class="tab-page" id="tabInicio">
@@ -1037,7 +1036,7 @@
 
   <div style="margin-top:14px;padding:12px;border:1px dashed var(--gold);border-radius:10px;font-size:0.75rem;">
     <p style="margin:0 0 6px;font-family:'Bangers',cursive;letter-spacing:0.5px;">☁️ Sincronização desligada na beta</p>
-    <p style="margin:0;color:var(--muted);">Para proteger seus dados de verdade, a beta nunca envia nem puxa nada da nuvem. Ela tem a gaveta dela, separada do app atual.</p>
+    <p style="margin:0;color:var(--muted);">Para proteger seus dados de verdade, a beta nunca envia nem puxa nada da nuvem do app.</p>
   </div>
   <div style="display:none;">
     <p style="margin:0 0 8px;font-family:'Bangers',cursive;letter-spacing:0.5px;">☁️ Sincronizar entre aparelhos</p>
@@ -1934,7 +1933,7 @@ function schedulePushToCloud() {
 }
 
 function pushToCloudNow() {
-  return; // v40 beta: nunca envia nada pra nuvem
+  return; // beta: nunca envia nada pra nuvem do app
   if (!syncDb) return;
   if (!isValidRemoteItems(items)) {
     // nunca sobe uma lista claramente incompleta/quebrada pra nuvem — isso protegeria o outro
@@ -1948,7 +1947,7 @@ function pushToCloudNow() {
     trash: trash,
     listVersion: LIST_VERSION,
     updatedAt: firebase.firestore.FieldValue.serverTimestamp()
-  }).then(() => {
+  }, { merge: true }).then(() => {
     setSyncStatus('✅ Sincronizado agora');
   }).catch(err => {
     console.error('sync push error', err);
@@ -1974,7 +1973,7 @@ function isValidRemoteItems(remoteItems) {
 }
 
 function pullFromCloudNow() {
-  return; // v40 beta: nunca puxa nada da nuvem
+  return; // beta: nunca puxa nada da nuvem do app
   if (!syncDb) { showToast('⚠️ Sincronização ainda não conectou'); return; }
   const code = getSyncCode();
   setSyncStatus('🔄 Buscando da nuvem...');
@@ -4979,14 +4978,15 @@ if (shortcutAction === 'watchnow') {
 </script>
 <div class="toast-container" id="toastContainer"></div>
 <div class="marathon-screen" id="marathonScreen"></div>
-<script src="v40-catalog.js?b=202610092332"></script>
-<script src="v40-core.js?b=202610092332"></script>
-<script src="v40-liga.js?b=202610092332"></script>
-<script src="v40-stats.js?b=202610092332"></script>
-<script src="v40-fun.js?b=202610092332"></script>
-<script src="v40-data.js?b=202610092332"></script>
-<script src="v40-content.js?b=202610092332"></script>
-<script src="v40-sync.js?b=202610092332"></script>
-<script src="v40-system.js?b=202610092332"></script>
+<script src="../v40/v40-catalog.js?b=202610092348"></script>
+<script src="../v40/v40-core.js?b=202610092348"></script>
+<script src="../v40/v40-liga.js?b=202610092348"></script>
+<script src="../v40/v40-stats.js?b=202610092348"></script>
+<script src="../v40/v40-fun.js?b=202610092348"></script>
+<script src="../v40/v40-data.js?b=202610092348"></script>
+<script src="../v40/v40-content.js?b=202610092348"></script>
+<script src="../v40/v40-sync.js?b=202610092348"></script>
+<script src="../v40/v40-pedidos.js?b=202610092348"></script>
+<script src="../v40/v40-system.js?b=202610092348"></script>
 </body>
 </html>

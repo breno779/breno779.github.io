@@ -10,7 +10,9 @@
     try { const m = /[?&]b=(\d+)/.exec(document.currentScript.src); return m ? m[1] : 'dev'; } catch (e) { return 'dev'; }
   })();
   V40.BUILD = BUILD;
-  V40.VERSION_LABEL = 'v40 beta (parte 2)';
+  const MODE = window.V40_MODE || 'beta';
+  V40.MODE = MODE;
+  V40.VERSION_LABEL = MODE === 'beta' ? 'v40 beta' : 'v40';
 
   // =================== APARÊNCIA ===================
   let mql = null;
@@ -174,7 +176,7 @@
     const blob = new Blob([JSON.stringify({ version: LIST_VERSION, items, trash, v40 }, null, 2)], { type: 'application/json' });
     const a = document.createElement('a');
     a.href = URL.createObjectURL(blob);
-    a.download = (filename || 'ucm-watchlist-backup.json').replace('ucm-watchlist', 'ucm-v40beta');
+    a.download = MODE === 'beta' ? (filename || 'ucm-watchlist-backup.json').replace('ucm-watchlist', 'ucm-beta') : (filename || 'ucm-watchlist-backup.json');
     a.click();
     setTimeout(() => URL.revokeObjectURL(a.href), 2000);
   };
@@ -221,7 +223,8 @@
     ['🌐', 'Dados de fora (parte 2)', 'Capas oficiais, sinopse em português, elenco, trailer, nota do público e onde assistir no Brasil (TMDB, com a sua chave).'],
     ['📚', 'Universo (parte 2)', 'Trilhas por personagem, vilões, glossário, quiz só do que você já viu, cenas pós-créditos e "bom ter visto antes" na ficha de cada título. Ordem de lançamento e nomes em inglês.'],
     ['☁️', 'Nuvem e aparelho (parte 2)', 'Sincronização da beta com tela de comparação (juntar / usar um lado), backups semanais na nuvem, perfil pra amigos com comparação de notas, PIN e digital/rosto, lembretes no calendário do celular, atalhos no ícone e telas em 2 colunas no iPad.'],
-    ['🗑', 'Saiu', 'As anotações 📝 (como você pediu).']
+    ['💬', 'Pedidos (a 100ª)', 'Aba nova com um assistente que responde dúvidas e já abre a tela certa, e monta pedidos de bug/ideia com as informações do aparelho pra mandar pro Claude ou pelo WhatsApp. O "Add" foi pro Config.'],
+    ['🗑', 'Saiu', 'As anotações 📝 e os nomes dos episódios (a ordem das bases públicas não batia com a do Disney+).']
   ];
   V40.openNews = function () {
     V40.modal(`<h3>🆕 O que há de novo — ${V40.VERSION_LABEL}</h3>
@@ -237,7 +240,9 @@
     ['O que é o mata-mata dos 10?', 'Todos os títulos concluídos que valem 10 pontos se enfrentam; você escolhe o vencedor de cada jogo até sobrar o verdadeiro 10.'],
     ['Mudei o ritmo e quero voltar', 'Início ▸ ⏱ Episódios por dia ▸ escolha de novo. Vale a partir de amanhã; o passado não muda.'],
     ['Fiquei atrasado', 'Início ▸ botão vermelho de atraso ▸ escolha recomeçar de hoje ou diluir.'],
-    ['A beta mexe no meu app de verdade?', 'Não. A beta tem a gaveta dela. Ela copiou seu progresso quando abriu pela primeira vez, e dá pra copiar de novo em Config.'],
+    ...(MODE === 'beta' ? [['A beta mexe no meu app de verdade?', 'Não. A beta tem a gaveta dela. Ela copiou seu progresso quando abriu pela primeira vez, e dá pra copiar de novo em Config.']] : []),
+    ['Como mando a lista pro meu amigo?', 'Mande o link breno779.github.io/amigo/ — lá a lista começa do zero, só dele, salva no aparelho dele.'],
+    ['Onde foi parar o "Add"?', 'Adicionar e mover títulos agora fica em Config ▸ ➕ Adicionar / mover títulos. No lugar dele na barra entrou a aba 💬 Pedidos.'],
     ['Deu algo errado', 'Config ▸ 🕰 Histórico de versões pra voltar a lista pra um dia anterior.']
   ];
   V40.openHelp = function () {
@@ -300,15 +305,22 @@
     const issues = V40.healthCheck();
     const errs = issues.filter(i => i.lvl !== 'info').length;
     const copiedAt = V40.get('copied-at', null) || (function () { try { return localStorage.getItem('v40-copied-at'); } catch (e) { return null; } })();
-    box.innerHTML = `
+    const head = MODE === 'beta' ? `
       <div class="v40-beta-box">
         <b>🧪 ${V40.VERSION_LABEL}</b><br>
         <small>Gaveta própria — seu app de verdade não muda. ${copiedAt ? 'Progresso copiado do app atual em ' + new Date(copiedAt).toLocaleString('pt-BR') + '.' : ''}</small>
         <div class="dash-actions" style="margin:8px 0 0;"><button id="v40CfgCopy">📥 Copiar de novo do app atual</button><button id="v40CfgNews">🆕 Novidades</button><button id="v40CfgHelp">❓ Ajuda</button></div>
-      </div>
+      </div>` : `
+      <div class="v40-beta-box v40-official-box">
+        <b>🎉 ${V40.VERSION_LABEL}${MODE === 'amigo' ? ' · sua lista' : ''}</b><br>
+        <small>${MODE === 'amigo' ? 'Lista própria, começada do zero. Fica salva neste aparelho.' : 'A maior atualização do app.'}</small>
+        <div class="dash-actions" style="margin:8px 0 0;"><button id="v40CfgNews">🆕 Novidades</button><button id="v40CfgHelp">❓ Ajuda</button><button id="v40CfgPed">💬 Pedidos</button></div>
+      </div>`;
+    box.innerHTML = `${head}
       <h3 class="v40-cfg-h">✨ Novidades da v40</h3>
       <div class="config-list">
-        <button id="v40CfgSync">☁️ Sincronização da beta (celular ⇄ iPad), com aviso de conflito ${V40.syncState && V40.syncState.auto ? '✅' : ''}</button>
+        <button id="v40CfgAdd">➕ Adicionar / mover títulos</button>
+        <button id="v40CfgSync">☁️ Sincronização${MODE === 'beta' ? ' da beta' : ''} (celular ⇄ iPad): comparar e juntar ${V40.syncState && V40.syncState.auto ? '✅' : ''}</button>
         <button id="v40CfgBackups">🗄 Backups na nuvem</button>
         <button id="v40CfgProfile">👥 Perfil pra amigos (e ver o de um amigo)</button>
         <button id="v40CfgLock">🔒 Senha / biometria ${V40.lockCfg && V40.lockCfg() ? '✅' : ''}</button>
@@ -329,7 +341,7 @@
         <button id="v40CfgHealth">🩺 Verificação de erros ${errs ? `<span class="v40-badge">${errs}</span>` : '✅'}</button>
         <button id="v40CfgActivity">📜 Registro de atividades</button>
         <button id="v40CfgCSV">📊 Exportar planilha (CSV)</button>
-        <button id="v40CfgReset" class="v40-danger-btn">🧹 Apagar a beta e começar de novo</button>
+        ${MODE === 'beta' ? '<button id="v40CfgReset" class="v40-danger-btn">🧹 Apagar a beta e começar de novo</button>' : ''}
       </div>
       <h3 class="v40-cfg-h">Do app de sempre</h3>`;
     const on = (id, fn) => { const e = document.getElementById(id); if (e) e.addEventListener('click', fn); };
@@ -339,6 +351,8 @@
       location.replace(location.pathname + '?nocache=' + Date.now());
     });
     on('v40CfgNews', V40.openNews);
+    on('v40CfgAdd', () => switchTab('tabAdicionar'));
+    on('v40CfgPed', () => switchTab('tabPedidos'));
     on('v40CfgHelp', V40.openHelp);
     on('v40CfgAppearance', V40.openAppearance);
     on('v40CfgExt', V40.openExtSettings);
@@ -450,6 +464,61 @@
   window.addEventListener('online', updateOnline);
   window.addEventListener('offline', updateOnline);
 
+  // =================== MIGRAÇÃO DA BETA (só no app oficial, 1 vez) ===================
+  // Se você usou a beta neste aparelho, a lista dela pode estar diferente da do app. Aqui você
+  // escolhe: juntar (o mais avançado de cada título), ficar com o app ou ficar com a beta.
+  V40.checkBetaMigration = function () {
+    if (V40.get('beta-items-decided', false)) return;
+    let beta = null;
+    try { const raw = localStorage.getItem('v40b:ucm-watchlist-items-v1'); beta = raw ? JSON.parse(raw) : null; } catch (e) {}
+    const bItems = beta && Array.isArray(beta.items) ? beta.items : null;
+    if (!bItems || bItems.length < 100 || !V40.diffLists) { V40.set('beta-items-decided', true); return; }
+    const diffs = V40.diffLists(items, bItems);
+    if (!diffs.length) { V40.set('beta-items-decided', true); return; }
+    let betaSaved = null;
+    try { betaSaved = localStorage.getItem('v40b:ucm-last-saved'); } catch (e) {}
+    const appSaved = (function () { try { return localStorage.getItem('ucm-last-saved'); } catch (e) { return null; } })();
+    const when = iso => iso ? new Date(iso).toLocaleString('pt-BR', { day: '2-digit', month: '2-digit', hour: '2-digit', minute: '2-digit' }) : '—';
+    const betaNewer = (betaSaved || '') > (appSaved || '');
+    const sum = l => ({ done: l.filter(i => i.done).length, rated: l.filter(i => i.rating > 0).length, eps: l.reduce((s, i) => s + (Array.isArray(i.epDone) ? i.epDone.filter(Boolean).length : 0), 0) });
+    const A = sum(items), B = sum(bItems);
+    V40.modal(`<h3>🎉 Bem-vindo à v40!</h3>
+      <p>Você usou a <b>beta</b> neste aparelho e a lista dela está diferente da do app em <b>${diffs.length} título(s)</b>. Qual fica?</p>
+      <div class="v40-sync-cmp">
+        <div class="${betaNewer ? '' : 'newer'}"><b>📱 App</b><span>${A.done} vistos · ${A.rated} notas · ${A.eps} eps</span><small>mudado ${when(appSaved)}</small></div>
+        <div class="${betaNewer ? 'newer' : ''}"><b>🧪 Beta</b><span>${B.done} vistos · ${B.rated} notas · ${B.eps} eps</span><small>mudado ${when(betaSaved)}</small></div>
+      </div>
+      <details class="v40-help"><summary>Ver as diferenças</summary>${diffs.slice(0, 40).map(d => `<div class="v40-row"><span style="flex:1">${V40.esc(d.name)}<br><small class="v40-muted">${d.parts ? d.parts.map(p => `${p[0]}: app ${p[1]} · beta ${p[2]}`).join(' — ') : ''}</small></span></div>`).join('')}</details>
+      <button class="v40-pick on" id="v40MigMerge"><b>🤝 Juntar os dois (recomendado)</b><br><small>Fica o mais avançado de cada título: o que foi visto em qualquer um dos dois conta. Nota diferente: vale a do mais recente.</small></button>
+      <button class="v40-pick" id="v40MigApp"><b>📱 Ficar com a lista do app</b><br><small>A da beta é ignorada.</small></button>
+      <button class="v40-pick" id="v40MigBeta"><b>🧪 Ficar com a lista da beta</b><br><small>A do app é trocada pela da beta.</small></button>
+      <p class="v40-muted">Antes de qualquer coisa eu guardo uma cópia da lista de agora (Config ▸ 🕰 Histórico de versões).</p>`);
+    const apply = (list, label) => {
+      V40.dailySnapshot(true);
+      try { localStorage.setItem('v40-snap-before-migration', JSON.stringify({ at: new Date().toISOString(), items, trash })); } catch (e) {}
+      items = withOrder(list);
+      nextId = items.reduce((m, i) => Math.max(m, i.id), 0) + 1;
+      try { enforceTrioAnchor(); trimStaleEpisodes(); repairMissingDates(); } catch (e) {}
+      V40._state = null;
+      save(); render();
+      V40.logEvent('plan', { name: label });
+      V40.toast(label);
+    };
+    document.getElementById('v40MigMerge').addEventListener('click', () => {
+      V40.set('beta-items-decided', true);
+      apply(V40.mergeLists(items, bItems, betaNewer), '🤝 Listas do app e da beta juntadas');
+      closeModal();
+    });
+    document.getElementById('v40MigApp').addEventListener('click', () => { V40.set('beta-items-decided', true); closeModal(); V40.toast('📱 Ficou a lista do app'); });
+    document.getElementById('v40MigBeta').addEventListener('click', () => {
+      if (!confirm('Trocar a lista do app pela da beta?')) return;
+      V40.set('beta-items-decided', true);
+      if (beta && Array.isArray(beta.trash)) trash = beta.trash;
+      apply(bItems, '🧪 Ficou a lista da beta');
+      closeModal();
+    });
+  };
+
   // =================== INÍCIO DE TUDO ===================
   function boot() {
     try { if (V40.get('lock', null)) document.body.classList.add('v40-locked'); } catch (e) {}
@@ -463,7 +532,7 @@
       V40.dailySnapshot(true);
       const issues = V40.healthCheck().filter(i => i.lvl === 'err');
       V40.set('last-build', BUILD);
-      if (lastBuild) setTimeout(() => V40.toast(issues.length ? `⚠️ Versão nova: ${issues.length} problema(s) nos dados — veja Config ▸ Verificação` : '✅ Versão nova da beta — dados conferidos e cópia guardada'), 1200);
+      if (lastBuild) setTimeout(() => V40.toast(issues.length ? `⚠️ Versão nova: ${issues.length} problema(s) nos dados — veja Config ▸ Verificação` : '✅ Versão nova — dados conferidos e cópia guardada'), 1200);
     }
     try { render(); } catch (e) { console.error('v40 render', e); }
     updateOnline();
@@ -473,7 +542,8 @@
       const rt = localStorage.getItem('v40-reload-tab');
       if (rt) { localStorage.removeItem('v40-reload-tab'); switchTab(rt); }
     } catch (e) {}
-    if (window.__v40JustCopied) setTimeout(() => V40.toast('📥 Seu progresso foi copiado do app atual pra beta'), 600);
+    if (MODE === 'beta' && window.__v40JustCopied) setTimeout(() => V40.toast('📥 Seu progresso foi copiado do app atual pra beta'), 600);
+    if (MODE === 'oficial') setTimeout(() => { try { V40.checkBetaMigration(); } catch (e) { console.error(e); } }, 900);
     if (!V40.get('tour-done', false)) setTimeout(() => { if (!V40.get('tour-done', false)) V40.openTour(0); }, window.__v40JustCopied ? 1800 : 700);
   }
   // o botão 🔄 da aba Liga lembra a aba
