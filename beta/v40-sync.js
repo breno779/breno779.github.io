@@ -556,7 +556,6 @@
         let s = '• ' + V40.cleanName(g.it).split(' — ')[0];
         if (g.eps.length) {
           s += ` — ep. ${g.eps.length > 2 ? g.eps[0] + '–' + g.eps[g.eps.length - 1] : g.eps.join(', ')}`;
-          if (info && info.epNames) s += ' (' + g.eps.map(e => info.epNames[e - 1]).filter(Boolean).slice(0, 3).join(' / ') + ')';
         }
         return s;
       }).join('\n');

@@ -218,7 +218,7 @@
     ['📊', 'Stats', 'Quanto falta (até "sem dormir"), ranking de títulos, notas ao longo do tempo, nota de cada episódio, mapa de calor, dia mais ativo, heróis amados/odiados, animação x live action, fases e retrospectiva do ano.'],
     ['🏆', 'Troféus', 'Sequências de 3 a 100 dias (agora episódios contam), maratona num dia, semana e mês perfeitos, recuperação, fases, liga, níveis e desafios — com confete.'],
     ['⚙️', 'Sistema', 'Temas por herói, claro/escuro/automático, letra maior ou menor, sons, modo bateria, alto contraste, só leitura, layout do início, apelidos dos heróis, lixeira de 30 dias, histórico de versões, verificação de erros, registro de atividades, CSV.'],
-    ['🌐', 'Dados de fora (parte 2)', 'Capas oficiais, sinopse em português, elenco, trailer, nota do público e onde assistir no Brasil (TMDB, com a sua chave). Nomes oficiais dos episódios e resumo do último que você viu (TVmaze) — só aparecem quando a conta de episódios bate.'],
+    ['🌐', 'Dados de fora (parte 2)', 'Capas oficiais, sinopse em português, elenco, trailer, nota do público e onde assistir no Brasil (TMDB, com a sua chave).'],
     ['📚', 'Universo (parte 2)', 'Trilhas por personagem, vilões, glossário, quiz só do que você já viu, cenas pós-créditos e "bom ter visto antes" na ficha de cada título. Ordem de lançamento e nomes em inglês.'],
     ['☁️', 'Nuvem e aparelho (parte 2)', 'Sincronização da beta com tela de comparação (juntar / usar um lado), backups semanais na nuvem, perfil pra amigos com comparação de notas, PIN e digital/rosto, lembretes no calendário do celular, atalhos no ícone e telas em 2 colunas no iPad.'],
     ['🗑', 'Saiu', 'As anotações 📝 (como você pediu).']

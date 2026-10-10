@@ -280,9 +280,8 @@
   // bate com a ordem que você assiste (Disney+). Até conferir com você, os nomes delas ficam
   // escondidos (o resto continua mostrando).
   V40.ORDER_UNCONFIRMED = ['k52', 'k53', 'k171', 'k54', 'k170'];
-  V40.namesHidden = function (key) {
-    return V40.ORDER_UNCONFIRMED.includes(key) && !(V40.settings.showUnconfirmedNames || {})[key];
-  };
+  // nomes de episódio desligados de vez (a pedido): a ordem das bases não bate com a do Disney+
+  V40.namesHidden = function () { return true; };
   V40.applyExt = function () {
     Object.keys(V40.ext).forEach(k => {
       if (!k.startsWith('item:')) return;
@@ -422,12 +421,8 @@
       <div class="v40-hero-stats">
         <div><b>${got.length}/${rows.length}</b><small>BUSCADOS</small></div>
         <div><b>${withPoster}</b><small>COM CAPA</small></div>
-        <div><b>${epOk}</b><small>SÉRIES C/ NOMES</small></div>
+        <div><b>${rows.filter(r => r.info && r.info.tmdbId).length}</b><small>NO TMDB</small></div>
       </div>
-      <p class="v40-muted">Nomes de episódio só aparecem quando a quantidade de episódios bate com a da sua lista. Os que não bateram ficam sem nome — me mande print daqui que eu corrijo.</p>
-      <h4>🔒 Nomes escondidos (ordem a confirmar)</h4><p class="v40-muted">Na dupla e no trio animado a ordem da base pública não bate com a sua. Os nomes ficam escondidos até a gente acertar.</p>
-      ${V40.ORDER_UNCONFIRMED.map(k => items.find(i => i.key === k)).filter(Boolean).map(it => `<label class="v40-check-row"><input type="checkbox" data-shownames="${it.key}" ${!V40.namesHidden(it.key) ? 'checked' : ''}><span>Mostrar mesmo assim: ${V40.esc(V40.cleanName(it))}</span></label>`).join('')}
-      ${epDiff.length ? `<h4>⚠️ Episódios a conferir (${epDiff.length})</h4>${epDiff.map(line).join('')}` : ''}
       ${noTv.length ? `<h4>❔ Não achados no TVmaze (${noTv.length})</h4>${noTv.map(line).join('')}` : ''}
       ${noTmdb.length ? `<h4>❔ Não achados no TMDB (${noTmdb.length})</h4>${noTmdb.map(line).join('')}` : ''}
       <details class="v40-help"><summary>Ver tudo o que foi encontrado</summary>${got.map(line).join('')}</details>`, true);
