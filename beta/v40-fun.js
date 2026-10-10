@@ -331,6 +331,8 @@
         <button id="v40HomeTravel">✈️ Modo viagem</button>
         <button id="v40HomeSim">🔮 Simulador</button>
         <button id="v40HomeCal">📅 Calendário do mês</button>
+        <button id="v40HomeUni">📚 Universo</button>
+        <button id="v40HomeRem">⏰ Lembretes</button>
       </div>`;
     box.innerHTML = html;
     const on = (id, fn) => { const e = document.getElementById(id); if (e) e.addEventListener('click', fn); };
@@ -344,6 +346,8 @@
     on('v40HomeTravel', V40.openTravel);
     on('v40HomeSim', V40.openSimulator);
     on('v40HomeCal', () => V40.openMonthCalendar());
+    on('v40HomeUni', () => V40.openUniverse());
+    on('v40HomeRem', () => V40.openReminders && V40.openReminders());
     applyHomeBlocks();
     V40.applyHeroBg();
   };

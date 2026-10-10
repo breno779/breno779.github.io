@@ -419,7 +419,7 @@
       const sizeOfRound = ko.size / Math.pow(2, cur.r);
       const pa = byPid[cur.m.a], pb = byPid[cur.m.b];
       const card = (p, side) => `<button class="v40-ko-pick" data-pick="${side}">
-          <span class="ico">${p ? p.icon : '❔'}</span>
+          ${p && V40.posterUrl && V40.posterUrl(p.items[0], 'w185') ? `<img class="v40-ko-img" src="${V40.posterUrl(p.items[0], 'w185')}" alt="">` : `<span class="ico">${p ? p.icon : '❔'}</span>`}
           <span class="nm">${p ? V40.esc(p.name) : '(saiu)'}</span>
           <span class="v40-muted">${p ? 'nota ' + V40.fmt1(p.rating) : ''}${p && p.completedAt ? ' · visto ' + V40.fmtBR(p.completedAt, true) : ''}</span>
         </button>`;

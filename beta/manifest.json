@@ -1,0 +1,21 @@
+{
+  "name": "UCM Watchlist — v40 beta",
+  "short_name": "UCM v40",
+  "description": "Watchlist cronológica do UCM — versão beta da v40",
+  "start_url": "./",
+  "scope": "./",
+  "display": "standalone",
+  "orientation": "any",
+  "background_color": "#15141b",
+  "theme_color": "#15141b",
+  "icons": [
+    { "src": "../icon-192.png", "sizes": "192x192", "type": "image/png", "purpose": "any maskable" },
+    { "src": "../icon-512.png", "sizes": "512x512", "type": "image/png", "purpose": "any maskable" }
+  ],
+  "shortcuts": [
+    { "name": "Hoje (modo foco)", "short_name": "Hoje", "url": "./?a=hoje", "icons": [{ "src": "../icon-192.png", "sizes": "192x192" }] },
+    { "name": "Modo cinema", "short_name": "Cinema", "url": "./?a=cinema", "icons": [{ "src": "../icon-192.png", "sizes": "192x192" }] },
+    { "name": "Liga UCM", "short_name": "Liga", "url": "./?a=liga", "icons": [{ "src": "../icon-192.png", "sizes": "192x192" }] },
+    { "name": "Sorteio", "short_name": "Sorteio", "url": "./?a=sorteio", "icons": [{ "src": "../icon-192.png", "sizes": "192x192" }] }
+  ]
+}

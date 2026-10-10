@@ -849,7 +849,7 @@
     if (v.focus) chips.push(['focus', '🎯 Modo foco: só hoje e atrasados']);
     if (v.rewatch) chips.push(['rewatch', '🔁 Quero rever']);
     if (v.collection) { const c = V40.collections.find(x => x.id === v.collection); chips.push(['collection', '🗂 ' + (c ? c.name : 'coleção')]); }
-    const sortNames = { 'rating-desc': '⭐ Maior nota', 'rating-asc': '⭐ Menor nota', 'done-recent': '🕒 Vistos recentemente', hero: '🦸 Por herói', name: '🔤 Nome' };
+    const sortNames = { release: '🎬 Lançamento', 'rating-desc': '⭐ Maior nota', 'rating-asc': '⭐ Menor nota', 'done-recent': '🕒 Vistos recentemente', hero: '🦸 Por herói', name: '🔤 Nome' };
     if (v.sort) chips.push(['sort', 'Ordem: ' + sortNames[v.sort]]);
     if (v.adv) chips.push(['adv', '🧪 Filtro avançado']);
     bar.style.display = chips.length ? 'flex' : 'none';
@@ -895,7 +895,7 @@
     render(); V40.updateViewBar(); V40.syncMenuChecks();
   };
   V40.openSortPicker = function () {
-    const opts = [[null, '📅 Cronológica (padrão, por fase)'], ['rating-desc', '⭐ Maior nota primeiro'], ['rating-asc', '⭐ Menor nota primeiro'], ['done-recent', '🕒 Vistos mais recentemente'], ['hero', '🦸 Por herói/grupo'], ['name', '🔤 Por nome']];
+    const opts = [[null, '📅 Cronológica (padrão, por fase)'], ['release', '🎬 Ordem de lançamento'], ['rating-desc', '⭐ Maior nota primeiro'], ['rating-asc', '⭐ Menor nota primeiro'], ['done-recent', '🕒 Vistos mais recentemente'], ['hero', '🦸 Por herói/grupo'], ['name', '🔤 Por nome']];
     V40.modal(`<h3>↕️ Ordenar a lista</h3>${opts.map(([k, l]) => `<button class="v40-pick ${V40.view.sort === k ? 'on' : ''}" data-sort="${k === null ? '' : k}">${l}</button>`).join('')}`);
     document.querySelectorAll('[data-sort]').forEach(b => b.addEventListener('click', () => {
       V40.view.sort = b.dataset.sort || null;

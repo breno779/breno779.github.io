@@ -18,7 +18,7 @@ SRC = ROOT / 'principal.html'
 OUT = ROOT / 'beta' / 'index.html'
 BUILD = time.strftime('%Y%m%d%H%M')
 
-V40_SCRIPTS = ['v40-core.js', 'v40-liga.js', 'v40-stats.js', 'v40-fun.js', 'v40-system.js']
+V40_SCRIPTS = ['v40-catalog.js', 'v40-core.js', 'v40-liga.js', 'v40-stats.js', 'v40-fun.js', 'v40-data.js', 'v40-content.js', 'v40-sync.js', 'v40-system.js']
 
 HEAD_SHIM = r"""<script>
 // ===== v40 beta: armazenamento próprio =====
@@ -119,7 +119,7 @@ def main():
 
     # --- <head> ---
     s = sub_once(s, '<title>Cronologia UCM — Watchlist</title>', '<title>UCM v40 beta</title>', 'title')
-    s = sub_once(s, '<link rel="manifest" href="manifest.json">', '', 'manifest')
+    s = sub_once(s, '<link rel="manifest" href="manifest.json">', '<link rel="manifest" href="manifest.json">', 'manifest')
     # sem service worker na beta (o do app principal continua cuidando do resto do site)
     s = re.sub(r"<script>\n// Registra o service worker.*?</script>\n", HEAD_SHIM, s, count=1, flags=re.S)
     if 'v40RateAt' not in s:

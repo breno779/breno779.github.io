@@ -10,7 +10,7 @@
     try { const m = /[?&]b=(\d+)/.exec(document.currentScript.src); return m ? m[1] : 'dev'; } catch (e) { return 'dev'; }
   })();
   V40.BUILD = BUILD;
-  V40.VERSION_LABEL = 'v40 beta (parte 1)';
+  V40.VERSION_LABEL = 'v40 beta (parte 2)';
 
   // =================== APARÊNCIA ===================
   let mql = null;
@@ -218,12 +218,15 @@
     ['📊', 'Stats', 'Quanto falta (até "sem dormir"), ranking de títulos, notas ao longo do tempo, nota de cada episódio, mapa de calor, dia mais ativo, heróis amados/odiados, animação x live action, fases e retrospectiva do ano.'],
     ['🏆', 'Troféus', 'Sequências de 3 a 100 dias (agora episódios contam), maratona num dia, semana e mês perfeitos, recuperação, fases, liga, níveis e desafios — com confete.'],
     ['⚙️', 'Sistema', 'Temas por herói, claro/escuro/automático, letra maior ou menor, sons, modo bateria, alto contraste, só leitura, layout do início, apelidos dos heróis, lixeira de 30 dias, histórico de versões, verificação de erros, registro de atividades, CSV.'],
+    ['🌐', 'Dados de fora (parte 2)', 'Capas oficiais, sinopse em português, elenco, trailer, nota do público e onde assistir no Brasil (TMDB, com a sua chave). Nomes oficiais dos episódios e resumo do último que você viu (TVmaze) — só aparecem quando a conta de episódios bate.'],
+    ['📚', 'Universo (parte 2)', 'Trilhas por personagem, vilões, glossário, quiz só do que você já viu, cenas pós-créditos e "bom ter visto antes" na ficha de cada título. Ordem de lançamento e nomes em inglês.'],
+    ['☁️', 'Nuvem e aparelho (parte 2)', 'Sincronização da beta com tela de comparação (juntar / usar um lado), backups semanais na nuvem, perfil pra amigos com comparação de notas, PIN e digital/rosto, lembretes no calendário do celular, atalhos no ícone e telas em 2 colunas no iPad.'],
     ['🗑', 'Saiu', 'As anotações 📝 (como você pediu).']
   ];
   V40.openNews = function () {
     V40.modal(`<h3>🆕 O que há de novo — ${V40.VERSION_LABEL}</h3>
       ${NEWS.map(n => `<div class="v40-news"><span class="ic">${n[0]}</span><div><b>${n[1]}</b><br><small>${n[2]}</small></div></div>`).join('')}
-      <p class="v40-muted">Parte 2 (com você por perto): nomes dos episódios, capas oficiais, onde assistir, elenco, sinopses, quiz, APK, sincronização mais segura…</p>
+      <p class="v40-muted">App Android (APK): veja Config ▸ 📲 App Android.</p>
       <p class="v40-muted">Build ${BUILD}</p>`);
   };
   const HELP = [
@@ -305,6 +308,13 @@
       </div>
       <h3 class="v40-cfg-h">✨ Novidades da v40</h3>
       <div class="config-list">
+        <button id="v40CfgSync">☁️ Sincronização da beta (celular ⇄ iPad), com aviso de conflito ${V40.syncState && V40.syncState.auto ? '✅' : ''}</button>
+        <button id="v40CfgBackups">🗄 Backups na nuvem</button>
+        <button id="v40CfgProfile">👥 Perfil pra amigos (e ver o de um amigo)</button>
+        <button id="v40CfgLock">🔒 Senha / biometria ${V40.lockCfg && V40.lockCfg() ? '✅' : ''}</button>
+        <button id="v40CfgRem">⏰ Lembretes no calendário do celular</button>
+        <button id="v40CfgUni">📚 Universo: trilhas, vilões, glossário, quiz, pós-créditos</button>
+        <button id="v40CfgExt">🌐 Dados de fora: capas, episódios, sinopses (TMDB/TVmaze) ${V40.settings.tmdbKey ? '🔑' : '<span class="v40-badge">sem chave</span>'}</button>
         <button id="v40CfgAppearance">🎨 Aparência: tema, letra, fundo por herói, contraste</button>
         <button id="v40CfgLayout">🧩 Layout do início</button>
         <button id="v40CfgNick">🏷 Apelidos dos heróis</button>
@@ -330,6 +340,13 @@
     on('v40CfgNews', V40.openNews);
     on('v40CfgHelp', V40.openHelp);
     on('v40CfgAppearance', V40.openAppearance);
+    on('v40CfgExt', V40.openExtSettings);
+    on('v40CfgSync', V40.openSync);
+    on('v40CfgBackups', V40.openCloudBackups);
+    on('v40CfgProfile', V40.openProfileShare);
+    on('v40CfgLock', V40.openLockSettings);
+    on('v40CfgRem', V40.openReminders);
+    on('v40CfgUni', () => V40.openUniverse());
     on('v40CfgLayout', V40.openHomeLayout);
     on('v40CfgNick', V40.openNicknames);
     on('v40CfgCols', V40.openCollectionsManager);
@@ -433,9 +450,11 @@
 
   // =================== INÍCIO DE TUDO ===================
   function boot() {
+    try { if (V40.get('lock', null)) document.body.classList.add('v40-locked'); } catch (e) {}
     try { V40.init(); } catch (e) { console.error('v40 init', e); }
     try { V40.initFun(); } catch (e) { console.error('v40 fun', e); }
     try { V40.applyAppearance(); } catch (e) { console.error('v40 appearance', e); }
+    try { if (V40.initData) V40.initData(); } catch (e) { console.error('v40 data', e); }
     // versão nova da beta: confere os dados e guarda uma cópia antes (teste de saúde)
     const lastBuild = V40.get('last-build', null);
     if (lastBuild !== BUILD) {
@@ -446,6 +465,7 @@
     }
     try { render(); } catch (e) { console.error('v40 render', e); }
     updateOnline();
+    try { if (V40.initSync) V40.initSync(); } catch (e) { console.error('v40 sync', e); }
     // reabrir na aba Liga depois do 🔄
     try {
       const rt = localStorage.getItem('v40-reload-tab');
