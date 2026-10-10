@@ -313,6 +313,7 @@
         <button id="v40CfgProfile">👥 Perfil pra amigos (e ver o de um amigo)</button>
         <button id="v40CfgLock">🔒 Senha / biometria ${V40.lockCfg && V40.lockCfg() ? '✅' : ''}</button>
         <button id="v40CfgRem">⏰ Lembretes no calendário do celular</button>
+        <button id="v40CfgApk">📲 App Android (APK)</button>
         <button id="v40CfgUni">📚 Universo: trilhas, vilões, glossário, quiz, pós-créditos</button>
         <button id="v40CfgExt">🌐 Dados de fora: capas, episódios, sinopses (TMDB/TVmaze) ${V40.settings.tmdbKey ? '🔑' : '<span class="v40-badge">sem chave</span>'}</button>
         <button id="v40CfgAppearance">🎨 Aparência: tema, letra, fundo por herói, contraste</button>
@@ -347,6 +348,7 @@
     on('v40CfgLock', V40.openLockSettings);
     on('v40CfgRem', V40.openReminders);
     on('v40CfgUni', () => V40.openUniverse());
+    on('v40CfgApk', V40.openApk);
     on('v40CfgLayout', V40.openHomeLayout);
     on('v40CfgNick', V40.openNicknames);
     on('v40CfgCols', V40.openCollectionsManager);

@@ -457,3 +457,5 @@ body.v40-locked > *:not(.v40-lock):not(.toast-container) { visibility: hidden !i
   #tabLista #main { max-width: 1100px; }
   .achv-grid { grid-template-columns: repeat(4, 1fr) !important; }
 }
+.v40-steps { padding-left: 18px; margin: 4px 0; font-size: 0.8rem; line-height: 1.45; }
+.v40-steps li { margin-bottom: 4px; }
