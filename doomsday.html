@@ -1642,6 +1642,7 @@ function load() {
   // verdade. Roda em TODO load (não só uma vez), porque dados vindos de outro aparelho pela
   // sincronização podem trazer essa data errada de volta — não dá pra confiar só no flag local.
   enforceTrioAnchor();
+  repairMissingDates();
   save();
   render();
 }
@@ -1737,6 +1738,21 @@ function cleanTrio1Unwatched() {
     }
   });
   return changed;
+}
+
+// item pendente SEM data no meio do cronograma (ex.: título desmarcado depois de ter sido
+// marcado como visto) — recalcula a partir dele pra ele ganhar data de novo. Não mexe nos itens
+// que nunca tiveram data de propósito (antes do primeiro item com data) nem nos "sem data" de
+// propósito (noSchedule) ou com data fixa.
+function repairMissingDates() {
+  const pending = sortItems(items.filter(i => !i.done));
+  const firstDated = pending.findIndex(i => i.watchStart);
+  if (firstDated < 0) return false;
+  const fixed = (typeof FIXED_DATES !== 'undefined') ? FIXED_DATES : {};
+  const missing = pending.slice(firstDated + 1).find(i => !i.watchStart && !i.noSchedule && !fixed[i.key]);
+  if (!missing) return false;
+  recomputeSchedule(missing.id);
+  return true;
 }
 
 function enforceTrioAnchor() {
@@ -3469,6 +3485,11 @@ function toggleDone(id, el) {
     recomputeSchedule(nextItemId);
     render();
   }
+  if (!goingDone && !it.noSchedule) {
+    // desmarcou: o item volta pro cronograma (ganha data de novo e empurra o que vem depois)
+    recomputeSchedule(id);
+    render();
+  }
   if (goingDone) {
     showToast('✓ Marcado como visto', () => {
       // desfazer: repõe o item exatamente como estava e recalcula o cronograma a partir
@@ -4034,7 +4055,7 @@ document.getElementById('tabLista').classList.add('tab-visible');
 
 // versão do app (acompanha o CACHE_NAME do sw.js): aparece entre parênteses nos botões de
 // recarregar de todas as abas
-const APP_VERSION = 'v39.3';
+const APP_VERSION = 'v39.4';
 (function () {
   const home = document.getElementById('btnReloadHome');
   if (home) home.textContent = '🔄 Recarregar (' + APP_VERSION + ')';

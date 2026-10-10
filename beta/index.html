@@ -920,7 +920,7 @@
     .progress-fill { transition: none; }
   }
 </style>
-<link rel="stylesheet" href="v40.css?b=202610092314">
+<link rel="stylesheet" href="v40.css?b=202610092318">
 </head>
 <body>
 <div class="v40-beta-ribbon" id="v40BetaRibbon">🧪 V40 BETA — testes à vontade: seu app de verdade não é afetado</div>
@@ -1711,6 +1711,7 @@ function load() {
   // verdade. Roda em TODO load (não só uma vez), porque dados vindos de outro aparelho pela
   // sincronização podem trazer essa data errada de volta — não dá pra confiar só no flag local.
   enforceTrioAnchor();
+  repairMissingDates();
   save();
   render();
 }
@@ -1806,6 +1807,21 @@ function cleanTrio1Unwatched() {
     }
   });
   return changed;
+}
+
+// item pendente SEM data no meio do cronograma (ex.: título desmarcado depois de ter sido
+// marcado como visto) — recalcula a partir dele pra ele ganhar data de novo. Não mexe nos itens
+// que nunca tiveram data de propósito (antes do primeiro item com data) nem nos "sem data" de
+// propósito (noSchedule) ou com data fixa.
+function repairMissingDates() {
+  const pending = sortItems(items.filter(i => !i.done));
+  const firstDated = pending.findIndex(i => i.watchStart);
+  if (firstDated < 0) return false;
+  const fixed = (typeof FIXED_DATES !== 'undefined') ? FIXED_DATES : {};
+  const missing = pending.slice(firstDated + 1).find(i => !i.watchStart && !i.noSchedule && !fixed[i.key]);
+  if (!missing) return false;
+  recomputeSchedule(missing.id);
+  return true;
 }
 
 function enforceTrioAnchor() {
@@ -3537,6 +3553,11 @@ function toggleDone(id, el) {
     recomputeSchedule(nextItemId);
     render();
   }
+  if (!goingDone && !it.noSchedule) {
+    // desmarcou: o item volta pro cronograma (ganha data de novo e empurra o que vem depois)
+    recomputeSchedule(id);
+    render();
+  }
   if (goingDone) {
     showToast('✓ Marcado como visto', () => {
       // desfazer: repõe o item exatamente como estava e recalcula o cronograma a partir
@@ -4937,14 +4958,14 @@ if (shortcutAction === 'watchnow') {
 </script>
 <div class="toast-container" id="toastContainer"></div>
 <div class="marathon-screen" id="marathonScreen"></div>
-<script src="v40-catalog.js?b=202610092314"></script>
-<script src="v40-core.js?b=202610092314"></script>
-<script src="v40-liga.js?b=202610092314"></script>
-<script src="v40-stats.js?b=202610092314"></script>
-<script src="v40-fun.js?b=202610092314"></script>
-<script src="v40-data.js?b=202610092314"></script>
-<script src="v40-content.js?b=202610092314"></script>
-<script src="v40-sync.js?b=202610092314"></script>
-<script src="v40-system.js?b=202610092314"></script>
+<script src="v40-catalog.js?b=202610092318"></script>
+<script src="v40-core.js?b=202610092318"></script>
+<script src="v40-liga.js?b=202610092318"></script>
+<script src="v40-stats.js?b=202610092318"></script>
+<script src="v40-fun.js?b=202610092318"></script>
+<script src="v40-data.js?b=202610092318"></script>
+<script src="v40-content.js?b=202610092318"></script>
+<script src="v40-sync.js?b=202610092318"></script>
+<script src="v40-system.js?b=202610092318"></script>
 </body>
 </html>
