@@ -1,0 +1,23 @@
+<?xml version="1.0" encoding="utf-8"?>
+<shortcuts xmlns:android="http://schemas.android.com/apk/res/android">
+    <shortcut android:shortcutId="beta" android:enabled="true" android:icon="@mipmap/ic_launcher"
+        android:shortcutShortLabel="@string/sc_beta" android:shortcutLongLabel="@string/sc_beta">
+        <intent android:action="android.intent.action.VIEW" android:targetPackage="io.github.breno779.ucm"
+            android:targetClass="io.github.breno779.ucm.MainActivity" android:data="ucmwatchlist://open/beta/" />
+    </shortcut>
+    <shortcut android:shortcutId="today" android:enabled="true" android:icon="@mipmap/ic_launcher"
+        android:shortcutShortLabel="@string/sc_today" android:shortcutLongLabel="@string/sc_today">
+        <intent android:action="android.intent.action.VIEW" android:targetPackage="io.github.breno779.ucm"
+            android:targetClass="io.github.breno779.ucm.MainActivity" android:data="ucmwatchlist://open/beta/?a=hoje" />
+    </shortcut>
+    <shortcut android:shortcutId="liga" android:enabled="true" android:icon="@mipmap/ic_launcher"
+        android:shortcutShortLabel="@string/sc_liga" android:shortcutLongLabel="@string/sc_liga">
+        <intent android:action="android.intent.action.VIEW" android:targetPackage="io.github.breno779.ucm"
+            android:targetClass="io.github.breno779.ucm.MainActivity" android:data="ucmwatchlist://open/beta/?a=liga" />
+    </shortcut>
+    <shortcut android:shortcutId="app" android:enabled="true" android:icon="@mipmap/ic_launcher"
+        android:shortcutShortLabel="@string/sc_app" android:shortcutLongLabel="@string/sc_app">
+        <intent android:action="android.intent.action.VIEW" android:targetPackage="io.github.breno779.ucm"
+            android:targetClass="io.github.breno779.ucm.MainActivity" android:data="ucmwatchlist://open/" />
+    </shortcut>
+</shortcuts>

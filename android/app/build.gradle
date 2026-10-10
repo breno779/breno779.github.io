@@ -1,0 +1,43 @@
+plugins {
+    id 'com.android.application'
+}
+
+android {
+    namespace 'io.github.breno779.ucm'
+    compileSdk 34
+
+    defaultConfig {
+        applicationId 'io.github.breno779.ucm'
+        minSdk 24
+        targetSdk 34
+        versionCode Integer.parseInt(System.getenv('VERSION_CODE') ?: '1')
+        versionName '40.0-beta'
+    }
+
+    // chave fixa: assim cada APK novo instala POR CIMA do antigo (sem perder os dados)
+    signingConfigs {
+        ucm {
+            storeFile file('../ucm-release.keystore')
+            storePassword 'ucmwatchlist'
+            keyAlias 'ucm'
+            keyPassword 'ucmwatchlist'
+        }
+    }
+    buildTypes {
+        release {
+            minifyEnabled false
+            signingConfig signingConfigs.ucm
+        }
+        debug {
+            signingConfig signingConfigs.ucm
+        }
+    }
+    compileOptions {
+        sourceCompatibility JavaVersion.VERSION_17
+        targetCompatibility JavaVersion.VERSION_17
+    }
+}
+
+dependencies {
+    implementation 'androidx.webkit:webkit:1.11.0'
+}

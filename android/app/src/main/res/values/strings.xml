@@ -1,0 +1,7 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="sc_app">Lista (app de sempre)</string>
+    <string name="sc_beta">v40 beta</string>
+    <string name="sc_today">Hoje (beta)</string>
+    <string name="sc_liga">Liga (beta)</string>
+</resources>
