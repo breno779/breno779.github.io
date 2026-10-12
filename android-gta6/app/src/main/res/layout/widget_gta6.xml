@@ -1,30 +1,41 @@
 <?xml version="1.0" encoding="utf-8"?>
+<!-- Widget: capa oficial de fundo + camada escura (scrim) + textos por cima.
+     Só usa views que o RemoteViews aceita. -->
 <FrameLayout xmlns:android="http://schemas.android.com/apk/res/android"
     android:id="@+id/widget_root"
     android:layout_width="match_parent"
     android:layout_height="match_parent"
-    android:padding="14dp"
-    android:background="@drawable/widget_gta6_bg">
+    android:background="#2A0A3E">
+
+    <ImageView
+        android:id="@+id/w_bg"
+        android:layout_width="match_parent"
+        android:layout_height="match_parent"
+        android:scaleType="centerCrop"
+        android:src="@drawable/widget_cover"
+        android:contentDescription="@string/gta6_widget_label" />
 
     <LinearLayout
         android:layout_width="match_parent"
         android:layout_height="match_parent"
         android:orientation="vertical"
-        android:gravity="center">
+        android:gravity="center"
+        android:padding="14dp"
+        android:background="@drawable/widget_scrim">
 
         <TextView
             android:id="@+id/w_title"
             android:layout_width="wrap_content"
             android:layout_height="wrap_content"
             android:text="GTA VI"
-            android:textColor="#CFFBFF"
+            android:textColor="#FFFFFF"
             android:textStyle="bold"
             android:textSize="13sp"
             android:letterSpacing="0.18"
-            android:shadowColor="#80000000"
+            android:shadowColor="#CC000000"
             android:shadowDx="0"
             android:shadowDy="1"
-            android:shadowRadius="3" />
+            android:shadowRadius="4" />
 
         <TextView
             android:id="@+id/w_days"
@@ -36,10 +47,10 @@
             android:textStyle="bold"
             android:textSize="54sp"
             android:includeFontPadding="false"
-            android:shadowColor="#99000000"
+            android:shadowColor="#E6000000"
             android:shadowDx="0"
             android:shadowDy="2"
-            android:shadowRadius="6" />
+            android:shadowRadius="8" />
 
         <TextView
             android:id="@+id/w_label"
@@ -47,11 +58,15 @@
             android:layout_height="wrap_content"
             android:layout_marginTop="2dp"
             android:text="DIAS PARA O LANÇAMENTO"
-            android:textColor="#FFE0F3"
+            android:textColor="#FFFFFF"
             android:textStyle="bold"
             android:textSize="11sp"
             android:letterSpacing="0.06"
-            android:gravity="center" />
+            android:gravity="center"
+            android:shadowColor="#CC000000"
+            android:shadowDx="0"
+            android:shadowDy="1"
+            android:shadowRadius="4" />
 
         <TextView
             android:id="@+id/w_date"
@@ -62,6 +77,10 @@
             android:textColor="#FFD23C"
             android:textStyle="bold"
             android:textSize="11sp"
-            android:letterSpacing="0.04" />
+            android:letterSpacing="0.04"
+            android:shadowColor="#CC000000"
+            android:shadowDx="0"
+            android:shadowDy="1"
+            android:shadowRadius="4" />
     </LinearLayout>
 </FrameLayout>

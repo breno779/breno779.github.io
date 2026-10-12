@@ -1,0 +1,13 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- Camada escura por cima da capa, pra o texto do widget ficar legível.
+     Mais escuro embaixo (onde ficam os dias/rótulo). -->
+<shape xmlns:android="http://schemas.android.com/apk/res/android"
+    android:shape="rectangle">
+    <corners android:radius="28dp" />
+    <gradient
+        android:type="linear"
+        android:angle="270"
+        android:startColor="#B3000000"
+        android:centerColor="#73120018"
+        android:endColor="#C0000000" />
+</shape>
