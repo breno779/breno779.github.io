@@ -209,6 +209,13 @@ OFICIAL_MIGRATE = r"""<script>
 // ===== v40 oficial: traz (1 vez) o que você fez na beta neste aparelho =====
 // coleções, liga/mata-mata, chave do TMDB, configurações, registro, metas… (a LISTA em si é
 // decidida depois, numa tela onde você escolhe juntar / app / beta)
+// aparelho novo (ex.: APK instalado agora): ainda não tem lista salva. Até você escolher de onde
+// vem o progresso, NADA é enviado pra nuvem (pra lista padrão não cobrir a sua).
+try {
+  window.__v40FreshDevice = localStorage.getItem('v40-fresh-pending') === '1' ||
+    (!localStorage.getItem('ucm-watchlist-items-v1') && !localStorage.getItem('v40-fresh-handled'));
+  if (window.__v40FreshDevice) { window.__v40BlockPush = true; localStorage.setItem('v40-fresh-pending', '1'); }
+} catch (e) {}
 (function () {
   try {
     if (localStorage.getItem('v40-keys-migrated')) return;
@@ -238,6 +245,7 @@ def build_oficial(base):
     s = common(base, 'oficial', 'v40/')
     s = sub_once(s, "window.V40_MODE = 'oficial';\n", "window.V40_MODE = 'oficial';\n", 'mode check')
     s = sub_once(s, '</script>\n', '</script>\n' + OFICIAL_MIGRATE, 'migrate shim')
+    s = sub_once(s, 'function pushToCloudNow() {\n', 'function pushToCloudNow() {\n  if (window.__v40BlockPush) return; // aparelho novo: ainda não escolheu de onde vem o progresso\n', 'block push')
     s = re.sub(r"const APP_VERSION = '[^']+';", f"const APP_VERSION = '{VERSION}';", s, count=1)
     return s
 

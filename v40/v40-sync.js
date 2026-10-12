@@ -105,6 +105,7 @@
   function setStatus(msg) { V40.syncMsg = msg; const el = document.getElementById('v40SyncStatus'); if (el) el.textContent = msg; }
 
   V40.syncPush = async function (silent) {
+    if (window.__v40BlockPush) { setStatus('⚠️ Aparelho novo: primeiro traga seu progresso (ou escolha começar do zero)'); if (!silent) V40.openFreshDevice(); return false; }
     if (!items || items.length < 100) { setStatus('⚠️ Lista local parece incompleta — não enviei'); return false; }
     try {
       setStatus('⬆️ Enviando…');
@@ -245,6 +246,68 @@
     if (l) l.addEventListener('click', async () => {
       if (!confirm('Trocar a lista da NUVEM pela deste aparelho?')) return;
       await V40.syncPush(); closeModal();
+    });
+  };
+
+  // =================== 📲 APARELHO NOVO: TRAGA SEU PROGRESSO ===================
+  V40.applyCloudData = function (remote, label) {
+    try { localStorage.setItem('v40-snap-before-sync', JSON.stringify({ at: new Date().toISOString(), items, trash })); } catch (e) {}
+    items = withOrder(remote.items);
+    trash = Array.isArray(remote.trash) ? remote.trash : [];
+    nextId = items.reduce((m, i) => Math.max(m, i.id), 0) + 1;
+    if (remote.v40) {
+      try { const v = JSON.parse(remote.v40); Object.keys(v).forEach(k => { if (v[k] !== null) V40.set(k, v[k]); }); V40.activity = V40.get('activity', []); V40.collections = V40.get('collections', V40.collections); } catch (e) {}
+    }
+    if (remote.streak) { try { localStorage.setItem('ucm-streak-days', remote.streak); } catch (e) {} }
+    try { enforceTrioAnchor(); trimStaleEpisodes(); repairMissingDates(); } catch (e) {}
+    V40._state = null;
+    save(); render();
+    V40.syncState.lastPullAt = new Date().toISOString();
+    V40.syncState.lastSeenCloudAt = remote.clientAt || null;
+    saveState();
+    V40.logEvent('plan', { name: label });
+  };
+  V40.openFreshDevice = function () {
+    const isApk = /UCMWatchlistApp\//.test(navigator.userAgent);
+    V40.modal(`<h3>📲 ${isApk ? 'Bem-vindo ao app Android' : 'Aparelho novo'}</h3>
+      <p>Este ${isApk ? 'app' : 'aparelho/navegador'} ainda <b>não tem o seu progresso</b> — por isso a lista aparece com quase nada marcado. Seus dados estão no outro aparelho (ex.: no Chrome).</p>
+      <h4 style="margin:10px 0 4px;">Trazer pela nuvem</h4>
+      <ol class="v40-steps"><li>No aparelho onde está tudo certo: <b>Config ▸ ☁️ Sincronização ▸ ⬆️ Enviar agora</b> e veja o <b>Código</b>.</li><li>Digite o mesmo código aqui:</li></ol>
+      <div class="v40-inline-form"><input id="v40FreshCode" type="text" maxlength="12" placeholder="CÓDIGO" style="text-transform:uppercase;font-family:'JetBrains Mono',monospace;"><button class="v40-primary" id="v40FreshPull">⬇️ Trazer</button></div>
+      <p class="v40-muted" id="v40FreshMsg"></p>
+      <h4 style="margin:12px 0 4px;">Ou</h4>
+      <button class="v40-pick" id="v40FreshImport"><b>📂 Importar um arquivo de backup</b><br><small>O .json que o app baixa (pasta Downloads).</small></button>
+      <button class="v40-pick" id="v40FreshNew"><b>🆕 Este é meu único aparelho / começar do zero</b><br><small>Usa a lista como está e libera a sincronização.</small></button>
+      <p class="v40-muted">Enquanto você não escolher, este aparelho não envia nada pra nuvem — assim ele não cobre o seu progresso.</p>`);
+    document.getElementById('v40FreshPull').addEventListener('click', async () => {
+      const c = document.getElementById('v40FreshCode').value.trim().toUpperCase().replace(/[^A-Z0-9]/g, '');
+      const msg = document.getElementById('v40FreshMsg');
+      if (c.length < 4) { msg.textContent = 'Digite o código (6 letras/números).'; return; }
+      if (typeof joinSyncCode === 'function') joinSyncCode(c); else V40.set('sync-code', c);
+      msg.textContent = 'Buscando na nuvem…';
+      try {
+        const remote = await V40.syncFetch();
+        if (!remote || !Array.isArray(remote.items) || remote.items.length < 100) { msg.textContent = '❌ Não achei uma lista com esse código. Confere o código e se você tocou em "Enviar agora" no outro aparelho.'; return; }
+        const done = remote.items.filter(i => i.done).length;
+        if (!confirm(`Achei sua lista: ${done}/${remote.items.length} vistos${remote.deviceName ? ', enviada do ' + remote.deviceName : ''}. Trazer pra cá?`)) { msg.textContent = ''; return; }
+        window.__v40BlockPush = false;
+        try { localStorage.setItem('v40-fresh-handled', '1'); localStorage.removeItem('v40-fresh-pending'); } catch (e) {}
+        V40.applyCloudData(remote, '📲 Progresso trazido da nuvem');
+        closeModal();
+        V40.toast(`✅ Pronto! ${done} vistos trazidos`);
+      } catch (e) { msg.textContent = '⚠️ Sem conexão com a nuvem agora: ' + (e.message || e); }
+    });
+    document.getElementById('v40FreshImport').addEventListener('click', () => {
+      window.__v40BlockPush = false;
+      try { localStorage.setItem('v40-fresh-handled', '1'); localStorage.removeItem('v40-fresh-pending'); } catch (e) {}
+      closeModal();
+      document.getElementById('importFile').click();
+    });
+    document.getElementById('v40FreshNew').addEventListener('click', () => {
+      if (!confirm('Usar a lista como está neste aparelho?')) return;
+      window.__v40BlockPush = false;
+      try { localStorage.setItem('v40-fresh-handled', '1'); localStorage.removeItem('v40-fresh-pending'); } catch (e) {}
+      closeModal();
     });
   };
 

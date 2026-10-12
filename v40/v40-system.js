@@ -543,7 +543,12 @@
       if (rt) { localStorage.removeItem('v40-reload-tab'); switchTab(rt); }
     } catch (e) {}
     if (MODE === 'beta' && window.__v40JustCopied) setTimeout(() => V40.toast('📥 Seu progresso foi copiado do app atual pra beta'), 600);
-    if (MODE === 'oficial') setTimeout(() => { try { V40.checkBetaMigration(); } catch (e) { console.error(e); } }, 900);
+    if (MODE === 'oficial') setTimeout(() => {
+      try {
+        if (window.__v40FreshDevice && window.__v40BlockPush) { V40.set('tour-done', true); V40.openFreshDevice(); }
+        else V40.checkBetaMigration();
+      } catch (e) { console.error(e); }
+    }, 900);
     if (!V40.get('tour-done', false)) setTimeout(() => { if (!V40.get('tour-done', false)) V40.openTour(0); }, window.__v40JustCopied ? 1800 : 700);
   }
   // o botão 🔄 da aba Liga lembra a aba
