@@ -4113,7 +4113,8 @@ document.getElementById('btnReloadHome').addEventListener('click', () => reloadA
 // manual em vez de travar sem fazer nada.
 let deferredInstallPrompt = null;
 const installBtn = document.getElementById('btnInstallApp');
-const isStandalone = window.matchMedia('(display-mode: standalone)').matches || window.navigator.standalone === true;
+// já é app: instalado pela tela inicial OU dentro do app Android (APK) — aí o botão de instalar some
+const isStandalone = window.matchMedia('(display-mode: standalone)').matches || window.navigator.standalone === true || /UCMWatchlistApp\//.test(navigator.userAgent);
 if (installBtn && !isStandalone) {
   installBtn.style.display = '';
   window.addEventListener('beforeinstallprompt', (e) => {
