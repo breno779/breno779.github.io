@@ -1,0 +1,579 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+<meta charset="UTF-8">
+<meta http-equiv="Cache-Control" content="no-cache, no-store, must-revalidate">
+<meta http-equiv="Pragma" content="no-cache">
+<meta http-equiv="Expires" content="0">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
+<title>GTA VI — Contagem Regressiva</title>
+<meta name="theme-color" content="#120018">
+<meta name="description" content="Contador regressivo interativo para o lançamento de Grand Theft Auto VI (19 de novembro de 2026).">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Anton&family=Inter:wght@400;600;700;800;900&family=JetBrains+Mono:wght@700&display=swap" rel="stylesheet">
+<style>
+  :root {
+    --bg0: #120018;
+    --bg1: #1d0530;
+    --pink: #ff2d9b;
+    --magenta: #ff3cac;
+    --cyan: #30e3ff;
+    --violet: #7b2ff7;
+    --orange: #ff8a3c;
+    --gold: #ffd23c;
+    --ink: #0c0012;
+    --paper: #fdf0ff;
+    --muted: #c9a7df;
+    --card: rgba(22, 4, 38, 0.55);
+    --line: rgba(255, 60, 172, 0.30);
+    --accent: var(--pink);
+    --accent2: var(--cyan);
+  }
+  /* Tema alternativo "Noite" (roxo/ciano) — trocado via botão */
+  html[data-skin="noite"] {
+    --bg0: #05010f;
+    --bg1: #0a0526;
+    --accent: #9b6bff;
+    --accent2: #30e3ff;
+    --pink: #9b6bff;
+    --magenta: #6f8cff;
+    --line: rgba(123, 47, 247, 0.35);
+    --muted: #a8b4ff;
+  }
+  /* Tema "Pôr do sol" (laranja/rosa) */
+  html[data-skin="sunset"] {
+    --bg0: #1a0510;
+    --bg1: #3a0a1e;
+    --accent: #ff8a3c;
+    --accent2: #ff2d9b;
+    --pink: #ff6b57;
+    --magenta: #ff2d9b;
+    --line: rgba(255, 138, 60, 0.35);
+    --muted: #ffc4a3;
+  }
+
+  * { box-sizing: border-box; -webkit-tap-highlight-color: transparent; }
+  html, body { margin: 0; padding: 0; min-height: 100%; }
+  body {
+    font-family: 'Inter', system-ui, -apple-system, sans-serif;
+    color: var(--paper);
+    background:
+      radial-gradient(130% 90% at 50% -10%, rgba(255,45,155,0.35), transparent 55%),
+      radial-gradient(120% 80% at 90% 0%, rgba(48,227,255,0.20), transparent 50%),
+      linear-gradient(180deg, var(--bg1) 0%, var(--bg0) 60%, #06000b 100%);
+    background-attachment: fixed;
+    min-height: 100dvh;
+    overflow-x: hidden;
+    transition: background .5s ease;
+  }
+  /* grade "synthwave" no rodapé */
+  body::after {
+    content: "";
+    position: fixed; left: 0; right: 0; bottom: 0; height: 42vh;
+    pointer-events: none; z-index: 0; opacity: .5;
+    background-image:
+      linear-gradient(transparent 0, transparent calc(100% - 1px), rgba(48,227,255,.5) 100%),
+      repeating-linear-gradient(90deg, rgba(255,45,155,.35) 0 1px, transparent 1px 7%);
+    transform: perspective(40vh) rotateX(60deg);
+    transform-origin: bottom;
+    mask-image: linear-gradient(transparent, #000 60%);
+    -webkit-mask-image: linear-gradient(transparent, #000 60%);
+  }
+
+  #confetti { position: fixed; inset: 0; pointer-events: none; z-index: 60; }
+
+  .wrap {
+    position: relative; z-index: 1;
+    max-width: 920px; margin: 0 auto;
+    padding: 22px 16px calc(40px + env(safe-area-inset-bottom));
+    padding-top: calc(22px + env(safe-area-inset-top));
+  }
+
+  .top {
+    display: flex; align-items: center; justify-content: space-between;
+    gap: 10px; margin-bottom: 18px;
+  }
+  .brand { display: flex; align-items: center; gap: 10px; min-width: 0; }
+  .brand .logo {
+    font-family: 'Anton', sans-serif; font-size: 1.5rem; line-height: 1;
+    letter-spacing: .04em;
+    background: linear-gradient(90deg, var(--accent), var(--accent2));
+    -webkit-background-clip: text; background-clip: text; color: transparent;
+    filter: drop-shadow(0 2px 10px rgba(255,45,155,.5));
+  }
+  .brand small { color: var(--muted); font-weight: 700; font-size: .72rem; letter-spacing: .14em; }
+
+  .skins { display: flex; gap: 6px; }
+  .skin-btn {
+    width: 26px; height: 26px; border-radius: 50%; border: 2px solid rgba(255,255,255,.35);
+    cursor: pointer; padding: 0; transition: transform .15s, box-shadow .15s;
+  }
+  .skin-btn[data-s="vice"]   { background: linear-gradient(135deg, #ff2d9b, #30e3ff); }
+  .skin-btn[data-s="noite"]  { background: linear-gradient(135deg, #9b6bff, #30e3ff); }
+  .skin-btn[data-s="sunset"] { background: linear-gradient(135deg, #ff8a3c, #ff2d9b); }
+  .skin-btn.active { transform: scale(1.18); box-shadow: 0 0 0 2px rgba(255,255,255,.85); }
+
+  .hero {
+    display: grid; grid-template-columns: minmax(0, 300px) 1fr; gap: 22px;
+    align-items: center;
+  }
+  @media (max-width: 680px) { .hero { grid-template-columns: 1fr; gap: 18px; } }
+
+  /* ---- Capa ---- */
+  .cover {
+    position: relative; width: 100%; aspect-ratio: 4 / 5;
+    border-radius: 18px; overflow: hidden;
+    border: 1px solid var(--line);
+    box-shadow: 0 24px 60px rgba(0,0,0,.55), 0 0 0 1px rgba(255,255,255,.05) inset;
+    transform-style: preserve-3d;
+    transition: transform .2s ease;
+  }
+  @media (max-width: 680px) { .cover { max-width: 280px; margin: 0 auto; } }
+  .cover img {
+    position: absolute; inset: 0; width: 100%; height: 100%; object-fit: cover;
+    opacity: 0; transition: opacity .6s ease; z-index: 2;
+  }
+  .cover img.ready { opacity: 1; }
+  .cover .shine {
+    position: absolute; inset: 0; z-index: 3; pointer-events: none;
+    background: linear-gradient(115deg, transparent 40%, rgba(255,255,255,.18) 50%, transparent 60%);
+    transform: translateX(-120%);
+  }
+  .cover:hover .shine { transition: transform .9s ease; transform: translateX(120%); }
+  .cover .badge {
+    position: absolute; left: 10px; top: 10px; z-index: 4;
+    background: rgba(0,0,0,.45); backdrop-filter: blur(6px);
+    border: 1px solid rgba(255,255,255,.18); border-radius: 999px;
+    font-size: .64rem; font-weight: 800; letter-spacing: .12em;
+    padding: 5px 10px; color: #fff;
+  }
+
+  /* ---- Lado direito ---- */
+  .hello { font-size: 1.02rem; color: var(--muted); font-weight: 700; margin: 0 0 4px; }
+  .hello b { color: var(--paper); }
+  .title {
+    font-family: 'Anton', sans-serif; letter-spacing: .02em; line-height: .92;
+    font-size: clamp(2.2rem, 8vw, 3.6rem); margin: 0 0 2px;
+    text-transform: uppercase;
+  }
+  .title .vi {
+    background: linear-gradient(90deg, var(--accent), var(--accent2));
+    -webkit-background-clip: text; background-clip: text; color: transparent;
+  }
+  .sub { color: var(--muted); font-weight: 600; margin: 2px 0 16px; font-size: .95rem; }
+  .sub b { color: var(--accent2); }
+
+  .clock { display: grid; grid-template-columns: repeat(4, 1fr); gap: 10px; }
+  .unit {
+    background: var(--card); border: 1px solid var(--line); border-radius: 14px;
+    padding: 12px 6px 9px; text-align: center; backdrop-filter: blur(8px);
+    box-shadow: 0 10px 30px rgba(0,0,0,.35);
+  }
+  .unit .num {
+    font-family: 'JetBrains Mono', monospace; font-weight: 700;
+    font-size: clamp(1.5rem, 7vw, 2.4rem); line-height: 1;
+    font-variant-numeric: tabular-nums;
+    text-shadow: 0 0 18px rgba(255,45,155,.45);
+    transition: transform .15s ease;
+  }
+  .unit.flip .num { transform: translateY(-3px) scale(1.06); }
+  .unit .lbl {
+    display: block; margin-top: 7px; font-size: .62rem; letter-spacing: .16em;
+    font-weight: 800; color: var(--muted); text-transform: uppercase;
+  }
+
+  .bar-wrap { margin: 16px 0 4px; }
+  .bar {
+    height: 10px; border-radius: 999px; background: rgba(255,255,255,.08);
+    overflow: hidden; border: 1px solid var(--line);
+  }
+  .bar > i {
+    display: block; height: 100%; width: 0%;
+    background: linear-gradient(90deg, var(--accent), var(--accent2));
+    box-shadow: 0 0 14px var(--accent); transition: width .8s ease;
+  }
+  .bar-meta { display: flex; justify-content: space-between; font-size: .72rem; color: var(--muted); margin-top: 6px; font-weight: 600; }
+
+  .actions { display: flex; flex-wrap: wrap; gap: 9px; margin-top: 18px; }
+  .btn {
+    border: 1px solid var(--line); background: rgba(255,255,255,.05); color: var(--paper);
+    border-radius: 12px; padding: 10px 14px; font: inherit; font-weight: 700; font-size: .88rem;
+    cursor: pointer; display: inline-flex; align-items: center; gap: 7px;
+    transition: transform .12s, background .2s, border-color .2s;
+  }
+  .btn:hover { transform: translateY(-1px); border-color: var(--accent); }
+  .btn:active { transform: translateY(0); }
+  .btn.primary {
+    background: linear-gradient(90deg, var(--accent), var(--accent2));
+    color: #150019; border: none; box-shadow: 0 10px 26px rgba(255,45,155,.4);
+  }
+
+  /* bloco de personalização */
+  .panel {
+    margin-top: 26px; background: var(--card); border: 1px solid var(--line);
+    border-radius: 16px; padding: 16px; backdrop-filter: blur(8px);
+  }
+  .panel h3 { margin: 0 0 12px; font-size: .95rem; letter-spacing: .02em; display: flex; align-items: center; gap: 8px; }
+  .field { display: flex; flex-direction: column; gap: 6px; margin-bottom: 12px; }
+  .field:last-child { margin-bottom: 0; }
+  .field label { font-size: .74rem; font-weight: 800; letter-spacing: .08em; color: var(--muted); text-transform: uppercase; }
+  .field input[type="text"], .field input[type="date"] {
+    background: rgba(0,0,0,.3); border: 1px solid var(--line); border-radius: 10px;
+    color: var(--paper); font: inherit; font-weight: 600; padding: 10px 12px; width: 100%;
+  }
+  .field input:focus { outline: none; border-color: var(--accent); box-shadow: 0 0 0 3px rgba(255,45,155,.18); }
+  .row2 { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; }
+  @media (max-width: 480px) { .row2 { grid-template-columns: 1fr; } }
+  .hint { font-size: .72rem; color: var(--muted); margin: 10px 2px 0; line-height: 1.5; }
+  .reset { background: none; border: none; color: var(--accent2); font: inherit; font-weight: 700; cursor: pointer; padding: 0; font-size: .8rem; }
+
+  .foot { text-align: center; color: var(--muted); font-size: .72rem; margin-top: 24px; line-height: 1.6; }
+  .foot a { color: var(--accent2); text-decoration: none; }
+
+  /* estado "lançou!" */
+  .released .title::after { content: " 🎉"; }
+
+  .toast {
+    position: fixed; left: 50%; bottom: 26px; translate: -50% 0;
+    transform: translateY(20px);
+    background: rgba(12,0,18,.92); border: 1px solid var(--accent); color: #fff;
+    padding: 11px 16px; border-radius: 12px; font-weight: 700; font-size: .85rem;
+    opacity: 0; transition: opacity .25s, transform .25s; z-index: 70; pointer-events: none;
+    box-shadow: 0 12px 30px rgba(0,0,0,.5);
+  }
+  .toast.show { opacity: 1; transform: translateY(-6px); }
+  @media (prefers-reduced-motion: reduce) {
+    *, *::before, *::after { animation: none !important; transition: none !important; }
+  }
+</style>
+</head>
+<body>
+<canvas id="confetti"></canvas>
+
+<div class="wrap">
+  <div class="top">
+    <div class="brand">
+      <span class="logo">GTA&nbsp;VI</span>
+      <small>CONTAGEM REGRESSIVA</small>
+    </div>
+    <div class="skins" role="group" aria-label="Tema de cores">
+      <button class="skin-btn" data-s="vice"   title="Vice City (rosa/ciano)" aria-label="Tema Vice City"></button>
+      <button class="skin-btn" data-s="noite"  title="Noite (roxo)" aria-label="Tema Noite"></button>
+      <button class="skin-btn" data-s="sunset" title="Pôr do sol (laranja)" aria-label="Tema Pôr do sol"></button>
+    </div>
+  </div>
+
+  <div class="hero">
+    <!-- CAPA: tenta arquivo local -> capa oficial (hotlink) -> pôster embutido -->
+    <figure class="cover" id="cover" aria-label="Capa de Grand Theft Auto VI">
+      <span class="badge">CAPA OFICIAL</span>
+      <!-- Pôster embutido (SVG) — sempre presente como fundo; some atrás da capa real quando ela carrega -->
+      <svg viewBox="0 0 400 500" width="100%" height="100%" aria-hidden="true" style="position:absolute;inset:0;display:block">
+        <defs>
+          <linearGradient id="sky" x1="0" y1="0" x2="0" y2="1">
+            <stop offset="0" stop-color="#ffd23c"/><stop offset="0.35" stop-color="#ff8a3c"/>
+            <stop offset="0.62" stop-color="#ff2d9b"/><stop offset="1" stop-color="#7b2ff7"/>
+          </linearGradient>
+          <linearGradient id="sea" x1="0" y1="0" x2="0" y2="1">
+            <stop offset="0" stop-color="#ff2d9b"/><stop offset="1" stop-color="#2a0730"/>
+          </linearGradient>
+          <radialGradient id="sun" cx="0.5" cy="0.5" r="0.5">
+            <stop offset="0" stop-color="#fff6cf"/><stop offset="1" stop-color="#ffb43c"/>
+          </radialGradient>
+        </defs>
+        <rect width="400" height="500" fill="url(#sky)"/>
+        <circle cx="200" cy="215" r="86" fill="url(#sun)"/>
+        <rect y="300" width="400" height="200" fill="url(#sea)"/>
+        <g stroke="rgba(255,255,255,.5)" stroke-width="2">
+          <line x1="0" y1="330" x2="400" y2="330"/><line x1="0" y1="360" x2="400" y2="360"/>
+          <line x1="0" y1="398" x2="400" y2="398"/><line x1="0" y1="444" x2="400" y2="444"/>
+        </g>
+        <!-- palmeiras -->
+        <g fill="#1a0320">
+          <rect x="54" y="150" width="7" height="165"/>
+          <path d="M57 150 C30 130 14 134 6 122 C34 128 44 118 57 150 Z"/>
+          <path d="M57 150 C84 130 100 134 108 122 C80 128 70 118 57 150 Z"/>
+          <path d="M57 150 C40 118 40 100 32 92 C58 112 55 126 57 150 Z"/>
+          <rect x="342" y="170" width="7" height="145"/>
+          <path d="M345 170 C372 150 388 154 396 142 C368 148 358 138 345 170 Z"/>
+          <path d="M345 170 C318 150 302 154 294 142 C322 148 332 138 345 170 Z"/>
+          <path d="M345 170 C362 138 362 120 370 112 C344 132 347 146 345 170 Z"/>
+        </g>
+        <text x="200" y="260" text-anchor="middle" font-family="Anton, sans-serif" font-size="150" fill="#fff" stroke="#1a0320" stroke-width="3" style="letter-spacing:2px">VI</text>
+        <text x="200" y="300" text-anchor="middle" font-family="Anton, sans-serif" font-size="20" fill="#fff" style="letter-spacing:5px">GRAND THEFT AUTO</text>
+      </svg>
+      <img id="coverImg" alt="Capa oficial de Grand Theft Auto VI" referrerpolicy="no-referrer" />
+      <span class="shine"></span>
+    </figure>
+
+    <div>
+      <p class="hello" id="hello">Contagem regressiva para o maior lançamento da década.</p>
+      <h1 class="title">GRAND THEFT AUTO <span class="vi">VI</span></h1>
+      <p class="sub">Lançamento: <b id="dateLabel">19 de novembro de 2026</b> · PS5 &amp; Xbox Series X|S</p>
+
+      <div class="clock" aria-live="polite">
+        <div class="unit" id="u-d"><div class="num" id="n-d">00</div><span class="lbl">Dias</span></div>
+        <div class="unit" id="u-h"><div class="num" id="n-h">00</div><span class="lbl">Horas</span></div>
+        <div class="unit" id="u-m"><div class="num" id="n-m">00</div><span class="lbl">Min</span></div>
+        <div class="unit" id="u-s"><div class="num" id="n-s">00</div><span class="lbl">Seg</span></div>
+      </div>
+
+      <div class="bar-wrap">
+        <div class="bar"><i id="barFill"></i></div>
+        <div class="bar-meta"><span id="pctLabel">0% do caminho</span><span id="totalDays">— dias restantes</span></div>
+      </div>
+
+      <div class="actions">
+        <button class="btn primary" id="shareBtn">📤 Compartilhar</button>
+        <button class="btn" id="calBtn">📅 Adicionar ao calendário</button>
+      </div>
+    </div>
+  </div>
+
+  <section class="panel">
+    <h3>⚙️ Personalizar</h3>
+    <div class="field">
+      <label for="nameInput">Seu nome (aparece na contagem)</label>
+      <input type="text" id="nameInput" maxlength="24" placeholder="Ex.: Breno" autocomplete="off">
+    </div>
+    <div class="row2">
+      <div class="field">
+        <label for="dateInput">Data-alvo</label>
+        <input type="date" id="dateInput">
+      </div>
+      <div class="field">
+        <label for="msgInput">Frase personalizada</label>
+        <input type="text" id="msgInput" maxlength="48" placeholder="Ex.: Bora pra Vice City!" autocomplete="off">
+      </div>
+    </div>
+    <div class="hint">
+      Tudo é salvo só no seu aparelho. <button class="reset" id="resetBtn">Restaurar data oficial (19/11/2026)</button>
+    </div>
+  </section>
+
+  <p class="foot">
+    Feito com 💜 por Breno. Datas conforme anúncio oficial da Rockstar Games.<br>
+    Quer a capa oficial salva localmente? Coloque um arquivo <b>gta6-capa.png</b> nesta mesma pasta.
+  </p>
+</div>
+
+<div class="toast" id="toast"></div>
+
+<script>
+(function () {
+  "use strict";
+  var LS = {
+    name: "gta6_name",
+    date: "gta6_date",
+    msg:  "gta6_msg",
+    skin: "gta6_skin"
+  };
+  var OFFICIAL_ISO = "2026-11-19"; // 19 de novembro de 2026 (PS5 / Xbox Series X|S)
+
+  function get(k){ try { return localStorage.getItem(k); } catch(e){ return null; } }
+  function set(k,v){ try { localStorage.setItem(k,v); } catch(e){} }
+
+  // ---------- Capa: tenta local -> oficial -> pôster SVG ----------
+  var img = document.getElementById("coverImg");
+  var sources = [
+    "gta6-capa.png",            // arquivo local (se você adicionar) — prioridade
+    "gta6-cover.png",
+    // Capa oficial hospedada na Wikipédia (carrega no navegador de quem acessa):
+    "https://upload.wikimedia.org/wikipedia/en/4/46/Grand_Theft_Auto_VI.png"
+  ];
+  var si = 0;
+  function tryNext(){
+    if (si >= sources.length) { return; } // mantém o pôster SVG embutido
+    var url = sources[si++];
+    img.onerror = tryNext;
+    img.onload = function(){ img.classList.add("ready"); };
+    img.src = url;
+  }
+  tryNext();
+
+  // ---------- Temas ----------
+  var skinBtns = document.querySelectorAll(".skin-btn");
+  function applySkin(s){
+    document.documentElement.setAttribute("data-skin", s);
+    document.querySelector('meta[name="theme-color"]').setAttribute("content",
+      s === "noite" ? "#05010f" : s === "sunset" ? "#1a0510" : "#120018");
+    skinBtns.forEach(function(b){ b.classList.toggle("active", b.dataset.s === s); });
+  }
+  skinBtns.forEach(function(b){
+    b.addEventListener("click", function(){ applySkin(b.dataset.s); set(LS.skin, b.dataset.s); });
+  });
+  applySkin(get(LS.skin) || "vice");
+
+  // ---------- Elementos ----------
+  var nD=document.getElementById("n-d"), nH=document.getElementById("n-h"),
+      nM=document.getElementById("n-m"), nS=document.getElementById("n-s");
+  var uD=document.getElementById("u-d"), uH=document.getElementById("u-h"),
+      uM=document.getElementById("u-m"), uS=document.getElementById("u-s");
+  var hello=document.getElementById("hello"), dateLabel=document.getElementById("dateLabel");
+  var barFill=document.getElementById("barFill"), pctLabel=document.getElementById("pctLabel"),
+      totalDays=document.getElementById("totalDays");
+  var nameInput=document.getElementById("nameInput"), dateInput=document.getElementById("dateInput"),
+      msgInput=document.getElementById("msgInput");
+
+  var MESES=["janeiro","fevereiro","março","abril","maio","junho","julho","agosto","setembro","outubro","novembro","dezembro"];
+
+  function targetDate(){
+    var iso = get(LS.date) || OFFICIAL_ISO;
+    var p = iso.split("-");
+    // meia-noite no horário local do usuário
+    return new Date(+p[0], +p[1]-1, +p[2], 0, 0, 0, 0);
+  }
+  // marco inicial pra barra de progresso: revelação oficial da capa (04/12/2023, anúncio do trailer)
+  var START = new Date(2023, 11, 4, 0, 0, 0, 0);
+
+  var last = { d:null, h:null, m:null, s:null };
+  function flip(unit, el, val, key){
+    if (last[key] !== val) {
+      last[key] = val;
+      el.textContent = val;
+      unit.classList.add("flip");
+      setTimeout(function(){ unit.classList.remove("flip"); }, 160);
+    }
+  }
+  function pad(n){ return (n<10?"0":"")+n; }
+
+  var released = false;
+  function tick(){
+    var now = new Date();
+    var target = targetDate();
+    var diff = target - now;
+
+    // rótulo da data
+    var dl = MESES[target.getMonth()];
+    dateLabel.textContent = target.getDate()+" de "+dl+" de "+target.getFullYear();
+    dateInput.value = target.getFullYear()+"-"+pad(target.getMonth()+1)+"-"+pad(target.getDate());
+
+    if (diff <= 0) {
+      flip(uD,nD,"00","d"); flip(uH,nH,"00","h"); flip(uM,nM,"00","m"); flip(uS,nS,"00","s");
+      barFill.style.width = "100%"; pctLabel.textContent = "100% — chegou o dia!";
+      totalDays.textContent = "🎮 já disponível";
+      var nm = (get(LS.name)||"").trim();
+      hello.innerHTML = "🎉 <b>"+(nm?escapeHtml(nm)+", ":"")+"é hoje!</b> GTA VI chegou. Bora pra Vice City!";
+      document.body.classList.add("released");
+      if (!released) { released = true; burst(240); }
+      return;
+    }
+
+    var totalSec = Math.floor(diff/1000);
+    var d = Math.floor(totalSec/86400);
+    var h = Math.floor((totalSec%86400)/3600);
+    var m = Math.floor((totalSec%3600)/60);
+    var s = totalSec%60;
+
+    flip(uD,nD, String(d), "d");
+    flip(uH,nH, pad(h), "h");
+    flip(uM,nM, pad(m), "m");
+    flip(uS,nS, pad(s), "s");
+
+    // progresso
+    var span = target - START;
+    var done = now - START;
+    var pct = Math.max(0, Math.min(100, (done/span)*100));
+    barFill.style.width = pct.toFixed(1)+"%";
+    pctLabel.textContent = pct.toFixed(1)+"% do caminho";
+    totalDays.textContent = d + (d===1?" dia restante":" dias restantes");
+
+    // saudação personalizada
+    var nm2 = (get(LS.name)||"").trim();
+    var custom = (get(LS.msg)||"").trim();
+    if (custom) {
+      hello.innerHTML = escapeHtml(custom) + (nm2 ? " — <b>"+escapeHtml(nm2)+"</b>" : "");
+    } else if (nm2) {
+      hello.innerHTML = "Faltam <b>"+d+(d===1?" dia":" dias")+"</b>, "+escapeHtml(nm2)+"! ⏳";
+    } else {
+      hello.innerHTML = "Faltam <b>"+d+(d===1?" dia":" dias")+"</b> para o maior lançamento da década.";
+    }
+  }
+
+  function escapeHtml(t){ var e=document.createElement("div"); e.textContent=t; return e.innerHTML; }
+
+  // ---------- Inputs ----------
+  nameInput.value = get(LS.name) || "";
+  msgInput.value  = get(LS.msg)  || "";
+  nameInput.addEventListener("input", function(){ set(LS.name, nameInput.value); tick(); });
+  msgInput.addEventListener("input",  function(){ set(LS.msg,  msgInput.value);  tick(); });
+  dateInput.addEventListener("change", function(){
+    if (dateInput.value) { set(LS.date, dateInput.value); document.body.classList.remove("released"); released=false; last={d:null,h:null,m:null,s:null}; tick(); toast("Data atualizada ✓"); }
+  });
+  document.getElementById("resetBtn").addEventListener("click", function(){
+    set(LS.date, OFFICIAL_ISO); document.body.classList.remove("released"); released=false;
+    last={d:null,h:null,m:null,s:null}; tick(); toast("Data oficial restaurada ✓");
+  });
+
+  // ---------- Compartilhar ----------
+  document.getElementById("shareBtn").addEventListener("click", async function(){
+    var t = targetDate();
+    var nm = (get(LS.name)||"").trim();
+    var diffDays = Math.max(0, Math.ceil((t - new Date())/86400000));
+    var txt = (nm?nm+": ":"") + "Faltam "+diffDays+" dias para o GTA VI! 🎮";
+    var data = { title:"GTA VI — Contagem Regressiva", text:txt, url:location.href };
+    try {
+      if (navigator.share) { await navigator.share(data); }
+      else { await navigator.clipboard.writeText(txt+" "+location.href); toast("Link copiado ✓"); }
+    } catch(e){ /* usuário cancelou */ }
+  });
+
+  // ---------- Calendário (.ics) ----------
+  document.getElementById("calBtn").addEventListener("click", function(){
+    var t = targetDate();
+    var dt = t.getFullYear()+pad(t.getMonth()+1)+pad(t.getDate());
+    var ics = [
+      "BEGIN:VCALENDAR","VERSION:2.0","PRODID:-//gta6countdown//PT-BR",
+      "BEGIN:VEVENT","UID:gta6-"+dt+"@countdown","DTSTAMP:"+dt+"T000000Z",
+      "DTSTART;VALUE=DATE:"+dt,"SUMMARY:🎮 Lançamento do GTA VI",
+      "DESCRIPTION:Grand Theft Auto VI chega hoje!","END:VEVENT","END:VCALENDAR"
+    ].join("\r\n");
+    var blob = new Blob([ics], {type:"text/calendar"});
+    var a = document.createElement("a");
+    a.href = URL.createObjectURL(blob); a.download = "gta6-lancamento.ics";
+    document.body.appendChild(a); a.click(); a.remove();
+    toast("Evento baixado ✓");
+  });
+
+  // ---------- Toast ----------
+  var toastEl = document.getElementById("toast"), toastT;
+  function toast(msg){
+    toastEl.textContent = msg; toastEl.classList.add("show");
+    clearTimeout(toastT); toastT = setTimeout(function(){ toastEl.classList.remove("show"); }, 2200);
+  }
+
+  // ---------- Confete ----------
+  var cv = document.getElementById("confetti"), ctx = cv.getContext("2d"), parts = [], raf=null;
+  function sizeCv(){ cv.width = innerWidth; cv.height = innerHeight; }
+  sizeCv(); addEventListener("resize", sizeCv);
+  var COLORS = ["#ff2d9b","#30e3ff","#ffd23c","#7b2ff7","#ff8a3c","#ffffff"];
+  function burst(n){
+    for (var i=0;i<n;i++){
+      parts.push({ x:Math.random()*cv.width, y:-20-Math.random()*cv.height*0.3,
+        vx:(Math.random()-0.5)*3, vy:2+Math.random()*4, g:0.06+Math.random()*0.05,
+        s:4+Math.random()*6, c:COLORS[(Math.random()*COLORS.length)|0],
+        rot:Math.random()*6.28, vr:(Math.random()-0.5)*0.3, life:1 });
+    }
+    if (!raf) loop();
+  }
+  function loop(){
+    ctx.clearRect(0,0,cv.width,cv.height);
+    for (var i=parts.length-1;i>=0;i--){
+      var p=parts[i]; p.vy+=p.g; p.x+=p.vx; p.y+=p.vy; p.rot+=p.vr;
+      if (p.y>cv.height+30) { parts.splice(i,1); continue; }
+      ctx.save(); ctx.translate(p.x,p.y); ctx.rotate(p.rot); ctx.fillStyle=p.c;
+      ctx.fillRect(-p.s/2,-p.s/2,p.s,p.s*0.6); ctx.restore();
+    }
+    if (parts.length) { raf=requestAnimationFrame(loop); } else { raf=null; ctx.clearRect(0,0,cv.width,cv.height); }
+  }
+
+  // começa
+  tick();
+  setInterval(tick, 1000);
+  // comemora ao abrir (pequeno) — só se ainda faltar tempo
+  if (targetDate() - new Date() > 0) setTimeout(function(){ burst(90); }, 450);
+})();
+</script>
+</body>
+</html>
