@@ -485,3 +485,13 @@ body { overflow-x: clip; }
 .v40-chips button { flex: 0 0 auto; background: var(--ink2); color: var(--paper); border: 1px solid var(--line); border-radius: 999px; padding: 5px 11px; font-family: 'Baloo 2', sans-serif; font-size: 0.72rem; cursor: pointer; white-space: nowrap; }
 .v40-pre { white-space: pre-wrap; font-family: 'JetBrains Mono', monospace; font-size: 0.66rem; background: var(--ink); border-radius: 8px; padding: 8px; color: var(--muted); }
 .v40-official-box { background: rgba(217,164,65,0.08) !important; border-color: var(--gold) !important; border-style: solid !important; }
+/* anexos no chat */
+.v40-clip { flex: 0 0 auto; width: 44px; height: 44px; border-radius: 10px; border: 1px solid var(--line); background: var(--ink2); color: var(--paper); font-size: 1.2rem; cursor: pointer; }
+.v40-att-row { display: flex; gap: 4px; flex-wrap: wrap; margin-bottom: 4px; }
+.v40-att-row img { width: 70px; height: 70px; object-fit: cover; border-radius: 8px; border: 2px solid rgba(0,0,0,0.2); }
+.v40-att-ic { display: inline-flex; width: 70px; height: 70px; align-items: center; justify-content: center; font-size: 1.6rem; background: rgba(0,0,0,0.15); border-radius: 8px; }
+.v40-att-preview { display: flex; gap: 6px; flex-wrap: wrap; margin-top: 6px; }
+.v40-att-preview:empty { display: none; }
+.v40-att-p { position: relative; }
+.v40-att-p img, .v40-att-p .v40-att-ic { width: 56px; height: 56px; object-fit: cover; border-radius: 8px; border: 1px solid var(--gold); }
+.v40-att-p button { position: absolute; top: -6px; right: -6px; width: 20px; height: 20px; border-radius: 50%; border: none; background: var(--crimson); color: #fff; font-size: 0.65rem; line-height: 20px; padding: 0; cursor: pointer; }

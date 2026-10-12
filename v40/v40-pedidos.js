@@ -135,7 +135,7 @@
     let n = 0;
     Object.keys(actions).forEach(k => delete actions[k]);
     const bubbles = V40.chat.map((m, i) => {
-      if (m.from === 'me') return `<div class="v40-msg me"><div>${V40.esc(m.text)}</div></div>`;
+      if (m.from === 'me') return `<div class="v40-msg me">${(m.att || []).length ? `<div class="v40-att-row">${m.att.map(a => a.thumb ? `<img src="${a.thumb}" alt="">` : `<span class="v40-att-ic">${a.kind === 'vid' ? '🎬' : '📎'}</span>`).join('')}</div>` : ''}${m.text ? `<div>${V40.esc(m.text)}</div>` : ''}</div>`;
       let btns = '';
       (m.acts || []).forEach(a => { const id = 'a' + (n++); actions[id] = a; btns += `<button data-act="${id}">${V40.esc(a)}</button>`; });
       if (m.pedido) btns += `<button class="v40-primary" data-ped="${i}">📨 ${MODE === 'amigo' ? 'Mandar pro dono do app' : 'Mandar pro Claude'}</button>`;
@@ -145,10 +145,13 @@
     page.innerHTML = `
       <h2 class="v40-page-title">💬 Pedidos e ajuda</h2>
       <div class="v40-chat" id="v40Chat">${bubbles}</div>
+      <div class="v40-att-preview" id="v40AttPrev">${pending.map((a, i) => `<span class="v40-att-p">${a.thumb ? `<img src="${a.thumb}" alt="">` : `<span class="v40-att-ic">${a.kind === 'vid' ? '🎬' : '📎'}</span>`}<button data-unatt="${i}" title="Tirar">✕</button></span>`).join('')}</div>
       <div class="v40-chat-in">
+        <button class="v40-clip" id="v40ChatClip" title="Anexar foto ou vídeo">📎</button>
         <textarea id="v40ChatTxt" rows="2" placeholder="Pergunte algo ou descreva um bug/ideia…"></textarea>
         <button class="v40-primary" id="v40ChatSend">Enviar</button>
       </div>
+      <input type="file" id="v40ChatFile" accept="image/*,video/*" multiple style="display:none;">
       <div class="v40-chips">${['Como marco vários episódios?', 'Fiquei atrasado', 'Achei um bug', 'Tenho uma ideia', 'Como mando pro meu amigo?'].map(t => `<button data-sug="${V40.esc(t)}">${V40.esc(t)}</button>`).join('')}</div>
       ${sent.length ? `<div class="stat-card" style="margin-top:12px;"><h4>📨 Pedidos que você mandou</h4>${sent.slice(0, 15).map((p, i) => `<div class="v40-row"><span style="flex:1">${V40.esc(p.text.slice(0, 120))}${p.text.length > 120 ? '…' : ''}<br><small class="v40-muted">${new Date(p.at).toLocaleString('pt-BR')} · via ${p.via}</small></span><button data-resend="${sent.length - 1 - i}">📋</button></div>`).join('')}</div>` : ''}
       <div class="dash-actions" style="margin-top:10px;"><button id="v40ChatClear">🧹 Limpar conversa</button><button id="v40ChatDiag">🔎 Ver diagnóstico</button></div>
@@ -157,15 +160,46 @@
     box.scrollTop = box.scrollHeight;
     const send = () => {
       const t = document.getElementById('v40ChatTxt').value.trim();
-      if (!t) return;
-      push('me', t);
+      if (!t && !pending.length) return;
+      const att = pending.map(a => ({ id: a.id, kind: a.kind, name: a.name, thumb: a.thumb }));
+      const ids = pending.map(a => a.id);
+      pending = [];
+      push('me', t, { att });
+      if (!t) {
+        push('bot', `Recebi ${att.length} anexo(s) 📎. Eu não consigo ver o que tem neles daqui, mas eles vão junto quando você mandar o pedido. Conta em poucas palavras o que é?`, { pedido: true, q: '', atts: ids });
+        V40.renderPedidos();
+        return;
+      }
       const r = answer(t);
       const acts = [];
       if (r.act) acts.push(r.act[0]);
       if (r.act2) acts.push(r.act2[0]);
-      push('bot', r.text, { acts, pedido: !!r.pedido, q: t });
+      let txt = r.text;
+      if (ids.length) txt += `\n\n📎 ${ids.length} anexo(s) vão junto no pedido (eu não consigo ver o conteúdo, mas o Claude consegue).`;
+      push('bot', txt, { acts, pedido: !!r.pedido || ids.length > 0, q: t, atts: ids });
       V40.renderPedidos();
     };
+    document.getElementById('v40ChatClip').addEventListener('click', () => document.getElementById('v40ChatFile').click());
+    document.getElementById('v40ChatFile').addEventListener('change', async e => {
+      const files = Array.from(e.target.files || []);
+      for (const f of files) {
+        if (pending.length >= 6) { V40.toast('Máximo de 6 anexos por vez'); break; }
+        if (f.size > 60 * 1024 * 1024) { V40.toast(`"${f.name}" é grande demais (máx. 60 MB)`); continue; }
+        const id = 'f' + Date.now() + Math.random().toString(36).slice(2, 6);
+        const kind = f.type.startsWith('video') ? 'vid' : 'img';
+        attachFiles[id] = f;
+        pending.push({ id, kind, name: f.name, thumb: await makeThumb(f, kind) });
+      }
+      e.target.value = '';
+      const keep = document.getElementById('v40ChatTxt').value;
+      V40.renderPedidos();
+      document.getElementById('v40ChatTxt').value = keep;
+    });
+    page.querySelectorAll('[data-unatt]').forEach(b => b.addEventListener('click', () => {
+      const keep = document.getElementById('v40ChatTxt').value;
+      pending.splice(+b.dataset.unatt, 1); V40.renderPedidos();
+      document.getElementById('v40ChatTxt').value = keep;
+    }));
     document.getElementById('v40ChatSend').addEventListener('click', send);
     document.getElementById('v40ChatTxt').addEventListener('keydown', e => { if (e.key === 'Enter' && !e.shiftKey) { e.preventDefault(); send(); } });
     page.querySelectorAll('[data-sug]').forEach(b => b.addEventListener('click', () => { document.getElementById('v40ChatTxt').value = b.dataset.sug; send(); }));
@@ -177,8 +211,7 @@
     }));
     page.querySelectorAll('[data-ped]').forEach(b => b.addEventListener('click', () => {
       const m = V40.chat[+b.dataset.ped];
-      const q = m.q || '';
-      openSend(q);
+      openSend(m.q || '', m.atts || []);
     }));
     page.querySelectorAll('[data-resend]').forEach(b => b.addEventListener('click', () => {
       const p = (V40.get('pedidos', []) || [])[+b.dataset.resend];
@@ -187,13 +220,19 @@
     document.getElementById('v40ChatClear').addEventListener('click', () => { if (confirm('Limpar a conversa?')) { V40.chat = []; saveChat(); V40.renderPedidos(); } });
     document.getElementById('v40ChatDiag').addEventListener('click', () => V40.modal(`<h3>🔎 Diagnóstico</h3><pre class="v40-pre">${V40.esc(V40.diagnostics())}</pre>`));
   };
-  function openSend(q) {
+  function openSend(q, attIds) {
+    attIds = attIds || [];
+    const files = attIds.map(id => attachFiles[id]).filter(Boolean);
+    const lost = attIds.length - files.length;
     V40.modal(`<h3>📨 ${MODE === 'amigo' ? 'Mandar pro dono do app' : 'Mandar pro Claude'}</h3>
       <label class="v40-muted">O que você quer (pode editar):</label>
       <textarea id="v40PedTxt" rows="4" class="v40-ped-txt">${V40.esc(q)}</textarea>
+      ${files.length ? `<p>📎 ${files.length} anexo(s): ${files.map(f => V40.esc(f.name)).join(', ')}</p>` : ''}
+      ${lost ? `<p class="v40-muted">⚠️ ${lost} anexo(s) não estão mais na memória (o app foi fechado). Anexe de novo se precisar.</p>` : ''}
       <details class="v40-help"><summary>Vai junto (automático)</summary><pre class="v40-pre">${V40.esc(V40.diagnostics())}</pre></details>
       <div style="display:flex;flex-direction:column;gap:8px;margin-top:10px;">
-        ${MODE === 'amigo' ? '' : '<button class="v40-primary" id="v40PedClaude">🤖 Copiar e abrir o Claude</button>'}
+        ${files.length ? `<button class="v40-primary" id="v40PedFiles">📤 Mandar COM os anexos (escolha ${MODE === 'amigo' ? 'o WhatsApp' : 'o Claude ou o WhatsApp'})</button>` : ''}
+        ${MODE === 'amigo' ? '' : `<button class="${files.length ? '' : 'v40-primary'}" id="v40PedClaude">🤖 Copiar e abrir o Claude${files.length ? ' (só o texto)' : ''}</button>`}
         <button id="v40PedWhats">💬 Mandar pelo WhatsApp</button>
         <button id="v40PedShare">📤 Outro app / copiar</button>
       </div>
@@ -205,12 +244,75 @@
       V40.set('pedidos', list);
       return pedidoText(txt);
     };
+    const pf = document.getElementById('v40PedFiles');
+    if (pf) pf.addEventListener('click', async () => { const ok = await shareFiles(done('anexos'), files); if (ok) closeModal(); });
     const c = document.getElementById('v40PedClaude');
     if (c) c.addEventListener('click', () => { sendClaude(done('Claude')); closeModal(); });
     document.getElementById('v40PedWhats').addEventListener('click', () => { sendWhats(done('WhatsApp')); closeModal(); });
     document.getElementById('v40PedShare').addEventListener('click', () => { sendShare(done('compartilhar')); closeModal(); });
   }
   V40.openPedido = openSend;
+
+  // ---------- anexos ----------
+  const attachFiles = {};   // id -> File (só na memória enquanto o app está aberto)
+  let pending = [];         // anexos escolhidos, ainda não enviados no chat
+  function makeThumb(file, kind) {
+    return new Promise(res => {
+      const done = (src) => {
+        try {
+          const W = 160;
+          const c = document.createElement('canvas');
+          const r = Math.min(1, W / Math.max(src.width || src.videoWidth, src.height || src.videoHeight));
+          c.width = Math.round((src.width || src.videoWidth) * r); c.height = Math.round((src.height || src.videoHeight) * r);
+          c.getContext('2d').drawImage(src, 0, 0, c.width, c.height);
+          res(c.toDataURL('image/jpeg', 0.7));
+        } catch (e) { res(null); }
+      };
+      const url = URL.createObjectURL(file);
+      if (kind === 'img') {
+        const im = new Image();
+        im.onload = () => { done(im); URL.revokeObjectURL(url); };
+        im.onerror = () => { res(null); URL.revokeObjectURL(url); };
+        im.src = url;
+      } else {
+        const v = document.createElement('video');
+        v.muted = true; v.playsInline = true; v.preload = 'metadata';
+        const to = setTimeout(() => res(null), 2500);
+        v.onloadeddata = () => { try { v.currentTime = Math.min(0.5, (v.duration || 1) / 2); } catch (e) {} };
+        v.onseeked = () => { clearTimeout(to); done(v); URL.revokeObjectURL(url); };
+        v.onerror = () => { clearTimeout(to); res(null); };
+        v.src = url;
+      }
+    });
+  }
+  function toB64(file) {
+    return new Promise((res, rej) => { const fr = new FileReader(); fr.onload = () => { const s = fr.result; res(s.slice(s.indexOf(',') + 1)); }; fr.onerror = rej; fr.readAsDataURL(file); });
+  }
+  async function shareFiles(text, files) {
+    // 1) navegador com compartilhamento de arquivos (Chrome no Android, Safari no iPhone/iPad)
+    try {
+      if (navigator.canShare && navigator.canShare({ files })) {
+        await navigator.share({ files, text, title: 'Pedido do app' });
+        return true;
+      }
+    } catch (e) { if (e && e.name === 'AbortError') return false; }
+    // 2) dentro do app Android (APK)
+    let app = null;
+    try { app = window.UCMApp || (window.parent && window.parent.UCMApp) || null; } catch (e) {}
+    if (app && typeof app.shareFiles === 'function') {
+      const total = files.reduce((s, f) => s + f.size, 0);
+      if (total > 40 * 1024 * 1024) { alert('Anexos grandes demais pra mandar pelo app (máx. 40 MB juntos). Tente um vídeo menor.'); return false; }
+      V40.toast('📤 Preparando os anexos…');
+      const arr = [];
+      for (const f of files) arr.push({ name: f.name, mime: f.type || 'application/octet-stream', b64: await toB64(f) });
+      app.shareFiles(text, JSON.stringify(arr));
+      return true;
+    }
+    // 3) sem jeito de mandar arquivos: copia o texto
+    try { await navigator.clipboard.writeText(text); } catch (e) {}
+    alert('Este navegador não deixa mandar os anexos direto. O texto foi copiado — abra o Claude (ou WhatsApp), cole e anexe os prints/vídeos pela galeria.');
+    return true;
+  }
 
   injectTab();
 })();

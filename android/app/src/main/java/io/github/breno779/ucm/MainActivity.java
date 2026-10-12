@@ -2,6 +2,7 @@ package io.github.breno779.ucm;
 
 import android.app.Activity;
 import android.content.ActivityNotFoundException;
+import android.content.ClipData;
 import android.content.ContentResolver;
 import android.content.ContentValues;
 import android.content.Intent;
@@ -23,13 +24,18 @@ import android.webkit.WebView;
 import android.webkit.WebViewClient;
 import android.widget.Toast;
 
+import androidx.core.content.FileProvider;
 import androidx.webkit.WebViewCompat;
 import androidx.webkit.WebViewFeature;
 
 import java.io.File;
 import java.io.FileOutputStream;
 import java.io.OutputStream;
+import java.util.ArrayList;
 import java.util.Collections;
+
+import org.json.JSONArray;
+import org.json.JSONObject;
 
 /**
  * App Android da UCM Watchlist: abre o site (breno779.github.io) num WebView próprio.
@@ -118,6 +124,11 @@ public class MainActivity extends Activity {
                     Intent i = new Intent(Intent.ACTION_GET_CONTENT);
                     i.addCategory(Intent.CATEGORY_OPENABLE);
                     i.setType("*/*");
+                    String[] types = params.getAcceptTypes();
+                    ArrayList<String> mimes = new ArrayList<>();
+                    if (types != null) for (String t : types) if (t != null && t.contains("/")) mimes.add(t.trim());
+                    if (!mimes.isEmpty()) i.putExtra(Intent.EXTRA_MIME_TYPES, mimes.toArray(new String[0]));
+                    if (params.getMode() == FileChooserParams.MODE_OPEN_MULTIPLE) i.putExtra(Intent.EXTRA_ALLOW_MULTIPLE, true);
                     startActivityForResult(Intent.createChooser(i, "Escolher arquivo"), FILE_CHOOSER);
                 } catch (ActivityNotFoundException e) {
                     fileCallback = null;
@@ -164,7 +175,15 @@ public class MainActivity extends Activity {
         if (requestCode == FILE_CHOOSER) {
             if (fileCallback != null) {
                 Uri[] res = null;
-                if (resultCode == RESULT_OK && data != null && data.getData() != null) res = new Uri[]{data.getData()};
+                if (resultCode == RESULT_OK && data != null) {
+                    ClipData clip = data.getClipData();
+                    if (clip != null && clip.getItemCount() > 0) {
+                        res = new Uri[clip.getItemCount()];
+                        for (int k = 0; k < clip.getItemCount(); k++) res[k] = clip.getItemAt(k).getUri();
+                    } else if (data.getData() != null) {
+                        res = new Uri[]{data.getData()};
+                    }
+                }
                 fileCallback.onReceiveValue(res);
                 fileCallback = null;
             }
@@ -237,7 +256,53 @@ public class MainActivity extends Activity {
             });
         }
 
+        /** Compartilha texto + fotos/vídeos (pedidos com anexo) pelo menu do Android. */
         @JavascriptInterface
-        public String version() { return "40.0-beta"; }
+        public void shareFiles(final String text, final String filesJson) {
+            runOnUiThread(() -> {
+                try {
+                    File dir = new File(getCacheDir(), "anexos");
+                    if (dir.exists()) { File[] old = dir.listFiles(); if (old != null) for (File f : old) f.delete(); }
+                    dir.mkdirs();
+                    JSONArray arr = new JSONArray(filesJson);
+                    ArrayList<Uri> uris = new ArrayList<>();
+                    String mime = null;
+                    for (int k = 0; k < arr.length(); k++) {
+                        JSONObject o = arr.getJSONObject(k);
+                        String name = o.optString("name", "anexo-" + k).replaceAll("[\\\\/:*?\"<>|]", "_");
+                        if (name.isEmpty()) name = "anexo-" + k;
+                        File f = new File(dir, k + "-" + name);
+                        try (FileOutputStream os = new FileOutputStream(f)) { os.write(Base64.decode(o.getString("b64"), Base64.DEFAULT)); }
+                        uris.add(FileProvider.getUriForFile(MainActivity.this, "io.github.breno779.ucm.files", f));
+                        String m = o.optString("mime", "*/*");
+                        if (mime == null) mime = m;
+                        else if (!mime.equals(m)) mime = mime.split("/")[0].equals(m.split("/")[0]) ? mime.split("/")[0] + "/*" : "*/*";
+                    }
+                    Intent i;
+                    if (uris.size() == 1) {
+                        i = new Intent(Intent.ACTION_SEND);
+                        i.putExtra(Intent.EXTRA_STREAM, uris.get(0));
+                        i.setClipData(ClipData.newRawUri("", uris.get(0)));
+                    } else {
+                        i = new Intent(Intent.ACTION_SEND_MULTIPLE);
+                        i.putParcelableArrayListExtra(Intent.EXTRA_STREAM, uris);
+                        if (!uris.isEmpty()) {
+                            ClipData cd = ClipData.newRawUri("", uris.get(0));
+                            for (int k = 1; k < uris.size(); k++) cd.addItem(new ClipData.Item(uris.get(k)));
+                            i.setClipData(cd);
+                        }
+                    }
+                    i.setType(mime == null ? "text/plain" : mime);
+                    if (text != null) i.putExtra(Intent.EXTRA_TEXT, text);
+                    i.addFlags(Intent.FLAG_GRANT_READ_URI_PERMISSION);
+                    startActivity(Intent.createChooser(i, "Mandar pedido"));
+                } catch (Exception e) {
+                    Toast.makeText(MainActivity.this, "Não deu pra compartilhar: " + e.getMessage(), Toast.LENGTH_LONG).show();
+                }
+            });
+        }
+
+        @JavascriptInterface
+        public String version() { return "40.1"; }
     }
 }
