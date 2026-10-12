@@ -1,0 +1,55 @@
+name: App GTA VI (APK)
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - 'android-gta6/**'
+      - '.github/workflows/android-gta6.yml'
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: '17'
+
+      - uses: gradle/actions/setup-gradle@v4
+        with:
+          gradle-version: '8.7'
+
+      - name: Gerar APK
+        working-directory: android-gta6
+        env:
+          VERSION_CODE: ${{ github.run_number }}
+        run: gradle assembleRelease --no-daemon --stacktrace
+
+      - name: Preparar arquivo
+        run: cp android-gta6/app/build/outputs/apk/release/app-release.apk gta6-contagem.apk
+
+      - uses: actions/upload-artifact@v4
+        with:
+          name: gta6-contagem-apk
+          path: gta6-contagem.apk
+
+      - name: Publicar no release "gta6-apk-latest"
+        uses: softprops/action-gh-release@v2
+        with:
+          tag_name: gta6-apk-latest
+          name: App GTA VI — Contagem Regressiva (APK)
+          make_latest: false
+          overwrite_files: true
+          files: gta6-contagem.apk
+          body: |
+            App separado "GTA VI — Contagem Regressiva" (ícone próprio, instala do lado do app Watchlist).
+            Tem o widget de contagem regressiva pra tela inicial.
+            Baixe o arquivo gta6-contagem.apk abaixo no celular e instale.
+            Versão gerada automaticamente (build ${{ github.run_number }}).

@@ -1,0 +1,43 @@
+plugins {
+    id 'com.android.application'
+}
+
+android {
+    namespace 'io.github.breno779.gta6'
+    compileSdk 34
+
+    defaultConfig {
+        applicationId 'io.github.breno779.gta6'
+        minSdk 24
+        targetSdk 34
+        versionCode Integer.parseInt(System.getenv('VERSION_CODE') ?: '1')
+        versionName '1.0'
+    }
+
+    // Reaproveita a mesma chave do outro app (atualiza por cima sem reinstalar).
+    signingConfigs {
+        gta6 {
+            storeFile file('../../android/ucm-release.keystore')
+            storePassword 'ucmwatchlist'
+            keyAlias 'ucm'
+            keyPassword 'ucmwatchlist'
+        }
+    }
+    buildTypes {
+        release {
+            minifyEnabled false
+            signingConfig signingConfigs.gta6
+        }
+        debug {
+            signingConfig signingConfigs.gta6
+        }
+    }
+    compileOptions {
+        sourceCompatibility JavaVersion.VERSION_17
+        targetCompatibility JavaVersion.VERSION_17
+    }
+}
+
+dependencies {
+    implementation 'androidx.core:core:1.13.1'
+}

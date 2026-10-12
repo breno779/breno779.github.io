@@ -353,8 +353,7 @@
   </section>
 
   <p class="foot">
-    Feito com 💜 por Breno. Datas conforme anúncio oficial da Rockstar Games.<br>
-    Quer a capa oficial salva localmente? Coloque um arquivo <b>gta6-capa.png</b> nesta mesma pasta.
+    Feito com 💜 por Breno. Capa e datas: Rockstar Games.
   </p>
 </div>
 
@@ -377,9 +376,10 @@
   // ---------- Capa: tenta local -> oficial -> pôster SVG ----------
   var img = document.getElementById("coverImg");
   var sources = [
-    "gta6-capa.png",            // arquivo local (se você adicionar) — prioridade
+    "gta6-capa.jpg",            // capa oficial (arquivo local no repositório) — prioridade
+    "gta6-capa.png",
     "gta6-cover.png",
-    // Capa oficial hospedada na Wikipédia (carrega no navegador de quem acessa):
+    // fallback: capa oficial hospedada na Wikipédia
     "https://upload.wikimedia.org/wikipedia/en/4/46/Grand_Theft_Auto_VI.png"
   ];
   var si = 0;
