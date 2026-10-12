@@ -67,7 +67,23 @@ public class MainActivity extends Activity {
             web.restoreState(savedInstanceState);
         } else {
             web.loadUrl(HOME);
+            // Logo ao abrir, se ainda não houver widget na tela, oferece fixar um
+            // (o Android exige essa confirmação — nenhum app põe widget sozinho).
+            web.postDelayed(this::maybePromptPinWidget, 1200);
         }
+    }
+
+    /** Oferece fixar o widget na tela inicial, mas só se ainda não houver nenhum. */
+    private void maybePromptPinWidget() {
+        if (Build.VERSION.SDK_INT < Build.VERSION_CODES.O) return;
+        AppWidgetManager awm = getSystemService(AppWidgetManager.class);
+        if (awm == null || !awm.isRequestPinAppWidgetSupported()) return;
+        ComponentName cn = new ComponentName(this, Gta6Widget.class);
+        int[] ids = awm.getAppWidgetIds(cn);
+        if (ids != null && ids.length > 0) return; // já tem widget, não incomoda
+        try {
+            awm.requestPinAppWidget(cn, null, null);
+        } catch (Exception ignored) { }
     }
 
     @Override
