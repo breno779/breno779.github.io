@@ -1,0 +1,68 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- Layout do widget na tela inicial. Só usa views que o RemoteViews aceita. -->
+<FrameLayout xmlns:android="http://schemas.android.com/apk/res/android"
+    android:id="@+id/widget_root"
+    android:layout_width="match_parent"
+    android:layout_height="match_parent"
+    android:padding="14dp"
+    android:background="@drawable/widget_gta6_bg">
+
+    <LinearLayout
+        android:layout_width="match_parent"
+        android:layout_height="match_parent"
+        android:orientation="vertical"
+        android:gravity="center">
+
+        <TextView
+            android:id="@+id/w_title"
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:text="GTA VI"
+            android:textColor="#CFFBFF"
+            android:textStyle="bold"
+            android:textSize="13sp"
+            android:letterSpacing="0.18"
+            android:shadowColor="#80000000"
+            android:shadowDx="0"
+            android:shadowDy="1"
+            android:shadowRadius="3" />
+
+        <TextView
+            android:id="@+id/w_days"
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:layout_marginTop="2dp"
+            android:text="--"
+            android:textColor="#FFFFFF"
+            android:textStyle="bold"
+            android:textSize="54sp"
+            android:includeFontPadding="false"
+            android:shadowColor="#99000000"
+            android:shadowDx="0"
+            android:shadowDy="2"
+            android:shadowRadius="6" />
+
+        <TextView
+            android:id="@+id/w_label"
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:layout_marginTop="2dp"
+            android:text="DIAS PARA O LANÇAMENTO"
+            android:textColor="#FFE0F3"
+            android:textStyle="bold"
+            android:textSize="11sp"
+            android:letterSpacing="0.06"
+            android:gravity="center" />
+
+        <TextView
+            android:id="@+id/w_date"
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:layout_marginTop="6dp"
+            android:text="19 NOV 2026"
+            android:textColor="#FFD23C"
+            android:textStyle="bold"
+            android:textSize="11sp"
+            android:letterSpacing="0.04" />
+    </LinearLayout>
+</FrameLayout>
