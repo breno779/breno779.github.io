@@ -289,7 +289,11 @@ def build_amigo(base):
     m = re.search(r'^const DEFAULT_ITEMS = (\[.*\]);$', s, flags=re.M)
     if not m:
         print('ERRO: DEFAULT_ITEMS', file=sys.stderr); sys.exit(1)
-    arr = json.loads(m.group(1))
+    # a lista do amigo é CONGELADA (tools/amigo-list.json): títulos que você adiciona/tira na sua
+    # lista não vão pra dele. Só as funções e correções do app chegam pra ele.
+    frozen = json.loads((ROOT / 'tools' / 'amigo-list.json').read_text(encoding='utf-8'))
+    arr = frozen['items']
+    s = re.sub(r'^const LIST_VERSION = \d+;$', f"const LIST_VERSION = {frozen['listVersion']};", s, count=1, flags=re.M)
     star = '⭐️'
     for it in arr:
         it['done'] = False
