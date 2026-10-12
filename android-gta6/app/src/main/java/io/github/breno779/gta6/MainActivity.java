@@ -1,11 +1,15 @@
 package io.github.breno779.gta6;
 
 import android.app.Activity;
+import android.appwidget.AppWidgetManager;
 import android.content.ActivityNotFoundException;
+import android.content.ComponentName;
 import android.content.Intent;
 import android.graphics.Color;
 import android.net.Uri;
+import android.os.Build;
 import android.os.Bundle;
+import android.webkit.JavascriptInterface;
 import android.webkit.WebResourceRequest;
 import android.webkit.WebSettings;
 import android.webkit.WebView;
@@ -40,6 +44,8 @@ public class MainActivity extends Activity {
         s.setMediaPlaybackRequiresUserGesture(false);
         s.setMixedContentMode(WebSettings.MIXED_CONTENT_NEVER_ALLOW);
         s.setCacheMode(WebSettings.LOAD_DEFAULT);
+
+        web.addJavascriptInterface(new WidgetBridge(), "GTA6App");
 
         web.setWebViewClient(new WebViewClient() {
             @Override
@@ -86,5 +92,25 @@ public class MainActivity extends Activity {
     protected void onResume() {
         super.onResume();
         web.onResume();
+    }
+
+    /** Ponte JS -> Android: pede ao sistema pra fixar o widget na tela inicial (1 toque). */
+    private class WidgetBridge {
+        @JavascriptInterface
+        public void pinWidget() {
+            runOnUiThread(() -> {
+                if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
+                    AppWidgetManager awm = getSystemService(AppWidgetManager.class);
+                    ComponentName cn = new ComponentName(MainActivity.this, Gta6Widget.class);
+                    if (awm != null && awm.isRequestPinAppWidgetSupported()) {
+                        awm.requestPinAppWidget(cn, null, null);
+                        return;
+                    }
+                }
+                Toast.makeText(MainActivity.this,
+                    "Seu lançador não deixa fixar automático. Segure num espaço vazio da tela inicial ▸ Widgets ▸ GTA VI Contagem.",
+                    Toast.LENGTH_LONG).show();
+            });
+        }
     }
 }

@@ -325,7 +325,8 @@
       </div>
 
       <div class="actions">
-        <button class="btn primary" id="shareBtn">📤 Compartilhar</button>
+        <button class="btn primary" id="pinBtn" style="display:none">📌 Fixar widget na tela inicial</button>
+        <button class="btn" id="shareBtn">📤 Compartilhar</button>
         <button class="btn" id="calBtn">📅 Adicionar ao calendário</button>
       </div>
     </div>
@@ -505,6 +506,15 @@
     set(LS.date, OFFICIAL_ISO); document.body.classList.remove("released"); released=false;
     last={d:null,h:null,m:null,s:null}; tick(); toast("Data oficial restaurada ✓");
   });
+
+  // ---------- Fixar widget (só dentro do app Android) ----------
+  try {
+    if (window.GTA6App && typeof window.GTA6App.pinWidget === "function") {
+      var pinBtn = document.getElementById("pinBtn");
+      pinBtn.style.display = "";
+      pinBtn.addEventListener("click", function(){ try { window.GTA6App.pinWidget(); } catch(e){} });
+    }
+  } catch(e){}
 
   // ---------- Compartilhar ----------
   document.getElementById("shareBtn").addEventListener("click", async function(){
