@@ -64,46 +64,116 @@
   };
 
   // ---------- respostas do assistente ----------
+  // Responde com os dados de verdade da lista (quanto falta, data final, o que tem hoje…),
+  // começa com "sim/não" quando a pergunta é de sim ou não, e não repete a mesma resposta.
+  const fmt = iso => iso ? `${iso.slice(8, 10)}/${iso.slice(5, 7)}/${iso.slice(0, 4)}` : '—';
+  const pick = arr => arr[Math.floor(Math.random() * arr.length)];
+  const nm = it => String(it.text || '').replace(/\s*\([^)]*\)\s*$/, '').trim();
+  const norm = s => String(s || '').toLowerCase().normalize('NFD').replace(/[̀-ͯ]/g, '');
+  const daysBetween = (a, b) => Math.round((new Date(b + 'T12:00:00') - new Date(a + 'T12:00:00')) / 86400000);
+  function syncLine() {
+    const st = V40.syncState || {};
+    let s = st.auto ? 'Neste aparelho a 🔄 Automática está ligada ✅.' : 'Neste aparelho a 🔄 Automática está desligada — dá pra ligar na tela de sincronização.';
+    if (st.lastPushAt) s += ` Último envio daqui: ${new Date(st.lastPushAt).toLocaleString('pt-BR', { day: '2-digit', month: '2-digit', hour: '2-digit', minute: '2-digit' })}.`;
+    return s;
+  }
   const FAQ = [
-    { k: /(atras|atraso|perdi (uns|alguns) dias|fiquei pra tr[aá]s)/, a: 'Quando você atrasa, no Início aparece o botão vermelho "⏰ … atrasado(s) — resolver". Lá você escolhe: recomeçar de hoje (a data final anda), diluir (+1 ep por dia, a data final não muda) ou deixar como está.', act: ['🧯 Resolver atraso', () => V40.openLateHelper()] },
-    { k: /(desfa[zç]|voltar (atr[aá]s|como estava)|errei|apaguei|sumiu (meu|o) progresso|restaurar)/, a: 'Dá pra voltar: logo depois de marcar aparece "↺ Desfazer". Pra voltar a lista inteira pra um dia anterior, use o Histórico de versões. Título removido fica 30 dias na lixeira.', act: ['🕰 Histórico de versões', () => V40.openVersions()], act2: ['🗑 Lixeira', () => V40.showTrash()] },
-    { k: /(v[aá]rios ep|todos os ep|marcar (de uma vez|v[aá]rios)|at[eé] hoje)/, a: 'Abra os episódios da série e toque em "✓ Marcar todos até hoje" — ou segure o dedo num episódio pra marcar todos até ele.' },
-    { k: /(mata.?mata|verdadeiro 10)/, a: 'O mata-mata é com os títulos concluídos que valem 10 pontos. Você escolhe o vencedor de cada jogo até sobrar o verdadeiro 10. Fica na aba 🥇 Liga ▸ ⚔️ Mata-mata 10.', act: ['⚔️ Abrir o mata-mata', () => { V40.ligaTab = 'mata'; switchTab('tabLiga'); }] },
-    { k: /(liga|campeonato|ponto|classifica|ranking)/, a: 'Na Liga a nota vira ponto arredondando (7,5 → 8). Mesma pontuação = mesma posição. Série em andamento entra com a média dos episódios que você avaliou. Heróis têm 3 tabelas: filmes, séries e geral.', act: ['🥇 Abrir a Liga', () => switchTab('tabLiga')] },
-    { k: /(sincron|ipad|nuvem|outro aparelho|tablet|celular novo)/, a: 'Use o mesmo código no celular e no iPad. Na tela de sincronização você compara os dois lados e escolhe juntar, usar um ou outro — nada entra sem você escolher.', act: ['☁️ Sincronização', () => V40.openSync()] },
-    { k: /(capa|poster|p[oô]ster|imagem|sinopse|elenco|trailer|tmdb|chave)/, a: 'Capas, sinopse, elenco, trailer e onde assistir vêm do TMDB com a sua chave (Config ▸ 🌐 Dados de fora). Toque na capa de um título pra ver a ficha.', act: ['🌐 Dados de fora', () => V40.openExtSettings()] },
-    { k: /(ritmo|ep(is[oó]dios)? por dia|eps? \/ ?dia|mais r[aá]pido|mais devagar)/, a: 'Você escolhe quantos episódios por dia em Início ▸ ⏱ Episódios por dia. Vale a partir de amanhã e mostra a data final nova antes de aplicar.', act: ['⏱ Episódios por dia', () => V40.openRateSettings()] },
-    { k: /(folga|hoje n[aã]o|viagem|pausa|f[eé]rias)/, a: 'Pra um dia: "🛌 Hoje não vou assistir" no Início. Pra vários dias: ✈️ Modo viagem.', act: ['🛌 Hoje não vou assistir', () => V40.skipToday()], act2: ['✈️ Modo viagem', () => V40.openTravel()] },
-    { k: /(lembrete|notifica|alarme|avisar)/, a: 'Os lembretes vão pro calendário do celular (um evento por dia com o que assistir). Assim avisa mesmo com o app fechado.', act: ['⏰ Lembretes', () => V40.openReminders()] },
-    { k: /(senha|pin|bloque|digital|biometria|rosto)/, a: 'Dá pra pôr PIN e digital/rosto pra abrir o app.', act: ['🔒 Senha / biometria', () => V40.openLockSettings()] },
-    { k: /(backup|exportar|planilha|csv|excel)/, a: 'Config ▸ ⬇ Exportar backup guarda tudo num arquivo. Pra planilha: 📊 Exportar planilha (CSV).', act: ['📊 Planilha', () => V40.exportCSV()] },
-    { k: /(apk|android|instalar|baixar o app)/, a: 'O app Android abre a lista num app próprio, sem depender do Chrome.', act: ['📲 App Android', () => V40.openApk()] },
-    { k: /(tema|cor|escuro|claro|letra|fonte|tamanho)/, a: 'Tema por herói, claro/escuro/automático e tamanho da letra ficam em Aparência.', act: ['🎨 Aparência', () => V40.openAppearance()] },
-    { k: /(amigo|perfil|compartilh|mandar pra algu[eé]m)/, a: 'Pro seu amigo usar a lista dele: mande o link breno779.github.io/amigo/. Pra ele ver o seu progresso: 👥 Perfil pra amigos.', act: ['👥 Perfil', () => V40.openProfileShare()] },
-    { k: /(quiz|trilha|vil[aã]o|gloss[aá]rio|p[oó]s.?cr[eé]dito)/, a: 'Tudo isso fica no 📚 Universo.', act: ['📚 Universo', () => V40.openUniverse()] },
-    { k: /(vers[aã]o|atualiz|recarreg)/, a: `Você está na ${typeof APP_VERSION !== 'undefined' ? APP_VERSION : 'v40'}. Pra pegar a versão nova, toque em 🔄 Recarregar (em qualquer aba).` },
-    { k: /(adicionar|novo t[ií]tulo|mover (um )?t[ií]tulo|outra fase)/, a: 'Adicionar e mover títulos agora fica em Config ▸ ➕ Adicionar / mover títulos.', act: ['➕ Abrir', () => switchTab('tabAdicionar')] },
-    { k: /(sorteio|o que (eu )?assist|n[aã]o sei o que ver)/, a: 'O 🎲 Sorteio escolhe entre o que é de hoje, os atrasados e os próximos da fila.', act: ['🎲 Sortear', () => V40.openDraw()] }
+    { id: 'hoje', k: /(o que (eu )?(assisto|vejo|tem|vou ver|vou assistir)( pra)? hoje|plano de hoje|programa(do|cao) (de|pra) hoje|hoje tem)/, ans: () => {
+      const p = V40.todayPlan();
+      const parts = [];
+      if (p.epsTotal) parts.push(`${p.epsTotal} episódio(s) (${p.epsDone} já marcado(s))`);
+      p.titles.forEach(t => parts.push(`${nm(t.it)}${t.done ? ' ✅' : ''}`));
+      let s = parts.length ? `Hoje: ${parts.join(' · ')}.` : 'Hoje não tem nada programado 🎉.';
+      if (p.late) s += `\n\nE tem ${p.late} episódio(s) atrasado(s) — dá pra resolver no Início.`;
+      const cur = V40.currentItem && V40.currentItem();
+      if (!parts.length && cur) s += ` O próximo da fila é ${nm(cur)}${cur.watchStart ? ` (${fmt(cur.watchStart)})` : ''}.`;
+      return s;
+    }, act: ['🎲 Sortear o que ver', () => V40.openDraw()] },
+    { id: 'falta', k: /(quanto(s)? (falta|ja vi|eu ja)|progresso|porcentagem|quantos (titulos|filmes|eu vi))/, ans: () => {
+      const total = items.length, done = items.filter(i => i.done).length;
+      const end = V40.endDate && V40.endDate();
+      return `Você já viu ${done} de ${total} títulos (${Math.round(done / total * 100)}%). Faltam ${total - done}.${end ? ` No ritmo de agora, você termina em ${fmt(end)} — daqui a ${daysBetween(V40.today(), end)} dias.` : ''}`;
+    } },
+    { id: 'fim', k: /(quando (eu )?(termino|vou terminar|acaba)|data final|data de termino|terminar a lista)/, ans: () => {
+      const end = V40.endDate && V40.endDate();
+      return end ? `No ritmo de agora, você termina em ${fmt(end)} (daqui a ${daysBetween(V40.today(), end)} dias). Se mudar os episódios por dia ou atrasar, essa data anda junto.` : 'Não achei data final — parece que não tem nada pendente com data. 🎉';
+    }, act: ['⏱ Episódios por dia', () => V40.openRateSettings()] },
+    { id: 'prox', k: /(qual (e |eh )?o proximo|o que vem depois|proximo (titulo|filme|da fila))/, ans: () => {
+      const cur = V40.currentItem && V40.currentItem();
+      return cur ? `O próximo é ${nm(cur)}${cur.watchStart ? `, marcado pra ${fmt(cur.watchStart)}` : ''}.` : 'Não tem nada pendente na fila. 🎉';
+    } },
+    { id: 'streak', k: /(sequencia|streak|dias seguidos|ofensiva)/, ans: () => {
+      const s = V40.currentStreak ? V40.currentStreak() : 0;
+      return s ? `Sua sequência está em ${s} dia(s) seguido(s) 🔥. Marcar qualquer episódio ou título no dia conta.` : 'Sua sequência está zerada agora. Marque qualquer episódio ou título hoje pra começar de novo 🔥.';
+    }, act: ['🏆 Ver troféus', () => switchTab('tabConquistas')] },
+    { id: 'sync', k: /(sincron|ipad|nuvem|outro aparelho|tablet|celular novo|vice.?versa|nos (2|dois) aparelhos)/, ans: n => {
+      if (/(autom|sozinh|instant|tempo real|na hora|vice.?versa|vai (aparecer|marcar|atualizar|mudar)|aparece (no|la|tambem))/.test(n)) {
+        return 'Não fica 100% automático — é de propósito, mas é quase:\n\nCom a 🔄 Automática ligada nos dois aparelhos, o que você marca no celular sobe pra nuvem sozinho em poucos segundos. Quando você abrir o app no iPad, aparece um aviso "☁️ O outro aparelho tem X mudanças" — toca em Ver ▸ Juntar e ele marca lá também. No caminho contrário é igual.\n\nEle não aplica sem você tocar de propósito porque, nas vezes em que aplicava sozinho, já apagou progresso.\n\n' + syncLine();
+      }
+      return `Pra ter a mesma lista no celular e no iPad, os dois usam o mesmo código (o deste aparelho é ${V40.syncCode()}). Na tela de sincronização você compara os dois lados e escolhe juntar, ficar com um ou com o outro.\n\n` + syncLine();
+    }, short: 'Resumindo: o que você marca sobe sozinho pra nuvem (com a 🔄 Automática ligada), mas no outro aparelho ele só junta quando você toca em Ver ▸ Juntar no aviso que aparece ao abrir o app.', act: ['☁️ Abrir sincronização', () => V40.openSync()] },
+    { id: 'atraso', k: /(atras|perdi (uns|alguns) dias|fiquei pra tras)/, a: 'Sem problema. No Início aparece o botão vermelho "⏰ … atrasado(s) — resolver". Lá você escolhe: recomeçar de hoje (a data final anda), diluir (+1 ep por dia, a data final não muda) ou deixar como está.', act: ['🧯 Resolver atraso', () => V40.openLateHelper()] },
+    { id: 'desfazer', k: /(desfa[zc]|voltar (atras|como estava)|errei|apaguei|sumiu (meu|o) progresso|restaurar)/, a: 'Dá pra voltar, sim. Logo depois de marcar aparece "↺ Desfazer". Pra voltar a lista inteira pra um dia anterior, use o Histórico de versões. Título removido fica 30 dias na lixeira.', act: ['🕰 Histórico de versões', () => V40.openVersions()], act2: ['🗑 Lixeira', () => V40.showTrash()] },
+    { id: 'eps', k: /(varios ep|todos os ep|marcar (de uma vez|varios)|ate hoje)/, a: 'Abra os episódios da série e toque em "✓ Marcar todos até hoje" — ou segure o dedo num episódio pra marcar todos até ele.' },
+    { id: 'mata', k: /(mata.?mata|verdadeiro 10)/, a: 'O mata-mata é com os títulos concluídos que valem 10 pontos. Você escolhe o vencedor de cada jogo até sobrar o verdadeiro 10. Fica em 🥇 Liga ▸ ⚔️ Mata-mata 10.', act: ['⚔️ Abrir o mata-mata', () => { V40.ligaTab = 'mata'; switchTab('tabLiga'); }] },
+    { id: 'liga', k: /(liga|campeonato|pontos|classifica|ranking)/, a: 'Na Liga a nota vira ponto arredondando (7,5 → 8). Mesma pontuação = mesma posição. Série em andamento entra com a média dos episódios que você avaliou. Heróis têm 3 tabelas: filmes, séries e geral.', act: ['🥇 Abrir a Liga', () => switchTab('tabLiga')] },
+    { id: 'capa', k: /(capa|poster|imagem|sinopse|elenco|trailer|tmdb|chave)/, a: 'Capas, sinopse, elenco, trailer e onde assistir vêm do TMDB com a sua chave (Config ▸ 🌐 Dados de fora). Toque na capa de um título pra ver a ficha.', act: ['🌐 Dados de fora', () => V40.openExtSettings()] },
+    { id: 'ritmo', k: /(ritmo|ep(isodios)? por dia|eps? \/ ?dia|mais rapido|mais devagar)/, a: 'Você escolhe quantos episódios por dia em Início ▸ ⏱ Episódios por dia. Vale a partir de amanhã, e o app mostra a data final nova antes de aplicar.', act: ['⏱ Episódios por dia', () => V40.openRateSettings()] },
+    { id: 'folga', k: /(folga|hoje nao|viagem|pausa|ferias)/, a: 'Pra um dia só: "🛌 Hoje não vou assistir" no Início. Pra vários dias: ✈️ Modo viagem. Nos dois o cronograma se ajusta sozinho.', act: ['🛌 Hoje não vou assistir', () => V40.skipToday()], act2: ['✈️ Modo viagem', () => V40.openTravel()] },
+    { id: 'lembrete', k: /(lembrete|notifica|alarme|avisar)/, a: 'Os lembretes vão pro calendário do celular (um evento por dia com o que assistir). Assim avisa mesmo com o app fechado.', act: ['⏰ Lembretes', () => V40.openReminders()] },
+    { id: 'senha', k: /(senha|pin|bloque|digital|biometria|rosto)/, a: 'Dá pra pôr PIN e digital/rosto pra abrir o app.', act: ['🔒 Senha / biometria', () => V40.openLockSettings()] },
+    { id: 'backup', k: /(backup|exportar|planilha|csv|excel)/, a: 'Config ▸ ⬇ Exportar backup guarda tudo num arquivo. Pra planilha: 📊 Exportar planilha (CSV). E se a sincronização estiver em uso, a nuvem guarda um backup por semana.', act: ['📊 Planilha', () => V40.exportCSV()] },
+    { id: 'apk', k: /(apk|android|instalar|baixar o app)/, a: 'O app Android abre a lista num app próprio, sem depender do Chrome. No iPad/iPhone é só usar "Adicionar à Tela de Início" no Safari.', act: ['📲 App Android', () => V40.openApk()] },
+    { id: 'tema', k: /(tema|cor|escuro|claro|letra|fonte|tamanho)/, a: 'Tema por herói, claro/escuro/automático e tamanho da letra ficam em Aparência.', act: ['🎨 Aparência', () => V40.openAppearance()] },
+    { id: 'amigo', k: /(amigo|perfil|compartilh|mandar pra alguem)/, a: 'Pro seu amigo ter a lista dele: mande o link breno779.github.io/amigo/. Pra ele ver o seu progresso: 👥 Perfil pra amigos.', act: ['👥 Perfil', () => V40.openProfileShare()] },
+    { id: 'universo', k: /(quiz|trilha|vilao|glossario|pos.?credito)/, a: 'Tudo isso fica no 📚 Universo.', act: ['📚 Universo', () => V40.openUniverse()] },
+    { id: 'versao', k: /(versao|atualiz|recarreg)/, ans: () => `Você está na ${typeof APP_VERSION !== 'undefined' ? APP_VERSION : 'v40'}. Pra pegar a versão mais nova, toque em 🔄 Recarregar (tem em qualquer aba).` },
+    { id: 'add', k: /(adicionar|novo titulo|mover (um )?titulo|outra fase)/, a: 'Adicionar e mover títulos fica em Config ▸ ➕ Adicionar / mover títulos.', act: ['➕ Abrir', () => switchTab('tabAdicionar')] },
+    { id: 'sorteio', k: /(sorteio|o que (eu )?assist|nao sei o que ver)/, a: 'O 🎲 Sorteio escolhe entre o que é de hoje, os atrasados e os próximos da fila.', act: ['🎲 Sortear', () => V40.openDraw()] }
   ];
-  const BUG = /(bug|erro|errad|trav|n[aã]o (funciona|abre|aparece|carrega|salva)|sumi|quebr|bugou|estranho|cortando|fora de ordem)/;
-  const WISH = /(quero|queria|coloca|adiciona|cria|muda|tira|remove|podia|poderia|seria legal|ideia|sugest)/;
+  const BUG = /(bug|erro|errad|trav|nao (funciona|abre|aparece|carrega|salva)|sumi|quebr|bugou|estranho|cortando|fora de ordem)/;
+  const WISH = /(quero|queria|coloca|adiciona|cria|muda |tira|remove|podia|poderia|seria (legal|bom)|ideia|sugest)/;
+  const QUESTION = /(\?|^(e |ai |mas |entao )?(se eu|da pra|consigo|tem como|vai |posso|e possivel|funciona|como|onde|quando|qual|quanto|o que|por ?que))/;
 
   function answer(q) {
-    const n = (q || '').toLowerCase();
-    if (/^(oi|ol[aá]|e a[ií]|bom dia|boa tarde|boa noite)\b/.test(n) && n.length < 20) {
-      return { text: 'Oi! 👋 Sou o assistente do app. Me pergunte como fazer algo, ou descreva um bug ou ideia — aí eu preparo o pedido pra mandar pro Claude.' };
+    const n = norm(q).trim();
+    if (/^(oi+|ola|e ai|eai|bom dia|boa tarde|boa noite|salve)\b/.test(n) && n.length < 20) {
+      return { text: pick(['Oi! 👋 Em que posso ajudar?', 'E aí! 👋 Pode perguntar — progresso, o que ver hoje, sincronização, Liga…', 'Opa! 👋 Manda a pergunta, ou conta um bug/ideia.']) };
+    }
+    if (/^(obrigad|valeu|vlw|top|show|massa|perfeito|boa)\b/.test(n) && n.length < 25) {
+      return { text: pick(['Por nada! 😄', 'Tamo junto! 🦸', 'Disponha! Qualquer coisa é só chamar.']) };
+    }
+    if (/(quem (e|eh) voce|o que voce (faz|sabe)|me ajuda|ajuda$)/.test(n)) {
+      return { text: 'Sou o assistente do app e funciono sem internet. Sei te dizer:\n• quanto falta e quando você termina\n• o que tem pra ver hoje e qual é o próximo\n• sua sequência de dias\n• como resolver atrasos, sincronizar celular e iPad, usar a Liga, capas, lembretes, senha…\n\nSe for um bug ou ideia, eu monto o pedido pro Claude.' };
     }
     const hit = FAQ.find(f => f.k.test(n));
+    const hitText = hit ? (hit.ans ? hit.ans(n) : hit.a) : null;
+    const base = hit ? { text: hitText, act: hit.act, act2: hit.act2, hid: hit.id, short: hit.short } : null;
+    // pergunta sobre um assunto que eu conheço: responde direto (mesmo se tiver "bug" no meio)
+    if (base && QUESTION.test(n) && !/(bug|erro|bugou|quebr|trav)/.test(n)) return base;
     if (BUG.test(n)) {
       const issues = V40.healthCheck ? V40.healthCheck().filter(i => i.lvl !== 'info') : [];
       return {
-        text: `Entendi, parece um problema.${issues.length ? ` A verificação achou ${issues.length} aviso(s) nos dados — vão junto no pedido.` : ' A verificação não achou nada estranho nos dados.'}${hit ? '\n\nTalvez ajude: ' + hit.a : ''}\n\nMandando pro Claude, ele corrige. Se der, tire um print da tela e mande junto.`,
-        pedido: true, act: hit && hit.act
+        text: `${pick(['Poxa, vamos resolver isso.', 'Entendi, parece um problema.', 'Hmm, isso não devia acontecer.'])}${issues.length ? ` A verificação achou ${issues.length} aviso(s) nos dados — eles vão junto no pedido.` : ' Dei uma olhada nos dados e não achei nada estranho, então provavelmente é coisa do app mesmo.'}${hitText ? '\n\nEnquanto isso, talvez ajude: ' + hitText : ''}\n\nMande pro Claude que ele corrige. Um print da tela ajuda muito (dá pra anexar no 📎).`,
+        pedido: true, act: hit && hit.act, hid: 'bug'
       };
     }
-    if (WISH.test(n)) return { text: 'Boa ideia! Isso eu não consigo fazer daqui — mas já deixo o pedido pronto pra mandar pro Claude, com as informações do app.' + (hit ? '\n\nTalvez algo parecido já exista: ' + hit.a : ''), act: hit && hit.act, pedido: true };
-    if (hit) return { text: hit.a, act: hit.act, act2: hit.act2 };
-    return { text: 'Não sei responder isso sozinho. Se for um pedido ou problema, mande pro Claude por aqui:', pedido: true };
+    if (WISH.test(n) && !QUESTION.test(n)) return { text: pick(['Boa ideia!', 'Gostei!', 'Faz sentido!']) + ' Isso eu não consigo mudar daqui, mas o pedido já está pronto pra mandar pro Claude, com as informações do app.' + (hitText ? '\n\nSó pra saber, algo parecido já existe: ' + hitText : ''), act: hit && hit.act, pedido: true, hid: 'wish' };
+    if (base) return base;
+    return {
+      text: pick(['Hmm, essa eu não sei responder sozinho 🤔.', 'Não entendi bem essa 🤔.']) + ' Posso falar de: quanto falta, o que ver hoje, data final, atrasos, sincronização, Liga, capas, lembretes, senha.\n\nSe for algo diferente, mande pro Claude — ele responde direitinho.',
+      pedido: true, hid: 'nada'
+    };
+  }
+  // não repete a mesma resposta duas vezes seguidas
+  function answerFresh(q) {
+    const r = answer(q);
+    const lastBot = V40.chat.slice().reverse().find(m => m.from === 'bot');
+    if (lastBot && r.hid && lastBot.hid === r.hid && lastBot.text.split('\n\n📎')[0] === r.text) {
+      if (r.short) return Object.assign({}, r, { text: r.short, hid: r.hid + '-curto' });
+      return Object.assign({}, r, { text: 'É a mesma resposta de antes 😅 — se não era isso que você queria saber, tenta perguntar de outro jeito ou mande pro Claude.', pedido: true, hid: 'repeat' });
+    }
+    return r;
   }
 
   // ---------- pedido pronto ----------
@@ -131,7 +201,7 @@
     if (!page) return;
     if (!V40.chat.length) push('bot', MODE === 'amigo'
       ? 'Oi! 👋 Sou o assistente da sua lista. Me pergunte como fazer algo, ou conte um problema/ideia — eu monto a mensagem pra você mandar pro dono do app.'
-      : 'Oi! 👋 Sou o assistente do app (funciono sem internet). Me pergunte como fazer algo, ou conte um bug ou ideia — eu monto o pedido com as informações do app pra você mandar pro Claude.');
+      : 'Oi! 👋 Pode perguntar o que quiser sobre a lista — quanto falta, o que ver hoje, sincronização, Liga… Se for bug ou ideia, eu monto o pedido pro Claude.');
     let n = 0;
     Object.keys(actions).forEach(k => delete actions[k]);
     const bubbles = V40.chat.map((m, i) => {
@@ -170,13 +240,13 @@
         V40.renderPedidos();
         return;
       }
-      const r = answer(t);
+      const r = answerFresh(t);
       const acts = [];
       if (r.act) acts.push(r.act[0]);
       if (r.act2) acts.push(r.act2[0]);
       let txt = r.text;
       if (ids.length) txt += `\n\n📎 ${ids.length} anexo(s) vão junto no pedido (eu não consigo ver o conteúdo, mas o Claude consegue).`;
-      push('bot', txt, { acts, pedido: !!r.pedido || ids.length > 0, q: t, atts: ids });
+      push('bot', txt, { acts, pedido: !!r.pedido || ids.length > 0, q: t, atts: ids, hid: r.hid });
       V40.renderPedidos();
     };
     document.getElementById('v40ChatClip').addEventListener('click', () => document.getElementById('v40ChatFile').click());

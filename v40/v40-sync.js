@@ -688,5 +688,12 @@
     if (V40.lockCfg()) await V40.unlockPrompt(false);
     V40.handleUrlActions();
     setTimeout(V40.checkCloudOnOpen, 3000);
+    // o iPad/celular costuma só "voltar" pro app, sem reabrir — confere a nuvem nessa hora também
+    let lastCheck = Date.now();
+    document.addEventListener('visibilitychange', () => {
+      if (document.visibilityState !== 'visible' || Date.now() - lastCheck < 30000) return;
+      lastCheck = Date.now();
+      V40.checkCloudOnOpen();
+    });
   };
 })();
