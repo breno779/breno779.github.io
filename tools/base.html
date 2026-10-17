@@ -3491,7 +3491,7 @@ function toggleDone(id, el) {
     if (eps) it.epDone = new Array(eps).fill(true);
     delete it.watchStart; delete it.watchEnd; delete it.watchKind; delete it.epDates;
     maybeAutoCollapsePhase(it.phase);
-    const stamp = el.parentElement.querySelector('.stamp');
+    const stamp = el && el.parentElement ? el.parentElement.querySelector('.stamp') : null;
     if (stamp) {
       stamp.classList.remove('show');
       void stamp.offsetWidth;

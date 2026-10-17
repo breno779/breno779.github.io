@@ -202,6 +202,7 @@
         rating: it.rating || 0,
         ep: Array.isArray(it.epDone) ? it.epDone.filter(Boolean).length : 0,
         er: Array.isArray(it.epRatings) ? it.epRatings.filter(v => typeof v === 'number').length : 0,
+        ers: Array.isArray(it.epRatings) ? it.epRatings.map((v, i) => typeof v === 'number' ? i : -1).filter(i => i >= 0) : [],
         text: it.text
       };
     });
@@ -259,6 +260,49 @@
     el.classList.add('pulse');
   }
 
+  // ---------- v40.1: marcar sozinho ----------
+  // 1) deu nota num episódio → o episódio fica marcado
+  // 2) deu nota num filme/curta/jogo → o título fica marcado como visto
+  // 3) marcou o último episódio da série → a série fica concluída
+  // Só reage ao que acabou de mudar (compara com o estado do último save), então nada
+  // antigo da lista é alterado sozinho.
+  function autoRules() {
+    const prev = V40._state;
+    if (!prev || V40._autoBusy) return [];
+    const later = [];
+    items.forEach(it => {
+      const a = prev[it.id];
+      if (!a || it.done) return;
+      const eps = extractEpsCount(it.text) || 0;
+      if (eps && Array.isArray(it.epRatings)) {
+        const had = new Set(a.ers || []);
+        it.epRatings.forEach((v, i) => {
+          if (typeof v !== 'number' || had.has(i) || i >= eps) return;
+          if (!Array.isArray(it.epDone)) it.epDone = new Array(eps).fill(false);
+          it.epDone[i] = true;
+        });
+      }
+      if (simpleKind(it) === 'serie') {
+        const n = Array.isArray(it.epDone) ? it.epDone.slice(0, eps).filter(Boolean).length : 0;
+        if (eps && n >= eps && a.ep < eps) later.push({ id: it.id, why: 'serie' });
+      } else if ((it.rating || 0) > 0 && (it.rating || 0) !== a.rating && !it.ratingAuto) {
+        later.push({ id: it.id, why: 'nota' });
+      }
+    });
+    return later;
+  }
+  function runAutoDone(list) {
+    V40._autoBusy = true;
+    try {
+      list.forEach(x => {
+        const it = items.find(i => i.id === x.id);
+        if (!it || it.done) return;
+        const row = document.querySelector('.item[data-id="' + x.id + '"] .check');
+        toggleDone(x.id, row);
+      });
+    } finally { V40._autoBusy = false; }
+  }
+
   // ---------- save() com os extras da v40 ----------
   const origSave = window.save;
   window.save = function () {
@@ -266,7 +310,10 @@
       // modo só leitura: nada é gravado (e as ações de mudar já ficam bloqueadas antes disso)
       return;
     }
+    let autoDone = [];
+    try { autoDone = autoRules(); } catch (e) { console.error('v40.1 auto', e); }
     const r = origSave.apply(this, arguments);
+    if (autoDone.length) setTimeout(() => runAutoDone(autoDone), 0);
     try {
       stampTrash();
       diffAndLog();
