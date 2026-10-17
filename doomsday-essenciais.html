@@ -3242,7 +3242,7 @@ function toggleDone(id, el) {
     if (eps) it.epDone = new Array(eps).fill(true);
     delete it.watchStart; delete it.watchEnd; delete it.watchKind; delete it.epDates;
     maybeAutoCollapsePhase(it.phase);
-    const stamp = el.parentElement.querySelector('.stamp');
+    const stamp = el && el.parentElement ? el.parentElement.querySelector('.stamp') : null;
     if (stamp) {
       stamp.classList.remove('show');
       void stamp.offsetWidth;
@@ -3827,7 +3827,7 @@ document.getElementById('tabLista').classList.add('tab-visible');
 
 // versão do app (acompanha o CACHE_NAME do sw.js): aparece entre parênteses nos botões de
 // recarregar de todas as abas
-const APP_VERSION = 'v40';
+const APP_VERSION = 'v40.1';
 (function () {
   const home = document.getElementById('btnReloadHome');
   if (home) home.textContent = '🔄 Recarregar (' + APP_VERSION + ')';
@@ -4625,6 +4625,68 @@ function moveItemToPhase() {
   autoReschedule('item movido de fase', id);
 }
 document.getElementById('moveBtn').addEventListener('click', moveItemToPhase);
+
+// ===== v40.1: marcar sozinho =====
+// nota num episódio → marca o episódio; nota num filme/curta/jogo → marca como visto;
+// último episódio marcado → série concluída. Só reage ao que acabou de mudar (compara com o
+// estado do último save), então nada que já estava na lista muda sozinho.
+(function () {
+  let prevState = null, busy = false;
+  function snap() {
+    const m = {};
+    items.forEach(it => {
+      m[it.id] = {
+        rating: it.rating || 0,
+        ep: Array.isArray(it.epDone) ? it.epDone.filter(Boolean).length : 0,
+        ers: Array.isArray(it.epRatings) ? it.epRatings.map((v, i) => typeof v === 'number' ? i : -1).filter(i => i >= 0) : []
+      };
+    });
+    return m;
+  }
+  function rules() {
+    const later = [];
+    if (!prevState || busy) return later;
+    items.forEach(it => {
+      const a = prevState[it.id];
+      if (!a || it.done) return;
+      const eps = extractEpsCount(it.text) || 0;
+      if (eps && Array.isArray(it.epRatings)) {
+        const had = new Set(a.ers);
+        it.epRatings.forEach((v, i) => {
+          if (typeof v !== 'number' || had.has(i) || i >= eps) return;
+          if (!Array.isArray(it.epDone)) it.epDone = new Array(eps).fill(false);
+          it.epDone[i] = true;
+        });
+      }
+      if (simpleKind(it) === 'serie') {
+        const n = Array.isArray(it.epDone) ? it.epDone.slice(0, eps).filter(Boolean).length : 0;
+        if (eps && n >= eps && a.ep < eps) later.push(it.id);
+      } else if ((it.rating || 0) > 0 && (it.rating || 0) !== a.rating && !it.ratingAuto) {
+        later.push(it.id);
+      }
+    });
+    return later;
+  }
+  const origSave = save;
+  save = function () {
+    let later = [];
+    try { later = rules(); } catch (e) { console.error('auto-marcar', e); }
+    const r = origSave.apply(this, arguments);
+    try { prevState = snap(); } catch (e) {}
+    if (later.length) setTimeout(() => {
+      busy = true;
+      try {
+        later.forEach(id => {
+          const it = items.find(i => i.id === id);
+          if (!it || it.done) return;
+          const row = document.querySelector('.item[data-id="' + id + '"] .check');
+          toggleDone(id, row);
+        });
+      } finally { busy = false; }
+    }, 0);
+    return r;
+  };
+})();
 
 load();
 populateMoveSelects();
