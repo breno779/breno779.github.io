@@ -289,22 +289,54 @@
     const det = document.getElementById('v40HomeMore');
     if (det) det.remove();
   };
+  function sbar(n, total, label) {
+    const pct = total ? Math.round(100 * n / total) : 0;
+    const bar = document.createElement('div');
+    bar.className = 'v40-sbar' + (pct >= 100 ? ' full' : '') + (label ? ' geral' : '');
+    bar.innerHTML = `${label ? `<span class="v40-sbar-tag">${label}</span>` : ''}<span class="v40-sbar-track"><span class="v40-sbar-fill" style="width:${pct}%"></span></span><span class="v40-sbar-lbl">${pct}%</span><small>${n}/${total}</small>`;
+    return bar;
+  }
+  const epsOf = i => extractEpsCount(i.text) || 1;
+  const doneEps = i => i.done ? epsOf(i) : (Array.isArray(i.epDone) ? i.epDone.slice(0, epsOf(i)).filter(Boolean).length : 0);
+  const baseName = i => String(V40.shortName(i)).replace(/\s+T\d.*$/, '').replace(/\s+\(\d+ eps\)$/, '').replace(/\s*⏳\s*$/, '').trim();
+  function seriesGroup(it) {
+    if (simpleKind(it) !== 'serie') return null;
+    // dupla / trio intercalado: soma das séries
+    const cfg = (typeof TRIOS !== 'undefined' ? TRIOS : []).find(c => c.keys.includes(it.key));
+    if (cfg) {
+      const members = cfg.keys.map(k => items.find(i => i.key === k)).filter(Boolean);
+      if (members.length < 2) return null;
+      const total = members.reduce((s, i) => s + epsOf(i), 0);
+      const done = members.reduce((s, i) => s + doneEps(i), 0);
+      return { total, done, label: members.length === 2 ? '🧩 Dupla' : '🧩 Trio' };
+    }
+    // série com várias temporadas/partes em itens separados: todas juntas
+    const b = baseName(it);
+    const icon = V40.kindIcon(it);
+    const members = items.filter(i => simpleKind(i) === 'serie' && V40.kindIcon(i) === icon && baseName(i) === b);
+    if (members.length < 2) return null;
+    const total = members.reduce((s, i) => s + epsOf(i), 0);
+    const done = members.reduce((s, i) => s + doneEps(i), 0);
+    return { total, done, label: '📚 Série toda' };
+  }
   // na lista compacta, tocar no título abre/fecha as ações da linha
   const origDecor = window.v40DecorateRow;
   window.v40DecorateRow = function (row, it, mainCol, actions) {
     if (origDecor) origDecor(row, it, mainCol, actions);
-    // 📊 v40.6.7: barra de progresso da série (igual à das fases)
+    // 📊 v40.6.7/8: barras de progresso das séries (iguais à das fases)
+    //  - a do próprio item (temporada/parte)
+    //  - "geral": dupla/trio = soma das séries juntas; série com várias temporadas = todas juntas
     try {
       const eps = simpleKind(it) === 'serie' ? (extractEpsCount(it.text) || 0) : 0;
+      const after = mainCol.querySelector('.series-pct-line') || mainCol.querySelector('.watch-date');
+      let anchor = after;
+      const put = el => { if (anchor) { anchor.after(el); anchor = el; } else mainCol.appendChild(el); };
       if (eps > 1 && !it.done) {
         const n = Array.isArray(it.epDone) ? it.epDone.slice(0, eps).filter(Boolean).length : 0;
-        const pct = Math.round(100 * n / eps);
-        const bar = document.createElement('div');
-        bar.className = 'v40-sbar' + (pct >= 100 ? ' full' : '');
-        bar.innerHTML = `<span class="v40-sbar-track"><span class="v40-sbar-fill" style="width:${pct}%"></span></span><span class="v40-sbar-lbl">${pct}%</span><small>${n}/${eps}</small>`;
-        const after = mainCol.querySelector('.series-pct-line') || mainCol.querySelector('.watch-date');
-        if (after) after.after(bar); else mainCol.appendChild(bar);
+        put(sbar(n, eps, ''));
       }
+      const g = seriesGroup(it);
+      if (g && g.done < g.total && !it.done) put(sbar(g.done, g.total, g.label));
     } catch (e) {}
     row.addEventListener('click', e => {
       if (!document.body.classList.contains('v40-compact')) return;

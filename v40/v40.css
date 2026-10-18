@@ -691,3 +691,8 @@ body.v40-compact .item .watch-date { font-size: 0.62rem; }
 .v40-sbar small { font-size: 0.62rem; color: var(--muted); }
 body.v40-compact .item:not(.v40-open) .v40-sbar { margin: 3px 0 0; }
 body.v40-compact .item:not(.v40-open) .v40-sbar-track { height: 6px; }
+
+/* v40.6.8 — barra "geral" (dupla/trio somados, série toda) */
+.v40-sbar.geral { margin-top: 3px; }
+.v40-sbar-tag { font-size: 0.6rem; font-weight: 800; color: var(--muted); white-space: nowrap; min-width: 4.6em; }
+.v40-sbar.geral .v40-sbar-fill { background: linear-gradient(90deg, #3a6ea5, var(--gold)); }
