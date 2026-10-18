@@ -12,7 +12,7 @@
   V40.BUILD = BUILD;
   const MODE = window.V40_MODE || 'beta';
   V40.MODE = MODE;
-  V40.VERSION_LABEL = MODE === 'beta' ? 'v40.4.6 beta' : 'v40.4.6';
+  V40.VERSION_LABEL = MODE === 'beta' ? 'v40.4.7 beta' : 'v40.4.7';
 
   // =================== APARÊNCIA ===================
   let mql = null;
@@ -237,7 +237,7 @@
     ['Como marco vários episódios?', 'Abra os episódios ▸ "✓ Marcar todos até hoje", ou segure o dedo num episódio pra marcar todos até ele.'],
     ['Onde ficam os extras de cada título?', 'Toque no NOME do título na Lista: aparecem quero rever, coleções, notas detalhadas, cartão do herói e duelo.'],
     ['A nota ainda conta na Liga?', 'Na tabela do campeonato não: lá vale quem você escolhe em cada jogo. A nota continua valendo no campeonato de heróis, no Por fase e no Duelo.'],
-    ['Como funciona o campeonato?', 'Todos contra todos: em ⚽ Jogos você escolhe o vencedor de cada partida ou dá empate (vitória 3, empate 1, derrota 0). Séries contam como 1 time. Os primeiros jogam a 🏆 Libertadores: 8 vagas até 51 times, +1 por time novo, até 32 (com fase de grupos).'],
+    ['Como funciona o campeonato?', 'Todos contra todos: em ⚽ Jogos você escolhe o vencedor de cada partida ou dá empate (vitória 3, empate 1, derrota 0). Séries contam como 1 time. Os primeiros jogam a ♾️ Copa do Infinito: 8 vagas até 51 times, +1 por time novo, até 32 (com fase de grupos).'],
     ['Mudei o ritmo e quero voltar', 'Início ▸ ⏱ Episódios por dia ▸ escolha de novo. Vale a partir de amanhã; o passado não muda.'],
     ['Fiquei atrasado', 'Início ▸ botão vermelho de atraso ▸ escolha recomeçar de hoje ou diluir.'],
     ...(MODE === 'beta' ? [['A beta mexe no meu app de verdade?', 'Não. A beta tem a gaveta dela. Ela copiou seu progresso quando abriu pela primeira vez, e dá pra copiar de novo em Config.']] : []),

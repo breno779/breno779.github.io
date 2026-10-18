@@ -196,7 +196,7 @@
   // v40.4 — CAMPEONATO DE VERDADE: todos contra todos, você escolhe cada jogo
   //   vitória 3 · empate 1 · derrota 0. Séries viram 1 time só (todas as temporadas/partes
   //   juntas, What If T1+T2+T3 também). Entram os concluídos e os em andamento.
-  //   Libertadores: 8 vagas até 51 times, +1 por time novo, até 32 (com fase de grupos).
+  //   Copa do Infinito: 8 vagas até 51 times, +1 por time novo, até 32 (com fase de grupos).
   // =====================================================================
   const L4_KEY = 'liga4';
   function teamBase(name) {
@@ -446,7 +446,7 @@
         <h4>📋 Classificação</h4>
         <div class="v40-l4row head"><span class="lpos">#</span><span class="lname">TIME</span><span>J</span><span>V</span><span>E</span><span>D</span><span class="lpts">P</span></div>
         ${rows}
-        <div class="v40-legend"><span><i class="zc"></i>1º ao ${V40.libSlots(table.length)}º: Libertadores${V40.libSlots(table.length) < 32 ? ` (cada time novo abre mais 1 vaga, até 32)` : ''}</span></div>
+        <div class="v40-legend"><span><i class="zc"></i>1º ao ${V40.libSlots(table.length)}º: Copa do Infinito${V40.libSlots(table.length) < 32 ? ` (cada time novo abre mais 1 vaga, até 32)` : ''}</span></div>
         <p class="v40-muted" style="margin:6px 0 0;">Vitória 3 · empate 1 · derrota 0. Desempate: vitórias ▸ aproveitamento ▸ ordem alfabética. Cada temporada é um time; só entra o que você concluiu. ⚡ Clássico = mesma franquia ou mesma série. ▲▼ = desde a rodada anterior.</p>
       </div>
       <button class="big-action v40-share-btn" id="v40ShareLiga">📤 Compartilhar a tabela como imagem</button>`;
@@ -476,13 +476,13 @@
         <div style="display:flex;gap:8px;margin-top:10px;flex-wrap:wrap;">
           <button id="v40L4Skip" data-k="${V40.esc(pairKey(m[0].pid, m[1].pid))}">⏭ Pular este jogo</button>
           <button id="v40L4Undo" ${st.log.length ? '' : 'disabled'}>↺ Desfazer último</button>
-        </div>` : (teams.length < 2 ? '<p>Precisa de pelo menos 2 times em campo.</p>' : `<p>🎉 Todos os jogos foram disputados! Hora da <button class="v40-link" data-goto="mata">🏆 Libertadores ›</button></p><button id="v40L4Undo" ${st.log.length ? '' : 'disabled'}>↺ Desfazer último</button>`)}
+        </div>` : (teams.length < 2 ? '<p>Precisa de pelo menos 2 times em campo.</p>' : `<p>🎉 Todos os jogos foram disputados! Hora da <button class="v40-link" data-goto="mata">♾️ Copa do Infinito ›</button></p><button id="v40L4Undo" ${st.log.length ? '' : 'disabled'}>↺ Desfazer último</button>`)}
         <div class="v40-l4-bar" style="margin-top:10px;"><i style="width:${prog.played / Math.max(1, prog.total) * 100}%"></i></div>
         <p class="v40-muted">Rodada ${prog.rodada} · ${prog.n} times · cada time enfrenta todos os outros uma vez. Quem jogou menos entra em campo primeiro. Time novo (temporada ou filme que você concluir) entra com 0 pontos e os jogos dele vão aparecendo.</p>
       </div>
       ${last ? `<div class="stat-card"><h4>🗒 Últimos resultados</h4>${last}</div>` : ''}`;
   }
-  // ---------- 🏆 Libertadores ----------
+  // ---------- 🏆 Copa do Infinito ----------
   // vagas: 8 com até 51 times; cada time a mais abre 1 vaga, até parar em 32.
   // Com 32: fase de grupos (8 grupos de 4, todos contra todos no grupo, pode empatar) → os 2
   // primeiros de cada grupo vão pras oitavas. Com 8 a 31: mata-mata direto; quando não fecha
@@ -578,18 +578,18 @@
         <li>Vitória 3 · empate 1 · derrota 0. Desempate: vitórias ▸ aproveitamento ▸ ordem alfabética.</li>
         <li>Cada temporada é um time (partes da mesma temporada juntam). Filme é sempre independente. Só entra o que você concluiu.</li>
         <li>⚡ Clássico: jogo entre títulos da mesma franquia ou temporadas da mesma série.</li>
-        <li>Vagas na Libertadores: 8 com até 51 times; cada time novo abre mais 1 vaga, até 32.</li>
+        <li>Vagas na Copa do Infinito: 8 com até 51 times; cada time novo abre mais 1 vaga, até 32.</li>
         <li>Com 32 vagas: fase de grupos (8 grupos de 4, pode empatar) e os 2 primeiros de cada grupo vão pras oitavas. Com menos: mata-mata direto, e os melhores colocados passam direto da 1ª fase quando a chave não fecha.</li>
         <li>No mata-mata não tem empate.</li>
       </ol></details>`;
     if (!ed) {
       const top = table.slice(0, slotsNow);
       return `<div class="stat-card">
-        <h4>🏆 Libertadores — edição ${champs.length + 1}</h4>
+        <h4>♾️ Copa do Infinito — edição ${champs.length + 1}</h4>
         ${slotsNow < 2 ? `<p>Precisa de pelo menos 2 times no campeonato. Agora: ${teams.length}.</p>` : `
         <p class="v40-muted" style="margin-top:-4px;"><b>${slotsNow} vagas</b> (${teams.length} times${slotsNow < 32 ? ` · a próxima vaga abre com o ${Math.max(52, teams.length + 1)}º time` : ' · máximo'}) · ${slotsNow === 32 ? 'com fase de grupos' : 'mata-mata direto'} · ${prog.played} de ${prog.total} jogos disputados</p>
         ${top.map((t, k) => `<div class="v40-l4row lib"><span class="lpos">${k + 1}º</span><span class="lname">${t.icon} ${V40.esc(t.name)}</span><span></span><span></span><span></span><span></span><span class="lpts">${t.P}</span></div>`).join('')}
-        <button class="v40-primary" id="v40LibStart" style="margin-top:10px;width:100%;">▶️ Começar a Libertadores</button>
+        <button class="v40-primary" id="v40LibStart" style="margin-top:10px;width:100%;">▶️ Começar a Copa do Infinito</button>
         ${prog.played < prog.total ? `<p class="v40-muted">Ainda faltam ${prog.total - prog.played} jogos dos pontos corridos — o ideal é começar quando acabarem.</p>` : ''}`}
         ${champs.length ? `<p class="v40-muted">🏅 Campeões: ${champs.slice().reverse().map(c => `${V40.esc(c.name)} (ed. ${c.n})`).join(' · ')}</p>` : ''}
         ${rules}
@@ -599,7 +599,7 @@
     const cur = S.games.find(g => !g.done && g.a && g.b);
     let stage = '';
     if (S.champion) {
-      stage = `<div class="stat-card v40-ko-champ"><div class="v40-champ-crown">👑</div><div class="v40-muted">CAMPEÃO DA LIBERTADORES · EDIÇÃO ${ed.n}</div><div class="v40-big">${nm(S.champion)}</div><div class="v40-muted">${V40.fmtBR((ed.finishedAt || V40.today()).slice(0, 10), true)}</div></div>`;
+      stage = `<div class="stat-card v40-ko-champ"><div class="v40-champ-crown">👑</div><div class="v40-muted">CAMPEÃO DA COPA DO INFINITO · EDIÇÃO ${ed.n} · CONQUISTOU A MANOPLA 🧤</div><div class="v40-big">${nm(S.champion)}</div><div class="v40-muted">${V40.fmtBR((ed.finishedAt || V40.today()).slice(0, 10), true)}</div></div>`;
     } else if (cur) {
       const A = by[cur.a] || { name: '(saiu)', icon: '❔' }, B = by[cur.b] || { name: '(saiu)', icon: '❔' };
       const cl = V40.isClassic(by[cur.a], by[cur.b]);
@@ -678,7 +678,7 @@
     if (ls) ls.addEventListener('click', () => {
       if (!V40.guard()) return;
       const prog = V40.ligaProgress();
-      if (prog.played < prog.total && !confirm(`Ainda faltam ${prog.total - prog.played} jogos dos pontos corridos. Começar a Libertadores com a tabela de agora mesmo assim?`)) return;
+      if (prog.played < prog.total && !confirm(`Ainda faltam ${prog.total - prog.played} jogos dos pontos corridos. Começar a Copa do Infinito com a tabela de agora mesmo assim?`)) return;
       const table = V40.ligaStandings();
       const n = V40.libSlots(table.length);
       V40.set(LIB_KEY, { n: V40.get('liga4-campeoes', []).length + 1, created: new Date().toISOString(), seeds: table.slice(0, n).map(t => t.pid), format: n === 32 ? 'groups' : 'ko', res: {}, log: [], champion: null });
@@ -688,7 +688,7 @@
     const lr = document.getElementById('v40LibReset');
     if (lr) lr.addEventListener('click', () => {
       const ed = V40.get(LIB_KEY, null);
-      if (ed && (ed.log || []).length && !confirm('Recomeçar a Libertadores do zero? Os jogos já decididos nela se perdem.')) return;
+      if (ed && (ed.log || []).length && !confirm('Recomeçar a Copa do Infinito do zero? Os jogos já decididos nela se perdem.')) return;
       if (ed) V40.set('liga4-campeoes', V40.get('liga4-campeoes', []).filter(c => c.created !== ed.created));
       V40.set(LIB_KEY, null); V40.renderLiga();
     });
@@ -706,7 +706,7 @@
     const heroRows = V40.heroLeague();
     const hist = recordHistory(V40.leagueTable(all), heroRows);
     const hist4 = recordL4History(table, prog.rodada);
-    const tabs = [['titulos', '📋 Tabela'], ['jogos', '⚽ Jogos'], ['mata', '🏆 Libertadores'], ['herois', '🦸 Heróis'], ['fases', '🗂 Por fase'], ['duelo', '🥊 Duelo'], ['historico', '📈 Histórico']];
+    const tabs = [['titulos', '📋 Tabela'], ['jogos', '⚽ Jogos'], ['mata', '♾️ Copa do Infinito'], ['herois', '🦸 Heróis'], ['fases', '🗂 Por fase'], ['duelo', '🥊 Duelo'], ['historico', '📈 Histórico']];
     let body = '';
     if (V40.ligaTab === 'titulos') body = l4TableHtml(table, prog, hist4);
     else if (V40.ligaTab === 'jogos') body = l4GamesHtml(teams, prog);
@@ -716,7 +716,7 @@
     else if (V40.ligaTab === 'duelo') body = duelHtml(all);
     else body = historyHtml(heroRows, hist);
     el.innerHTML = `
-      <h2 class="v40-page-title">🥇 Liga UCM</h2>
+      <h2 class="v40-page-title">🥇 Liga do Multiverso</h2>
       <p class="v40-muted" style="margin-top:-6px;">Rodada <b>${prog.rodada}</b> · ${prog.n} times · ${prog.played}/${prog.total} jogos · vitória 3, empate 1, derrota 0</p>
       <div class="v40-subtabs">${tabs.map(([k, l]) => `<button data-liga="${k}" class="${V40.ligaTab === k ? 'on' : ''}">${l}</button>`).join('')}</div>
       <div id="v40LigaBody">${body}</div>`;
@@ -1139,7 +1139,7 @@
     ctx.fillStyle = '#efe4c8';
     ctx.font = 'bold 76px Bangers, Impact, sans-serif';
     ctx.textAlign = 'center';
-    ctx.fillText('LIGA UCM 🥇', W / 2, 120);
+    ctx.fillText('LIGA DO MULTIVERSO 🥇', W / 2, 120);
     ctx.font = '600 34px "Baloo 2", sans-serif';
     ctx.fillStyle = '#d9a441';
     ctx.fillText(`Rodada ${V40.ligaProgress().rodada} · ${V40.fmtBR(V40.today(), true)}`, W / 2, 175);
@@ -1193,7 +1193,7 @@
       const file = new File([blob], 'liga-ucm.png', { type: 'image/png' });
       try {
         if (navigator.canShare && navigator.canShare({ files: [file] })) {
-          await navigator.share({ files: [file], title: 'Liga UCM' });
+          await navigator.share({ files: [file], title: 'Liga do Multiverso' });
           return;
         }
       } catch (e) { if (e && e.name === 'AbortError') return; }
