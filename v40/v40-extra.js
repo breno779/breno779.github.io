@@ -293,6 +293,19 @@
   const origDecor = window.v40DecorateRow;
   window.v40DecorateRow = function (row, it, mainCol, actions) {
     if (origDecor) origDecor(row, it, mainCol, actions);
+    // 📊 v40.6.7: barra de progresso da série (igual à das fases)
+    try {
+      const eps = simpleKind(it) === 'serie' ? (extractEpsCount(it.text) || 0) : 0;
+      if (eps > 1 && !it.done) {
+        const n = Array.isArray(it.epDone) ? it.epDone.slice(0, eps).filter(Boolean).length : 0;
+        const pct = Math.round(100 * n / eps);
+        const bar = document.createElement('div');
+        bar.className = 'v40-sbar' + (pct >= 100 ? ' full' : '');
+        bar.innerHTML = `<span class="v40-sbar-track"><span class="v40-sbar-fill" style="width:${pct}%"></span></span><span class="v40-sbar-lbl">${pct}%</span><small>${n}/${eps}</small>`;
+        const after = mainCol.querySelector('.series-pct-line') || mainCol.querySelector('.watch-date');
+        if (after) after.after(bar); else mainCol.appendChild(bar);
+      }
+    } catch (e) {}
     row.addEventListener('click', e => {
       if (!document.body.classList.contains('v40-compact')) return;
       if (e.target.closest('button, input, a, img, .check, .rating-widget, .episode-list')) return;
