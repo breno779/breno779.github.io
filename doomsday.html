@@ -2,6 +2,56 @@
 <html lang="pt-BR">
 <head>
 <meta charset="UTF-8">
+<script>
+// ===== v40 nas listas do Doomsday: gaveta própria pros dados da v40 (cada lista tem a sua) =====
+window.V40_LIST = 'doomsday';
+(function () {
+  var T = 'v40dd-';
+  // configurações, senha, tour, aparelho e o assistente valem pro app todo (iguais nas 3 listas)
+  var SHARED = /^v40-(settings|tour-done|device-id|device-name|lock|last-build|profile-name|profile-code|chat|pedidos|ext-last)$/;
+  var S = Storage.prototype, g = S.getItem, st = S.setItem, r = S.removeItem;
+  function m(k) { return (typeof k === 'string' && k.indexOf('v40-') === 0 && !SHARED.test(k)) ? T + k.slice(4) : k; }
+  S.getItem = function (k) { return g.call(this, m(k)); };
+  S.setItem = function (k, v) { return st.call(this, m(k), v); };
+  S.removeItem = function (k) { return r.call(this, m(k)); };
+})();
+</script>
+<script>
+// ===== v40: modo da página + ritmo configurável + pausas extras =====
+window.V40_MODE = 'oficial';
+(function () {
+  // ritmo (episódios por dia) com histórico: cada mudança vale A PARTIR de uma data
+  window.v40RateHistory = function () {
+    try {
+      var h = JSON.parse(localStorage.getItem('v40-rate-history') || 'null');
+      if (Array.isArray(h) && h.length) return h;
+    } catch (e) {}
+    return [{ from: '0000-00-00', anim: 3, live: 2 }];
+  };
+  function isoOf(d) {
+    if (typeof d === 'string') return d;
+    return d.getFullYear() + '-' + String(d.getMonth() + 1).padStart(2, '0') + '-' + String(d.getDate()).padStart(2, '0');
+  }
+  window.v40RateAt = function (d, kind) {
+    var iso = isoOf(d);
+    var o0 = window.__v40RateOverride;
+    if (window.V40_LIST && !o0) { var raw = null; try { raw = localStorage.getItem('v40-rate-history'); } catch (e) {} if (!raw) return null; }
+    var h = window.v40RateHistory().slice().sort(function (a, b) { return a.from < b.from ? -1 : 1; });
+    var cur = h[0];
+    for (var i = 0; i < h.length; i++) if (h[i].from <= iso) cur = h[i];
+    var o = window.__v40RateOverride;
+    if (o && (!o.from || iso >= o.from)) return kind === 'live' ? o.live : o.anim;
+    return kind === 'live' ? (cur.live || 2) : (cur.anim || 3);
+  };
+  window.v40IsExtraPause = function (d) {
+    var iso = isoOf(d);
+    var list = [];
+    try { list = JSON.parse(localStorage.getItem('v40-extra-pauses') || '[]'); } catch (e) {}
+    for (var i = 0; i < list.length; i++) if (iso >= list[i][0] && iso <= list[i][1]) return true;
+    return false;
+  };
+})();
+</script>
 <meta http-equiv="Cache-Control" content="no-cache, no-store, must-revalidate">
 <meta http-equiv="Pragma" content="no-cache">
 <meta http-equiv="Expires" content="0">
@@ -857,6 +907,7 @@ if ('serviceWorker' in navigator) {
     .progress-fill { transition: none; }
   }
 </style>
+<link rel="stylesheet" href="v40/v40.css?b=202610180128">
 </head>
 <body>
 <div class="sticky-progress" id="stickyProgress">
@@ -1077,7 +1128,7 @@ const HERO_GROUPS = [
 // ritmo dos trios intercalados: 3 eps/dia até 29/09/2026, 4 eps/dia a partir de 30/09/2026
 // (subiu por causa da entrada de Guardiões da Galáxia no trio 2 — combinação votada com o usuário).
 const TRIO_RATE_SWITCH_DATE = '2026-09-30';
-function trioRateFor(dateIso) { return 3; } // voltou pra 3 eps/dia (4 estava puxado demais)
+function trioRateFor(dateIso) { var v = window.v40RateAt ? v40RateAt(dateIso, 'anim') : null; if (v) return v; return 3; } // voltou pra 3 eps/dia (4 estava puxado demais)
 
 // grupos intercalados: cada um é identificado pelas "key" dos 3 itens que o compõem (nessa
 // ordem). A ordem de intercalação em si (TRIO_ORDER de cada grupo) é calculada com
@@ -1878,7 +1929,7 @@ function pushToCloudNow() {
     trash: trash,
     listVersion: LIST_VERSION,
     updatedAt: firebase.firestore.FieldValue.serverTimestamp()
-  }).then(() => {
+  }, { merge: true }).then(() => {
     setSyncStatus('✅ Sincronizado agora');
   }).catch(err => {
     console.error('sync push error', err);
@@ -2141,7 +2192,8 @@ function groupByPhase(searchTerm) {
   PHASE_ORDER.forEach(p => map.set(p, []));
   const term = normalizeStr(searchTerm || '');
   sortItems(items).forEach(it => {
-    if (term && !normalizeStr(it.text).includes(term)) return;
+    if (term && !(window.v40TermMatch ? v40TermMatch(it, term) : normalizeStr(it.text).includes(term))) return;
+    if (window.v40Filter && !v40Filter(it)) return;
     if (onlyPending && it.done) return;
     if (favOnly && !it.favorite) return;
     if (!matchesKindFilter(it)) return;
@@ -2165,6 +2217,7 @@ function getNext7Items() {
 function buildItemRow(it) {
       const row = document.createElement('div');
       row.className = 'item' + (it.done ? ' done' : '') + (isToday(it) ? ' today' : '');
+      row.dataset.id = it.id;
 
       if (multiSelectMode) {
         const sel = document.createElement('input');
@@ -2226,19 +2279,7 @@ function buildItemRow(it) {
         starsEl.appendChild(numSpan);
         starsEl.appendChild(ratingUpBtn);
       }
-      const noteBtn = document.createElement('button');
-      noteBtn.textContent = it.note ? '📝' : '📝+';
-      noteBtn.title = 'Anotação';
-      noteBtn.addEventListener('click', (ev) => { ev.stopPropagation(); openNoteEditor(it.id); });
-      starsEl.appendChild(noteBtn);
       mainCol.appendChild(starsEl);
-
-      if (it.note) {
-        const noteDisp = document.createElement('div');
-        noteDisp.style.cssText = 'font-size:0.72rem;color:var(--muted);font-style:italic;margin-top:2px;white-space:pre-wrap;';
-        noteDisp.textContent = '📝 ' + it.note;
-        mainCol.appendChild(noteDisp);
-      }
 
       if (it.watchStart && !it.done) {
         const dateEl = document.createElement('div');
@@ -2373,6 +2414,7 @@ function buildItemRow(it) {
       stamp.className = 'stamp';
       stamp.textContent = 'VISTO!';
       row.appendChild(stamp);
+      if (window.v40DecorateRow) { try { v40DecorateRow(row, it, mainCol, actions); } catch (e) { console.error(e); } }
 
       return row;
 }
@@ -3320,13 +3362,14 @@ function render() {
   const doneTotal = items.filter(i => i.done).length;
   const allTotal = items.length;
 
-  if (showNext7 || alphaMode || calendarFilter) {
+  if (showNext7 || alphaMode || calendarFilter || (window.v40SortActive && v40SortActive())) {
     let list;
     if (calendarFilter) {
       list = sortItems(items.filter(it => {
         const searchTerm = document.getElementById('searchInput') ? document.getElementById('searchInput').value : '';
         const term = normalizeStr(searchTerm || '');
-        if (term && !normalizeStr(it.text).includes(term)) return false;
+        if (term && !(window.v40TermMatch ? v40TermMatch(it, term) : normalizeStr(it.text).includes(term))) return false;
+        if (window.v40Filter && !v40Filter(it)) return false;
         if (onlyPending && it.done) return false;
         if (favOnly && !it.favorite) return false;
         if (!matchesKindFilter(it)) return false;
@@ -3338,13 +3381,15 @@ function render() {
       list = sortItems(items.filter(it => {
         const searchTerm = document.getElementById('searchInput') ? document.getElementById('searchInput').value : '';
         const term = normalizeStr(searchTerm || '');
-        if (term && !normalizeStr(it.text).includes(term)) return false;
+        if (term && !(window.v40TermMatch ? v40TermMatch(it, term) : normalizeStr(it.text).includes(term))) return false;
+        if (window.v40Filter && !v40Filter(it)) return false;
         if (onlyPending && it.done) return false;
         if (favOnly && !it.favorite) return false;
         if (!matchesKindFilter(it)) return false;
         return true;
       }));
     }
+    if (window.v40SortList) list = v40SortList(list);
     if (list.length === 0) {
       const noRes = document.createElement('div');
       noRes.className = 'no-results';
@@ -3419,6 +3464,7 @@ function render() {
   updateCountdownDoomsday();
   updateEndBadge();
   renderPhaseTimeline();
+  if (window.v40AfterRender) { try { v40AfterRender(); } catch (e) { console.error(e); } }
 
   const sel = document.getElementById('phaseSelect');
   sel.innerHTML = '';
@@ -4086,7 +4132,7 @@ document.getElementById('tabLista').classList.add('tab-visible');
 
 // versão do app (acompanha o CACHE_NAME do sw.js): aparece entre parênteses nos botões de
 // recarregar de todas as abas
-const APP_VERSION = 'v40.4.4';
+const APP_VERSION = 'v40.4.5';
 (function () {
   const home = document.getElementById('btnReloadHome');
   if (home) home.textContent = '🔄 Recarregar (' + APP_VERSION + ')';
@@ -4574,6 +4620,7 @@ const PAUSE_WINDOWS = [
 function isPauseDay(d) {
   // períodos de "férias" de verdade: nada avança nesses dias, ritmo normal no resto.
   const iso = fmtDateISO(d);
+  if (window.v40IsExtraPause && v40IsExtraPause(iso)) return true;
   return PAUSE_WINDOWS.some(([start, end]) => iso >= start && iso <= end);
 }
 const SLOW_WINDOWS = [
@@ -4836,7 +4883,7 @@ function recomputeSchedule(anchorItemId, forceStartDate) {
       while (rem > 0 && guard < 3650) {
         if (!isPauseDay(d)) {
           if (startD === null) startD = new Date(d);
-          rem -= isSlowDay(d) ? 1 : normalRate;
+          rem -= isSlowDay(d) ? 1 : ((window.v40RateAt && v40RateAt(d, kind === 'anim' ? 'anim' : 'live')) || normalRate);
           lastGood = new Date(d);
         }
         d.setDate(d.getDate() + 1);
@@ -4900,68 +4947,6 @@ function moveItemToPhase() {
 }
 document.getElementById('moveBtn').addEventListener('click', moveItemToPhase);
 
-// ===== v40.1: marcar sozinho =====
-// nota num episódio → marca o episódio; nota num filme/curta/jogo → marca como visto;
-// último episódio marcado → série concluída. Só reage ao que acabou de mudar (compara com o
-// estado do último save), então nada que já estava na lista muda sozinho.
-(function () {
-  let prevState = null, busy = false;
-  function snap() {
-    const m = {};
-    items.forEach(it => {
-      m[it.id] = {
-        rating: it.rating || 0,
-        ep: Array.isArray(it.epDone) ? it.epDone.filter(Boolean).length : 0,
-        ers: Array.isArray(it.epRatings) ? it.epRatings.map((v, i) => typeof v === 'number' ? i : -1).filter(i => i >= 0) : []
-      };
-    });
-    return m;
-  }
-  function rules() {
-    const later = [];
-    if (!prevState || busy) return later;
-    items.forEach(it => {
-      const a = prevState[it.id];
-      if (!a || it.done) return;
-      const eps = extractEpsCount(it.text) || 0;
-      if (eps && Array.isArray(it.epRatings)) {
-        const had = new Set(a.ers);
-        it.epRatings.forEach((v, i) => {
-          if (typeof v !== 'number' || had.has(i) || i >= eps) return;
-          if (!Array.isArray(it.epDone)) it.epDone = new Array(eps).fill(false);
-          it.epDone[i] = true;
-        });
-      }
-      if (simpleKind(it) === 'serie') {
-        const n = Array.isArray(it.epDone) ? it.epDone.slice(0, eps).filter(Boolean).length : 0;
-        if (eps && n >= eps && a.ep < eps) later.push(it.id);
-      } else if ((it.rating || 0) > 0 && (it.rating || 0) !== a.rating && !it.ratingAuto) {
-        later.push(it.id);
-      }
-    });
-    return later;
-  }
-  const origSave = save;
-  save = function () {
-    let later = [];
-    try { later = rules(); } catch (e) { console.error('auto-marcar', e); }
-    const r = origSave.apply(this, arguments);
-    try { prevState = snap(); } catch (e) {}
-    if (later.length) setTimeout(() => {
-      busy = true;
-      try {
-        later.forEach(id => {
-          const it = items.find(i => i.id === id);
-          if (!it || it.done) return;
-          const row = document.querySelector('.item[data-id="' + id + '"] .check');
-          toggleDone(id, row);
-        });
-      } finally { busy = false; }
-    }, 0);
-    return r;
-  };
-})();
-
 load();
 populateMoveSelects();
 populateInsertAfterSelect();
@@ -4985,5 +4970,15 @@ initCloudSync();
 </script>
 <div class="toast-container" id="toastContainer"></div>
 <div class="marathon-screen" id="marathonScreen"></div>
+<script src="v40/v40-catalog.js?b=202610180128"></script>
+<script src="v40/v40-core.js?b=202610180128"></script>
+<script src="v40/v40-liga.js?b=202610180128"></script>
+<script src="v40/v40-stats.js?b=202610180128"></script>
+<script src="v40/v40-fun.js?b=202610180128"></script>
+<script src="v40/v40-data.js?b=202610180128"></script>
+<script src="v40/v40-content.js?b=202610180128"></script>
+<script src="v40/v40-sync.js?b=202610180128"></script>
+<script src="v40/v40-pedidos.js?b=202610180128"></script>
+<script src="v40/v40-system.js?b=202610180128"></script>
 </body>
 </html>

@@ -9,7 +9,11 @@ Os scripts e o CSS da v40 ficam em /v40/ e são os mesmos pras 3; cada página d
 em window.V40_MODE ('oficial' | 'beta' | 'amigo').
 
 Uso: python3 tools/build_v40.py      (da raiz do repositório)
-Para mudar o app: edite tools/base.html e/ou os arquivos em v40/, e rode este script.
+  doomsday.html / doomsday-essenciais.html -> listas do Doomsday, com a v40 completa. Fontes:
+                       tools/base-doomsday.html e tools/base-essenciais.html (mudança no código da
+                       lista tem que ir nas 3 fontes). Dados da v40 numa gaveta própria por lista.
+
+Para mudar o app: edite tools/base*.html e/ou os arquivos em v40/, e rode este script.
 """
 import json
 import re
@@ -20,7 +24,7 @@ from pathlib import Path
 ROOT = Path(__file__).resolve().parent.parent
 SRC = ROOT / 'tools' / 'base.html'
 BUILD = time.strftime('%Y%m%d%H%M')
-VERSION = 'v40.4.4'
+VERSION = 'v40.4.5'
 
 V40_SCRIPTS = ['v40-catalog.js', 'v40-core.js', 'v40-liga.js', 'v40-stats.js', 'v40-fun.js', 'v40-data.js',
                'v40-content.js', 'v40-sync.js', 'v40-pedidos.js', 'v40-system.js']
@@ -52,6 +56,8 @@ window.V40_MODE = '__MODE__';
   }
   window.v40RateAt = function (d, kind) {
     var iso = isoOf(d);
+    var o0 = window.__v40RateOverride;
+    if (window.V40_LIST && !o0) { var raw = null; try { raw = localStorage.getItem('v40-rate-history'); } catch (e) {} if (!raw) return null; }
     var h = window.v40RateHistory().slice().sort(function (a, b) { return a.from < b.from ? -1 : 1; });
     var cur = h[0];
     for (var i = 0; i < h.length; i++) if (h[i].from <= iso) cur = h[i];
@@ -169,12 +175,14 @@ def common(s, mode, asset_prefix):
     s = sub_once(s, '<head>\n<meta charset="UTF-8">\n', '<head>\n<meta charset="UTF-8">\n' + MODE_SHIM.replace('__MODE__', mode), 'mode shim')
     s = sub_once(s, '</head>', f'<link rel="stylesheet" href="{asset_prefix}v40.css?b={BUILD}">\n</head>', 'css link')
     # ritmo + pausas
-    s = sub_once(s, "function trioRateFor(dateIso) { return 3; }",
-                 "function trioRateFor(dateIso) { return window.v40RateAt ? v40RateAt(dateIso, 'anim') : 3; }", 'trio rate')
+    s, n = re.subn(r"function trioRateFor\(dateIso\) \{ return (.+?); \}",
+                  lambda m: "function trioRateFor(dateIso) { var v = window.v40RateAt ? v40RateAt(dateIso, 'anim') : null; if (v) return v; return " + m.group(1) + "; }", s, count=1)
+    if n != 1:
+        print('ERRO: trio rate', file=sys.stderr); sys.exit(1)
     s = sub_once(s, "  return PAUSE_WINDOWS.some(([start, end]) => iso >= start && iso <= end);\n",
                  "  if (window.v40IsExtraPause && v40IsExtraPause(iso)) return true;\n  return PAUSE_WINDOWS.some(([start, end]) => iso >= start && iso <= end);\n", 'pause')
     s = sub_once(s, "          rem -= isSlowDay(d) ? 1 : normalRate;\n",
-                 "          rem -= isSlowDay(d) ? 1 : (window.v40RateAt ? v40RateAt(d, kind === 'anim' ? 'anim' : 'live') : normalRate);\n", 'rate')
+                 "          rem -= isSlowDay(d) ? 1 : ((window.v40RateAt && v40RateAt(d, kind === 'anim' ? 'anim' : 'live')) || normalRate);\n", 'rate')
     # anotações removidas
     s = re.sub(r"      const noteBtn = document\.createElement\('button'\);.*?mainCol\.appendChild\(starsEl\);\n\n      if \(it\.note\) \{.*?\n      \}\n",
                "      mainCol.appendChild(starsEl);\n", s, count=1, flags=re.S)
@@ -322,13 +330,40 @@ def build_amigo(base):
     return s, len(flags)
 
 
+LIST_SHIM = r"""<script>
+// ===== v40 nas listas do Doomsday: gaveta própria pros dados da v40 (cada lista tem a sua) =====
+window.V40_LIST = '__LIST__';
+(function () {
+  var T = 'v40__TAG__-';
+  // configurações, senha, tour, aparelho e o assistente valem pro app todo (iguais nas 3 listas)
+  var SHARED = /^v40-(settings|tour-done|device-id|device-name|lock|last-build|profile-name|profile-code|chat|pedidos|ext-last)$/;
+  var S = Storage.prototype, g = S.getItem, st = S.setItem, r = S.removeItem;
+  function m(k) { return (typeof k === 'string' && k.indexOf('v40-') === 0 && !SHARED.test(k)) ? T + k.slice(4) : k; }
+  S.getItem = function (k) { return g.call(this, m(k)); };
+  S.setItem = function (k, v) { return st.call(this, m(k), v); };
+  S.removeItem = function (k) { return r.call(this, m(k)); };
+})();
+</script>
+"""
+
+
+def build_lista(base, list_id, tag):
+    s = common(base, 'oficial', 'v40/')
+    s = sub_once(s, '<head>\n<meta charset="UTF-8">\n', '<head>\n<meta charset="UTF-8">\n' + LIST_SHIM.replace('__LIST__', list_id).replace('__TAG__', tag), 'list shim')
+    s = re.sub(r"const APP_VERSION = '[^']+';", f"const APP_VERSION = '{VERSION}';", s, count=1)
+    return s
+
+
 def main():
     base = SRC.read_text(encoding='utf-8')
     (ROOT / 'principal.html').write_text(build_oficial(base), encoding='utf-8')
     (ROOT / 'beta' / 'index.html').write_text(build_beta(base), encoding='utf-8')
     amigo, nflags = build_amigo(base)
     (ROOT / 'amigo' / 'index.html').write_text(amigo, encoding='utf-8')
-    print(f'ok: principal.html, beta/index.html, amigo/index.html ({nflags} flags) — build {BUILD}')
+    for src, out, lid, tag in [('base-doomsday.html', 'doomsday.html', 'doomsday', 'dd'), ('base-essenciais.html', 'doomsday-essenciais.html', 'essenciais', 'es')]:
+        b = (ROOT / 'tools' / src).read_text(encoding='utf-8')
+        (ROOT / out).write_text(build_lista(b, lid, tag), encoding='utf-8')
+    print(f'ok: principal.html, beta/index.html, amigo/index.html ({nflags} flags), doomsday.html, doomsday-essenciais.html — build {BUILD}')
 
 
 if __name__ == '__main__':

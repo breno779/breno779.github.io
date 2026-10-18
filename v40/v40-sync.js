@@ -15,7 +15,8 @@
   const BETA = MODE === 'beta';
   // beta: documentos próprios ("v40b-…"). Oficial/amigo: o MESMO documento da sincronização de
   // sempre (o código), e os extras (backups, perfil) com prefixo "v40-".
-  const PREFIX = BETA ? 'v40b-' : 'v40-';
+  // cada lista do Doomsday tem os extras dela na nuvem (backups, perfil)
+  const PREFIX = BETA ? 'v40b-' : (window.V40_LIST ? 'v40' + (window.V40_LIST === 'doomsday' ? 'dd' : 'es') + '-' : 'v40-');
   const docMain = () => BETA ? PREFIX + V40.syncCode() : (typeof syncDocId === 'function' ? syncDocId(V40.syncCode()) : V40.syncCode());
 
   // =================== FIREBASE (carrega só quando precisa) ===================

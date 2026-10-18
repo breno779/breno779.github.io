@@ -12,7 +12,7 @@
   V40.BUILD = BUILD;
   const MODE = window.V40_MODE || 'beta';
   V40.MODE = MODE;
-  V40.VERSION_LABEL = MODE === 'beta' ? 'v40.4.4 beta' : 'v40.4.4';
+  V40.VERSION_LABEL = MODE === 'beta' ? 'v40.4.5 beta' : 'v40.4.5';
 
   // =================== APARÊNCIA ===================
   let mql = null;
@@ -543,7 +543,7 @@
       if (rt) { localStorage.removeItem('v40-reload-tab'); switchTab(rt); }
     } catch (e) {}
     if (MODE === 'beta' && window.__v40JustCopied) setTimeout(() => V40.toast('📥 Seu progresso foi copiado do app atual pra beta'), 600);
-    if (MODE === 'oficial') setTimeout(() => {
+    if (MODE === 'oficial' && !window.V40_LIST) setTimeout(() => {
       try {
         if (window.__v40FreshDevice && window.__v40BlockPush) { V40.set('tour-done', true); V40.openFreshDevice(); }
         else V40.checkBetaMigration();

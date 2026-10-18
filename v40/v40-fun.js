@@ -235,7 +235,7 @@
       <div class="big">♾️</div>
       <div class="lbl">MARATONA COMPLETA</div>
       <h3>Você viu TUDO.</h3>
-      <p>${items.length} títulos. Do passado de Asgard até Guerras Secretas.</p>
+      <p>${items.length} títulos. Do passado de Asgard até ${window.V40_LIST ? 'Doomsday' : 'Guerras Secretas'}.</p>
       <p>"Eu sou… inevitável." — e você também foi.</p>
       <button class="v40-primary" id="v40FinalWrapped">🎁 Ver minha retrospectiva</button>
     </div>`);
