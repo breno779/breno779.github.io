@@ -1,6 +1,6 @@
 /* =====================================================================
  * UCM Watchlist — v40 BETA — 🥇 Liga (campeonatos)
- *  - Pontos corridos por título (nota arredondada = pontos; empate = mesma posição)
+ *  - Pontos corridos por título (nota exata = pontos; empate = mesma posição)
  *  - Campeonato de heróis/grupos: Filmes · Séries · Geral
  *  - Mata-mata dos títulos nota 10 (você escolhe o "verdadeiro 10")
  *  - Por fase · Duelo · Histórico de posições · Artilheiro e melhor defesa
@@ -45,7 +45,7 @@
       const ps = [r.avgFilmes, r.avgSeries].filter(v => v != null);
       r.avgGeral = ps.length ? ps.reduce((a, b) => a + b, 0) / ps.length : null;
       r.all = r.filmes.concat(r.series);
-      r.pts = r.all.reduce((s, p) => s + p.pts, 0);
+      r.pts = V40.round1(r.all.reduce((s, p) => s + p.pts, 0));
       r.tens = r.all.filter(p => p.pts === 10).length;
       r.min = r.all.length ? Math.min.apply(null, r.all.map(p => p.rating)) : null;
     });
@@ -54,7 +54,7 @@
   V40.heroTable = function (rows, which) {
     const key = which === 'filmes' ? 'avgFilmes' : which === 'series' ? 'avgSeries' : 'avgGeral';
     const listKey = which === 'filmes' ? 'filmes' : which === 'series' ? 'series' : 'all';
-    const ranked = rows.filter(r => r[key] != null).map(r => ({ r, val: r[key], n: r[listKey].length, pts: r[listKey].reduce((s, p) => s + p.pts, 0) }));
+    const ranked = rows.filter(r => r[key] != null).map(r => ({ r, val: r[key], n: r[listKey].length, pts: V40.round1(r[listKey].reduce((s, p) => s + p.pts, 0)) }));
     ranked.sort((a, b) => (b.val - a.val) || (b.pts - a.pts) || (b.n - a.n));
     ranked.forEach((x, i) => { x.pos = i + 1; });
     return ranked;
@@ -110,7 +110,7 @@
     else body = historyHtml(heroRows, hist);
     el.innerHTML = `
       <h2 class="v40-page-title">🥇 Liga UCM</h2>
-      <p class="v40-muted" style="margin-top:-6px;">Rodada <b>${rodada}</b> · ${all.length} participantes · nota arredondada vira ponto (7,5 → 8)</p>
+      <p class="v40-muted" style="margin-top:-6px;">Rodada <b>${rodada}</b> · ${all.length} participantes · a nota exata é a pontuação (9,8 fica à frente de 9,6)</p>
       <div class="v40-subtabs">${tabs.map(([k, l]) => `<button data-liga="${k}" class="${V40.ligaTab === k ? 'on' : ''}">${l}</button>`).join('')}</div>
       <div id="v40LigaBody">${body}</div>`;
     el.querySelectorAll('[data-liga]').forEach(b => b.addEventListener('click', () => {
@@ -140,14 +140,14 @@
       return `<div class="v40-lrow ${z}${showPos ? ' first' : ''}" data-pid="${p.pid}">
         <span class="lpos">${showPos ? p.pos + 'º' : ''}</span>
         <span class="lname">${p.pos === 1 ? '👑 ' : ''}${p.icon} ${V40.esc(p.name)}${p.inProgress ? ' <small class="v40-prog">em andamento</small>' : ''} ${moveHtml(prev && prev.titles[p.pid], p.pos)}</span>
-        <span class="lpts">${p.pts}</span>
+        <span class="lpts">${V40.fmt1(p.pts)}</span>
         <span class="lrat">${V40.fmt1(p.rating)}</span>
       </div>`;
     }).join('');
     return `
       <div class="stat-card v40-champ-card">
         <div class="v40-champ-crown">🏆</div>
-        <div><b>${champs.length === 1 ? 'Campeão' : champs.length + ' campeões empatados'}</b> com ${champs[0].pts} pontos</div>
+        <div><b>${champs.length === 1 ? 'Campeão' : champs.length + ' campeões empatados'}</b> com ${V40.fmt1(champs[0].pts)} pontos</div>
         <div class="v40-muted">${champs.slice(0, 6).map(p => V40.esc(p.name)).join(' · ')}${champs.length > 6 ? ' …' : ''}</div>
         ${champs.length > 1 && champs[0].pts === 10 ? '<button class="v40-link" data-goto="mata">⚔️ Decidir o verdadeiro 10 no mata-mata ›</button>' : ''}
       </div>
@@ -183,14 +183,14 @@
         <span class="lpos">${x.pos}º</span>
         <span class="lname">${x.pos === 1 ? '👑 ' : ''}${x.r.g.emoji} ${V40.esc(x.r.g.label)} ${which === 'geral' ? moveHtml(prev && prev.heroes[x.r.g.id], x.pos) : ''}</span>
         <span class="lnum">${x.n}</span>
-        <span class="lpts">${x.pts}</span>
+        <span class="lpts">${V40.fmt1(x.pts)}</span>
         <span class="lrat">${V40.fmt1(x.val)}</span>
       </div>`).join('');
     return `
       <div class="v40-grid2">
         <div class="stat-card v40-mini">
           <h4>⚽ Artilheiro</h4>
-          ${scorer ? `<div class="v40-big">${scorer.g.emoji} ${V40.esc(scorer.g.label)}</div><div class="v40-muted">${scorer.tens} título(s) nota 10 · ${scorer.pts} pts</div>` : '<div class="v40-muted">—</div>'}
+          ${scorer ? `<div class="v40-big">${scorer.g.emoji} ${V40.esc(scorer.g.label)}</div><div class="v40-muted">${scorer.tens} título(s) nota 10 · ${V40.fmt1(scorer.pts)} pts</div>` : '<div class="v40-muted">—</div>'}
         </div>
         <div class="stat-card v40-mini">
           <h4>🧱 Melhor defesa</h4>
@@ -226,7 +226,7 @@
         <select id="v40PhaseSel" class="v40-select">${phases.map(ph => `<option value="${V40.esc(ph)}" ${ph === V40.ligaPhase ? 'selected' : ''}>${V40.esc(ph)}</option>`).join('')}</select>
         <p class="v40-muted">${list.length}/${total} títulos com nota nessa fase${champs.length ? ` · campeão: ${champs.map(p => V40.esc(p.name)).join(', ')}` : ''}</p>
         <div class="v40-lrow head"><span class="lpos">#</span><span class="lname">TÍTULO</span><span class="lpts">PTS</span><span class="lrat">NOTA</span></div>
-        ${list.map(p => `<div class="v40-lrow ${p.pos === 1 ? 'champ' : ''}"><span class="lpos">${p.pos}º</span><span class="lname">${p.icon} ${V40.esc(p.name)}</span><span class="lpts">${p.pts}</span><span class="lrat">${V40.fmt1(p.rating)}</span></div>`).join('') || '<p class="v40-muted">Nada com nota nessa fase ainda.</p>'}
+        ${list.map(p => `<div class="v40-lrow ${p.pos === 1 ? 'champ' : ''}"><span class="lpos">${p.pos}º</span><span class="lname">${p.icon} ${V40.esc(p.name)}</span><span class="lpts">${V40.fmt1(p.pts)}</span><span class="lrat">${V40.fmt1(p.rating)}</span></div>`).join('') || '<p class="v40-muted">Nada com nota nessa fase ainda.</p>'}
       </div>
       <div class="stat-card">
         <h4>🏁 Resumo das fases</h4>
@@ -265,7 +265,7 @@
     const heroes = p => (p.heroes || []).map(g => g.emoji + ' ' + g.label).join(', ') || '—';
     const rows = [
       ['⭐ Nota', pa.rating > 0 ? V40.fmt1(pa.rating) : '—', pb.rating > 0 ? V40.fmt1(pb.rating) : '—', (pa.rating || 0) - (pb.rating || 0)],
-      ['🏅 Pontos', pa.pts, pb.pts, pa.pts - pb.pts],
+      ['🏅 Pontos', V40.fmt1(pa.pts), V40.fmt1(pb.pts), pa.pts - pb.pts],
       ['📋 Posição', posOf(pa) ? posOf(pa) + 'º' : '—', posOf(pb) ? posOf(pb) + 'º' : '—', (posOf(pb) || 999) - (posOf(pa) || 999)],
       ['⏱ Duração', Math.round(durationMin(pa) / 60 * 10) / 10 + 'h', Math.round(durationMin(pb) / 60 * 10) / 10 + 'h', 0],
       ['🦸 Herói', heroes(pa), heroes(pb), 0],
@@ -338,7 +338,7 @@
   // potência de 2; quem sobra, os melhores cabeças de chave (nota exata, depois ordem cronológica)
   // passam direto da 1ª rodada.
   function tens(all) {
-    return all.filter(p => p.done && p.pts === 10).sort((a, b) => (b.rating - a.rating) || (a.order - b.order));
+    return all.filter(p => p.done && V40.round1(p.rating) >= 9.5).sort((a, b) => (b.rating - a.rating) || (a.order - b.order));
   }
   function seedOrder(size) {
     let order = [1];
@@ -397,7 +397,7 @@
     const eligible = tens(all);
     let ko = V40.get('knockout', null);
     if (eligible.length < 2) {
-      return `<div class="stat-card"><h4>⚔️ Mata-mata dos 10</h4><p>Precisa de pelo menos 2 títulos concluídos valendo 10 pontos (nota 9,5 a 10). Agora: ${eligible.length}.</p></div>`;
+      return `<div class="stat-card"><h4>⚔️ Mata-mata dos 10</h4><p>Precisa de pelo menos 2 títulos concluídos com nota 9,5 ou mais. Agora: ${eligible.length}.</p></div>`;
     }
     if (!ko) ko = V40.newKnockout(all);
     const byPid = {};
@@ -523,7 +523,7 @@
       ctx.fillText(name, 150, y);
       ctx.textAlign = 'right';
       ctx.font = 'bold 34px "JetBrains Mono", monospace';
-      ctx.fillText(String(p.pts), 900, y);
+      ctx.fillText(V40.fmt1(p.pts), 900, y);
       ctx.fillStyle = '#9a927e';
       ctx.fillText(V40.fmt1(p.rating), 1010, y);
       ctx.textAlign = 'left';
@@ -588,7 +588,7 @@
           <div><b>${r.avgFilmes != null ? V40.fmt1(r.avgFilmes) : '—'}</b><small>FILMES · ${posIn('filmes')}</small></div>
           <div><b>${r.avgSeries != null ? V40.fmt1(r.avgSeries) : '—'}</b><small>SÉRIES · ${posIn('series')}</small></div>
           <div><b>${seen}/${mine.length}</b><small>VISTOS</small></div>
-          <div><b>${r.pts}</b><small>PONTOS</small></div>
+          <div><b>${V40.fmt1(r.pts)}</b><small>PONTOS</small></div>
           <div><b>${r.tens}</b><small>NOTAS 10</small></div>
         </div>
         ${best ? `<p>🏆 Melhor: <b>${V40.esc(best.name)}</b> (${V40.fmt1(best.rating)})${worst && worst !== best ? `<br>📉 Pior: <b>${V40.esc(worst.name)}</b> (${V40.fmt1(worst.rating)})` : ''}</p>` : '<p class="v40-muted">Nenhum título dele com nota ainda.</p>'}

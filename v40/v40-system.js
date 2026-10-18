@@ -153,7 +153,7 @@
       let heroes = '';
       try { heroes = heroGroupsOf(it).map(g => g.label).join(' / '); } catch (e) {}
       return [order.get(it.id) + 1, it.phase, V40.cleanName(it), k, it.text.includes('🎨') ? 'animação' : (k === 'jogo' ? 'jogo' : 'live action'), it.done ? 'sim' : 'não', it.completedAt || '',
-        r > 0 ? String(V40.round1(r)).replace('.', ',') : '', r > 0 ? V40.points(r) : '', Array.isArray(it.epDone) ? it.epDone.filter(Boolean).length : '', eps || '',
+        r > 0 ? String(V40.round1(r)).replace('.', ',') : '', r > 0 ? String(V40.points(r)).replace('.', ',') : '', Array.isArray(it.epDone) ? it.epDone.filter(Boolean).length : '', eps || '',
         it.favorite ? 'sim' : '', it.rewatch ? 'sim' : '', s.roteiro != null ? String(s.roteiro).replace('.', ',') : '', s.acao != null ? String(s.acao).replace('.', ',') : '', s.emocao != null ? String(s.emocao).replace('.', ',') : '', heroes].map(q).join(';');
     });
     const csv = '﻿' + head.join(';') + '\n' + rows.join('\n');
@@ -236,8 +236,8 @@
     ['Como marco um título?', 'Toque no quadradinho à esquerda — ou deslize o título pra direita.'],
     ['Como marco vários episódios?', 'Abra os episódios ▸ "✓ Marcar todos até hoje", ou segure o dedo num episódio pra marcar todos até ele.'],
     ['Onde ficam os extras de cada título?', 'Toque no NOME do título na Lista: aparecem quero rever, coleções, notas detalhadas, cartão do herói e duelo.'],
-    ['Como funciona a pontuação da Liga?', 'A nota vira ponto arredondando: 7,0–7,4 = 7 pontos; 7,5–7,9 = 8. Mesmo ponto = mesma posição. Série em andamento entra com a média dos episódios que você avaliou.'],
-    ['O que é o mata-mata dos 10?', 'Todos os títulos concluídos que valem 10 pontos se enfrentam; você escolhe o vencedor de cada jogo até sobrar o verdadeiro 10.'],
+    ['Como funciona a pontuação da Liga?', 'A pontuação é a nota exata, sem arredondar: 9,8 fica à frente de 9,6. Nota igual = mesma posição. Série em andamento entra com a média dos episódios que você avaliou.'],
+    ['O que é o mata-mata dos 10?', 'Todos os títulos concluídos com nota 9,5 ou mais se enfrentam; você escolhe o vencedor de cada jogo até sobrar o verdadeiro 10.'],
     ['Mudei o ritmo e quero voltar', 'Início ▸ ⏱ Episódios por dia ▸ escolha de novo. Vale a partir de amanhã; o passado não muda.'],
     ['Fiquei atrasado', 'Início ▸ botão vermelho de atraso ▸ escolha recomeçar de hoje ou diluir.'],
     ...(MODE === 'beta' ? [['A beta mexe no meu app de verdade?', 'Não. A beta tem a gaveta dela. Ela copiou seu progresso quando abriu pela primeira vez, e dá pra copiar de novo em Config.']] : []),

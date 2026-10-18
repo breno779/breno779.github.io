@@ -82,11 +82,10 @@
   };
   V40.round1 = function (x) { return Math.round(x * 10) / 10; };
   V40.fmt1 = function (x) { return (Math.round(x * 10) / 10).toFixed(1); };
-  // pontos do campeonato: nota arredondada (7,0–7,4 → 7 · 7,5–7,9 → 8)
+  // pontos do campeonato: a nota exata, sem arredondar (9,8 vale 9,8 — fica à frente de 9,6)
   V40.points = function (r) {
     if (!(r > 0)) return 0;
-    const x = Math.round(r * 10) / 10;
-    return Math.floor(x + 0.5 + 1e-9);
+    return Math.round(r * 10) / 10;
   };
 
   // nota "efetiva" de um título (mesma regra do ranking de heróis):
