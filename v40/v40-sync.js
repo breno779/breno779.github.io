@@ -75,7 +75,7 @@
   };
 
   // =================== ESTADO PRA NUVEM ===================
-  const V40_KEYS = ['collections', 'activity', 'knockout', 'liga-edicao', 'liga-campeoes', 'liga-tb', 'liga-history', 'rate-history', 'extra-pauses', 'month-goals', 'challenges-done', 'watch-time', 'day-status', 'best-streak', 'quiz-best'];
+  const V40_KEYS = ['collections', 'activity', 'knockout', 'liga-edicao', 'liga-campeoes', 'liga-tb', 'liga4', 'liga4-liberta', 'liga4-campeoes', 'liga4-history', 'liga-history', 'rate-history', 'extra-pauses', 'month-goals', 'challenges-done', 'watch-time', 'day-status', 'best-streak', 'quiz-best'];
   function summary(list) {
     const L = list || items;
     return {
@@ -416,7 +416,7 @@
     return c;
   };
   function profileData() {
-    const table = V40.leagueTable().slice(0, 15).map(p => ({ n: p.name, i: p.icon, pts: p.pts, r: V40.round1(p.rating), pos: p.pos, k: p.items[0] && p.items[0].key }));
+    const table = V40.ligaStandings().slice(0, 15).map(p => ({ n: p.name, i: p.icon, pts: p.P, r: p.J, pos: p.pos, k: p.items[0] && p.items[0].key }));
     const heroes = V40.heroTable(V40.heroLeague(), 'geral').slice(0, 10).map(x => ({ n: x.r.g.label, e: x.r.g.emoji, v: V40.round1(x.val), id: x.r.g.id }));
     const champ = V40.lastTrue10 ? V40.lastTrue10() : null;
     const lv = V40.levelOf(V40.xp().xp);

@@ -70,7 +70,7 @@
       cat: '🗂 Fases (v40)', id: 'v40-phase-' + i, icon: '🏁', name: ph.split('(')[0].trim().slice(0, 34), hint: 'concluir a fase inteira',
       test: (d, t, list) => { const l = list.filter(x => x.phase === ph); return l.length > 0 && l.every(x => x.done); }
     }));
-    ACHIEVEMENTS.push({ cat: '🥇 Liga (v40)', id: 'v40-ko', icon: '👑', name: 'O verdadeiro 10', hint: 'terminar uma edição do mata-mata da Liga', test: () => { const k = V40.get('knockout', null); return !!(k && k.champion) || V40.get('liga-campeoes', []).length > 0; } });
+    ACHIEVEMENTS.push({ cat: '🥇 Liga (v40)', id: 'v40-ko', icon: '👑', name: 'O verdadeiro 10', hint: 'terminar uma edição da Libertadores da Liga', test: () => { const k = V40.get('knockout', null); return !!(k && k.champion) || V40.get('liga-campeoes', []).length > 0 || V40.get('liga4-campeoes', []).length > 0; } });
     ACHIEVEMENTS.push({ cat: '🥇 Liga (v40)', id: 'v40-rated50', icon: '📝', name: '50 títulos com nota', test: () => V40.participants().filter(p => p.rating > 0).length >= 50 });
     ACHIEVEMENTS.push({ cat: '🥇 Liga (v40)', id: 'v40-rated100', icon: '🗳️', name: '100 títulos com nota', test: () => V40.participants().filter(p => p.rating > 0).length >= 100 });
     [[3, '🎖️'], [5, '🏵️'], [8, '💎'], [10, '🌌']].forEach(([n, ic]) => ACHIEVEMENTS.push({

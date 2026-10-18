@@ -192,32 +192,348 @@
     return '';
   };
 
+  // =====================================================================
+  // v40.4 — CAMPEONATO DE VERDADE: todos contra todos, você escolhe cada jogo
+  //   vitória 3 · empate 1 · derrota 0. Séries viram 1 time só (todas as temporadas/partes
+  //   juntas, What If T1+T2+T3 também). Entram os concluídos e os em andamento.
+  //   Os 8 primeiros jogam a Libertadores (quartas ▸ semi ▸ final).
+  // =====================================================================
+  const L4_KEY = 'liga4';
+  function teamBase(name) {
+    return String(name).replace(/\s+T\d.*$/, '').replace(/\s+\(\d+ eps\)$/, '').replace(/\s*⏳\s*$/, '').trim();
+  }
+  V40.ligaTeams = function () {
+    const map = new Map();
+    V40.participants().forEach(p => {
+      const base = teamBase(p.name);
+      const key = 'T:' + p.kind + ':' + base;
+      if (!map.has(key)) map.set(key, { pid: key, name: base, icon: p.icon, kind: p.kind, members: [], order: p.order });
+      const t = map.get(key);
+      t.members.push(p);
+      t.order = Math.min(t.order, p.order);
+    });
+    const started = m => m.done || m.inProgress || m.items.some(it => Array.isArray(it.epDone) && it.epDone.some(Boolean));
+    return [...map.values()].filter(t => t.members.some(started)).map(t => {
+      t.items = [].concat.apply([], t.members.map(m => m.items));
+      t.done = t.members.every(m => m.done);
+      t.inProgress = !t.done;
+      t.poster = null;
+      for (const it of t.items) { const u = V40.posterUrl && V40.posterUrl(it, 'w185'); if (u) { t.poster = u; break; } }
+      return t;
+    }).sort((a, b) => a.order - b.order);
+  };
+  const l4 = () => { const s = V40.get(L4_KEY, null); return s && s.res ? s : { res: {}, log: [] }; };
+  const pairKey = (a, b) => (a < b ? a + '§' + b : b + '§' + a);
+  V40.ligaStandings = function (teams) {
+    teams = teams || V40.ligaTeams();
+    const st = l4();
+    const by = {};
+    teams.forEach(t => { by[t.pid] = Object.assign(t, { J: 0, V: 0, E: 0, D: 0, P: 0 }); });
+    Object.keys(st.res).forEach(k => {
+      const [a, b] = k.split('§');
+      const A = by[a], B = by[b];
+      if (!A || !B) return;
+      const r = st.res[k];
+      A.J++; B.J++;
+      if (r === 'd') { A.E++; B.E++; A.P++; B.P++; }
+      else if (r === 'a') { A.V++; B.D++; A.P += 3; }
+      else { B.V++; A.D++; B.P += 3; }
+    });
+    const list = teams.slice();
+    list.forEach(t => { t.apr = t.J ? t.P / (t.J * 3) : 0; });
+    list.sort((x, y) => (y.P - x.P) || (y.V - x.V) || (y.apr - x.apr) || (x.order - y.order));
+    let pos = 0, lastKey = null;
+    list.forEach((t, i) => {
+      const k = t.P + '|' + t.V + '|' + t.J;
+      if (k !== lastKey) { pos = i + 1; lastKey = k; }
+      t.pos = pos;
+      t.zone = i < 8 ? 'liberta' : '';
+    });
+    return list;
+  };
+  V40.ligaProgress = function (teams) {
+    teams = teams || V40.ligaTeams();
+    const n = teams.length;
+    const ids = new Set(teams.map(t => t.pid));
+    const st = l4();
+    const played = Object.keys(st.res).filter(k => { const [a, b] = k.split('§'); return ids.has(a) && ids.has(b); }).length;
+    const total = n * (n - 1) / 2;
+    const perRound = Math.max(1, Math.floor(n / 2));
+    return { n, played, total, rodada: Math.floor(played / perRound) };
+  };
+  let skipped = new Set();
+  function nextMatch(teams) {
+    const st = l4();
+    const J = {};
+    teams.forEach(t => { J[t.pid] = 0; });
+    Object.keys(st.res).forEach(k => { const [a, b] = k.split('§'); if (a in J && b in J) { J[a]++; J[b]++; } });
+    let best = null, bestScore = Infinity, bestSkip = null, bestSkipScore = Infinity;
+    const seed = st.log.length * 7919;
+    for (let i = 0; i < teams.length; i++) {
+      for (let j = i + 1; j < teams.length; j++) {
+        const a = teams[i], b = teams[j];
+        const k = pairKey(a.pid, b.pid);
+        if (st.res[k]) continue;
+        // equilibra quem jogou menos; o resto é "sorteio" fixo pra não repetir sempre o mesmo time
+        const score = (J[a.pid] + J[b.pid]) * 100000 + Math.max(J[a.pid], J[b.pid]) * 1000 + ((i * 131 + j * 977 + seed) % 997);
+        if (skipped.has(k)) { if (score < bestSkipScore) { bestSkipScore = score; bestSkip = [a, b]; } continue; }
+        if (score < bestScore) { bestScore = score; best = [a, b]; }
+      }
+    }
+    if (!best && bestSkip) { skipped = new Set(); best = bestSkip; }
+    return best;
+  }
+  function l4Result(aPid, bPid, r) {
+    if (!V40.guard()) return;
+    const st = l4();
+    const k = pairKey(aPid, bPid);
+    // r é do ponto de vista do botão: 'a' = venceu aPid, 'b' = venceu bPid, 'd' = empate
+    let val = 'd';
+    if (r !== 'd') { const winner = r === 'a' ? aPid : bPid; val = k.split('§')[0] === winner ? 'a' : 'b'; }
+    st.res[k] = val;
+    st.log.push(k);
+    V40.set(L4_KEY, st);
+    V40.sound('tick');
+    V40.renderLiga();
+  }
+  function l4Undo() {
+    const st = l4();
+    const k = st.log.pop();
+    if (!k) return;
+    delete st.res[k];
+    V40.set(L4_KEY, st);
+    V40.renderLiga();
+  }
+  const teamCard = (t, attrs) => `<button class="v40-l4-team" ${attrs}>
+      ${t.poster ? `<img src="${t.poster}" alt="" loading="lazy">` : `<span class="ph">${t.icon}</span>`}
+      <span class="nm">${V40.esc(t.name)}</span>
+    </button>`;
+  // posições da tabela nova a cada rodada (n/2 jogos), pras setinhas ▲▼
+  function recordL4History(table, rodada) {
+    const hist = V40.get('liga4-history', []);
+    const titles = {};
+    table.forEach(t => { titles[t.pid] = t.pos; });
+    const last = hist[hist.length - 1];
+    if (!last || last.r !== rodada) { hist.push({ r: rodada, d: V40.today(), titles }); while (hist.length > 200) hist.shift(); }
+    else { last.titles = titles; last.d = V40.today(); }
+    V40.set('liga4-history', hist);
+    return hist;
+  }
+  function l4TableHtml(table, prog, hist) {
+    if (!table.length) return '<div class="stat-card"><p>Ninguém em campo ainda. Conclua ou comece um título e ele entra no campeonato.</p></div>';
+    const prev = prevSnapshot(hist);
+    const leader = table[0];
+    const rows = table.map(t => `<div class="v40-l4row ${t.zone === 'liberta' ? 'lib' : ''}">
+        <span class="lpos">${t.pos}º</span>
+        <span class="lname">${t.pos === 1 && t.J ? '👑 ' : ''}${t.icon} ${V40.esc(t.name)}${t.inProgress ? ' <small class="v40-prog">em andamento</small>' : ''} ${moveHtml(prev && prev.titles[t.pid], t.pos)}</span>
+        <span>${t.J}</span><span>${t.V}</span><span>${t.E}</span><span>${t.D}</span>
+        <span class="lpts">${t.P}</span>
+      </div>`).join('');
+    return `
+      <div class="stat-card v40-champ-card">
+        <div class="v40-champ-crown">🏆</div>
+        ${prog.played ? `<div><b>Líder:</b> ${leader.icon} ${V40.esc(leader.name)} — ${leader.P} pts</div>` : '<div><b>Campeonato zerado</b> — todo mundo com 0 pontos</div>'}
+        <div class="v40-muted">${prog.played} de ${prog.total} jogos · ${Math.round(prog.played / Math.max(1, prog.total) * 1000) / 10}%</div>
+        <div class="v40-l4-bar"><i style="width:${prog.played / Math.max(1, prog.total) * 100}%"></i></div>
+        <button class="v40-link" data-goto="jogos">⚽ Jogar a próxima partida ›</button>
+      </div>
+      <div class="stat-card">
+        <h4>📋 Classificação</h4>
+        <div class="v40-l4row head"><span class="lpos">#</span><span class="lname">TIME</span><span>J</span><span>V</span><span>E</span><span>D</span><span class="lpts">P</span></div>
+        ${rows}
+        <div class="v40-legend"><span><i class="zc"></i>1º ao 8º: Libertadores</span></div>
+        <p class="v40-muted" style="margin:6px 0 0;">Vitória 3 · empate 1 · derrota 0. Desempate: vitórias ▸ aproveitamento. Séries contam como 1 time (todas as temporadas juntas). ▲▼ = desde a rodada anterior.</p>
+      </div>
+      <button class="big-action v40-share-btn" id="v40ShareLiga">📤 Compartilhar a tabela como imagem</button>`;
+  }
+  function l4GamesHtml(teams, prog) {
+    const st = l4();
+    const by = {};
+    teams.forEach(t => { by[t.pid] = t; });
+    const m = teams.length >= 2 ? nextMatch(teams) : null;
+    const last = st.log.slice(-12).reverse().map(k => {
+      const [a, b] = k.split('§');
+      const A = by[a], B = by[b];
+      if (!A || !B) return '';
+      const r = st.res[k];
+      const res = r === 'd' ? 'empate' : (r === 'a' ? 'venceu ' + V40.esc(A.name) : 'venceu ' + V40.esc(B.name));
+      return `<div class="v40-row"><span style="flex:1">${A.icon} ${V40.esc(A.name)} <b>×</b> ${B.icon} ${V40.esc(B.name)}<br><small class="v40-muted">${res}</small></span></div>`;
+    }).join('');
+    return `
+      <div class="stat-card">
+        <h4>⚽ Jogo ${Math.min(prog.played + 1, prog.total)} de ${prog.total}</h4>
+        ${m ? `<p class="v40-muted" style="margin-top:-4px;">Toque no vencedor, ou no = pra empate.</p>
+        <div class="v40-l4-match">
+          ${teamCard(m[0], `data-l4="a" data-ta="${V40.esc(m[0].pid)}" data-tb="${V40.esc(m[1].pid)}"`)}
+          <button class="v40-l4-draw" data-l4="d" data-ta="${V40.esc(m[0].pid)}" data-tb="${V40.esc(m[1].pid)}">=</button>
+          ${teamCard(m[1], `data-l4="b" data-ta="${V40.esc(m[0].pid)}" data-tb="${V40.esc(m[1].pid)}"`)}
+        </div>
+        <div style="display:flex;gap:8px;margin-top:10px;flex-wrap:wrap;">
+          <button id="v40L4Skip" data-k="${V40.esc(pairKey(m[0].pid, m[1].pid))}">⏭ Pular este jogo</button>
+          <button id="v40L4Undo" ${st.log.length ? '' : 'disabled'}>↺ Desfazer último</button>
+        </div>` : (teams.length < 2 ? '<p>Precisa de pelo menos 2 times em campo.</p>' : `<p>🎉 Todos os jogos foram disputados! Hora da <button class="v40-link" data-goto="mata">🏆 Libertadores ›</button></p><button id="v40L4Undo" ${st.log.length ? '' : 'disabled'}>↺ Desfazer último</button>`)}
+        <div class="v40-l4-bar" style="margin-top:10px;"><i style="width:${prog.played / Math.max(1, prog.total) * 100}%"></i></div>
+        <p class="v40-muted">Rodada ${prog.rodada} · ${prog.n} times · cada time enfrenta todos os outros uma vez. Quem jogou menos entra em campo primeiro. Time novo (título que você começar) entra com 0 pontos e os jogos dele vão aparecendo.</p>
+      </div>
+      ${last ? `<div class="stat-card"><h4>🗒 Últimos resultados</h4>${last}</div>` : ''}`;
+  }
+  // ---------- 🏆 Libertadores (8 primeiros: quartas ▸ semi ▸ final) ----------
+  const LIB_KEY = 'liga4-liberta';
+  const LIB = [
+    { a: { s: 1 }, b: { s: 8 }, phase: 'q', label: 'Quartas de final 1' },
+    { a: { s: 4 }, b: { s: 5 }, phase: 'q', label: 'Quartas de final 2' },
+    { a: { s: 2 }, b: { s: 7 }, phase: 'q', label: 'Quartas de final 3' },
+    { a: { s: 3 }, b: { s: 6 }, phase: 'q', label: 'Quartas de final 4' },
+    { a: { m: 0 }, b: { m: 1 }, phase: 's', label: 'Semifinal 1' },
+    { a: { m: 2 }, b: { m: 3 }, phase: 's', label: 'Semifinal 2' },
+    { a: { m: 4 }, b: { m: 5 }, phase: 'f', label: 'Final' }
+  ];
+  function libSolve(ed) {
+    const picks = {};
+    (ed.picks || []).forEach(x => { picks[x.i] = x.side; });
+    const res = [];
+    const side = src => { if (src.s) return ed.seeds[src.s - 1] || null; const m = res[src.m]; return m.done ? m.w : undefined; };
+    LIB.forEach((def, i) => {
+      const a = side(def.a), b = side(def.b);
+      const m = { i, def, a, b, w: undefined, done: false, played: false };
+      if (a !== undefined && b !== undefined) {
+        if (!a || !b) { m.w = a || b || null; m.done = true; }
+        else if (picks[i]) { m.w = picks[i] === 'a' ? a : b; m.done = true; m.played = true; }
+      }
+      res.push(m);
+    });
+    return res;
+  }
+  function libHtml(teams, table, prog) {
+    const by = {};
+    teams.forEach(t => { by[t.pid] = t; });
+    const ed = V40.get(LIB_KEY, null);
+    const champs = V40.get('liga4-campeoes', []);
+    const nm = pid => pid && by[pid] ? `${by[pid].icon} ${V40.esc(by[pid].name)}` : (pid ? '(saiu)' : '<i class="v40-muted">—</i>');
+    const rules = `<details class="v40-help"><summary>📜 Regulamento</summary><ol style="margin:6px 0 0 18px;padding:0;font-size:0.8rem;">
+        <li>Pontos corridos, todos contra todos (1 jogo cada). Você escolhe o vencedor de cada jogo ou dá empate.</li>
+        <li>Vitória 3 · empate 1 · derrota 0. Desempate: vitórias ▸ aproveitamento.</li>
+        <li>Séries viram 1 time (todas as temporadas e partes juntas). Entram concluídos e em andamento.</li>
+        <li>Os 8 primeiros jogam a Libertadores: 1×8, 4×5, 2×7, 3×6 nas quartas, depois semi e final. No mata-mata não tem empate.</li>
+      </ol></details>`;
+    if (!ed) {
+      const top = table.slice(0, 8);
+      return `<div class="stat-card">
+        <h4>🏆 Libertadores — edição ${champs.length + 1}</h4>
+        ${teams.length < 8 ? `<p>Precisa de pelo menos 8 times no campeonato. Agora: ${teams.length}.</p>` : `
+        <p class="v40-muted" style="margin-top:-4px;">Classificados pela tabela de agora (${prog.played} de ${prog.total} jogos disputados):</p>
+        ${top.map((t, k) => `<div class="v40-l4row lib"><span class="lpos">${k + 1}º</span><span class="lname">${t.icon} ${V40.esc(t.name)}</span><span></span><span></span><span></span><span></span><span class="lpts">${t.P}</span></div>`).join('')}
+        <button class="v40-primary" id="v40LibStart" style="margin-top:10px;width:100%;">▶️ Começar a Libertadores</button>
+        ${prog.played < prog.total ? `<p class="v40-muted">Ainda faltam ${prog.total - prog.played} jogos dos pontos corridos — o ideal é começar quando acabarem.</p>` : ''}`}
+        ${champs.length ? `<p class="v40-muted">🏅 Campeões: ${champs.slice().reverse().map(c => `${V40.esc(c.name)} (ed. ${c.n})`).join(' · ')}</p>` : ''}
+        ${rules}
+      </div>`;
+    }
+    const res = libSolve(ed);
+    const cur = res.find(m => !m.done && m.a && m.b);
+    let stage = '';
+    if (ed.champion) {
+      stage = `<div class="stat-card v40-ko-champ"><div class="v40-champ-crown">👑</div><div class="v40-muted">CAMPEÃO DA LIBERTADORES · EDIÇÃO ${ed.n}</div><div class="v40-big">${nm(ed.champion)}</div><div class="v40-muted">${V40.fmtBR((ed.finishedAt || V40.today()).slice(0, 10), true)}</div></div>`;
+    } else if (cur) {
+      stage = `<div class="stat-card"><h4>⚔️ ${cur.def.label}</h4><p class="v40-muted" style="margin-top:-4px;">Mata-mata não tem empate: toque no vencedor.</p>
+        <div class="v40-l4-match two">${teamCard(by[cur.a] || { name: '(saiu)', icon: '❔' }, `data-lib="${cur.i}" data-side="a"`)}<div class="v40-vs">VS</div>${teamCard(by[cur.b] || { name: '(saiu)', icon: '❔' }, `data-lib="${cur.i}" data-side="b"`)}</div></div>`;
+    }
+    const seedTag = pid => { const k = ed.seeds.indexOf(pid); return k >= 0 ? `<small class="v40-muted">${k + 1}º</small> ` : ''; };
+    const bracket = [['q', 'Quartas'], ['s', 'Semifinais'], ['f', 'Final']].map(([ph, name]) => `<div class="v40-ko-round"><div class="v40-ko-rname">${name}</div>${res.filter(m => m.def.phase === ph).map(m => `
+        <div class="v40-ko-m"><span class="${m.done && m.w === m.a ? 'win' : (m.played ? 'lose' : '')}">${m.a === undefined ? '<i class="v40-muted">a definir</i>' : seedTag(m.a) + nm(m.a)}</span>
+        <span class="${m.done && m.w === m.b ? 'win' : (m.played ? 'lose' : '')}">${m.b === undefined ? '<i class="v40-muted">a definir</i>' : seedTag(m.b) + nm(m.b)}</span></div>`).join('')}</div>`).join('');
+    return `${stage}
+      <div class="stat-card"><h4>🗂 Chave — edição ${ed.n}</h4><div class="v40-ko-bracket">${bracket}</div>
+        <div style="display:flex;gap:8px;margin-top:10px;flex-wrap:wrap;">
+          <button id="v40LibUndo" ${ed.picks.length ? '' : 'disabled'}>↺ Desfazer último jogo</button>
+          <button id="v40LibReset" class="v40-danger">🔄 Recomeçar</button>
+          ${ed.champion ? '<button id="v40LibNew">▶️ Nova edição</button>' : ''}
+        </div>${rules}</div>`;
+  }
+  function libPick(i, s) {
+    if (!V40.guard()) return;
+    const ed = V40.get(LIB_KEY, null);
+    if (!ed) return;
+    ed.picks.push({ i, side: s });
+    const res = libSolve(ed);
+    const fin = res[res.length - 1];
+    if (fin.done && fin.w && !ed.champion) {
+      ed.champion = fin.w; ed.finishedAt = new Date().toISOString();
+      const t = V40.ligaTeams().find(x => x.pid === fin.w);
+      const list = V40.get('liga4-campeoes', []);
+      list.push({ n: ed.n, pid: fin.w, name: t ? t.name : fin.w, at: ed.finishedAt, created: ed.created });
+      V40.set('liga4-campeoes', list);
+      V40.confetti(true); V40.sound('trophy');
+      V40.logEvent('ko-champion', { name: t ? t.name : fin.w });
+    } else V40.sound('tick');
+    V40.set(LIB_KEY, ed);
+    V40.renderLiga();
+  }
+  function libUndo() {
+    const ed = V40.get(LIB_KEY, null);
+    if (!ed || !ed.picks.length) return;
+    ed.picks.pop();
+    if (ed.champion) { V40.set('liga4-campeoes', V40.get('liga4-campeoes', []).filter(c => c.created !== ed.created)); ed.champion = null; delete ed.finishedAt; }
+    V40.set(LIB_KEY, ed);
+    V40.renderLiga();
+  }
+  function wireL4(el) {
+    el.querySelectorAll('[data-l4]').forEach(b => b.addEventListener('click', () => l4Result(b.dataset.ta, b.dataset.tb, b.dataset.l4)));
+    const sk = document.getElementById('v40L4Skip');
+    if (sk) sk.addEventListener('click', () => { skipped.add(sk.dataset.k); V40.renderLiga(); });
+    const un = document.getElementById('v40L4Undo');
+    if (un) un.addEventListener('click', l4Undo);
+    el.querySelectorAll('[data-lib]').forEach(b => b.addEventListener('click', () => libPick(+b.dataset.lib, b.dataset.side)));
+    const ls = document.getElementById('v40LibStart');
+    if (ls) ls.addEventListener('click', () => {
+      if (!V40.guard()) return;
+      const prog = V40.ligaProgress();
+      if (prog.played < prog.total && !confirm(`Ainda faltam ${prog.total - prog.played} jogos dos pontos corridos. Começar a Libertadores com a tabela de agora mesmo assim?`)) return;
+      const table = V40.ligaStandings();
+      V40.set(LIB_KEY, { n: V40.get('liga4-campeoes', []).length + 1, created: new Date().toISOString(), seeds: table.slice(0, 8).map(t => t.pid), picks: [], champion: null });
+      V40.renderLiga();
+    });
+    const lu = document.getElementById('v40LibUndo'); if (lu) lu.addEventListener('click', libUndo);
+    const lr = document.getElementById('v40LibReset');
+    if (lr) lr.addEventListener('click', () => {
+      const ed = V40.get(LIB_KEY, null);
+      if (ed && ed.picks.length && !confirm('Recomeçar a Libertadores do zero? Os jogos já decididos nela se perdem.')) return;
+      if (ed && ed.champion) V40.set('liga4-campeoes', V40.get('liga4-campeoes', []).filter(c => c.created !== ed.created));
+      V40.set(LIB_KEY, null); V40.renderLiga();
+    });
+    const ln = document.getElementById('v40LibNew'); if (ln) ln.addEventListener('click', () => { V40.set(LIB_KEY, null); V40.renderLiga(); });
+  }
+
   // ---------- render da aba ----------
   V40.renderLiga = function () {
     const el = document.getElementById('tabLiga');
     if (!el) return;
     const all = V40.participants();
-    const table = V40.leagueTable(all);
+    const teams = V40.ligaTeams();
+    const table = V40.ligaStandings(teams);
+    const prog = V40.ligaProgress(teams);
     const heroRows = V40.heroLeague();
-    const hist = recordHistory(table, heroRows);
-    const rodada = V40.rodada(all);
-    const tabs = [['titulos', '📋 Títulos'], ['herois', '🦸 Heróis'], ['mata', '🏆 Mata-mata'], ['fases', '🗂 Por fase'], ['duelo', '🥊 Duelo'], ['historico', '📈 Histórico']];
+    const hist = recordHistory(V40.leagueTable(all), heroRows);
+    const hist4 = recordL4History(table, prog.rodada);
+    const tabs = [['titulos', '📋 Tabela'], ['jogos', '⚽ Jogos'], ['mata', '🏆 Libertadores'], ['herois', '🦸 Heróis'], ['fases', '🗂 Por fase'], ['duelo', '🥊 Duelo'], ['historico', '📈 Histórico']];
     let body = '';
-    if (V40.ligaTab === 'titulos') body = titlesHtml(all, table, hist);
+    if (V40.ligaTab === 'titulos') body = l4TableHtml(table, prog, hist4);
+    else if (V40.ligaTab === 'jogos') body = l4GamesHtml(teams, prog);
     else if (V40.ligaTab === 'herois') body = heroesHtml(heroRows, hist);
-    else if (V40.ligaTab === 'mata') body = knockoutHtml(all);
+    else if (V40.ligaTab === 'mata') body = libHtml(teams, table, prog);
     else if (V40.ligaTab === 'fases') body = phasesHtml(all);
     else if (V40.ligaTab === 'duelo') body = duelHtml(all);
     else body = historyHtml(heroRows, hist);
     el.innerHTML = `
       <h2 class="v40-page-title">🥇 Liga UCM</h2>
-      <p class="v40-muted" style="margin-top:-6px;">Rodada <b>${rodada}</b> · ${all.length} participantes · a nota exata é a pontuação (9,8 fica à frente de 9,6)</p>
+      <p class="v40-muted" style="margin-top:-6px;">Rodada <b>${prog.rodada}</b> · ${prog.n} times · ${prog.played}/${prog.total} jogos · vitória 3, empate 1, derrota 0</p>
       <div class="v40-subtabs">${tabs.map(([k, l]) => `<button data-liga="${k}" class="${V40.ligaTab === k ? 'on' : ''}">${l}</button>`).join('')}</div>
       <div id="v40LigaBody">${body}</div>`;
     el.querySelectorAll('[data-liga]').forEach(b => b.addEventListener('click', () => {
       V40.ligaTab = b.dataset.liga; V40.set('liga-tab', V40.ligaTab); V40.renderLiga();
     }));
     wireLiga(el, all, table, heroRows);
+    wireL4(el);
     ensureTabReloadBtn('tabLiga');
   };
 
@@ -488,6 +804,8 @@
   V40.ligaEdition = function () { return V40.get(KO_KEY, null); };
   // último Verdadeiro 10 (edições novas; se ainda não teve, o do mata-mata antigo)
   V40.lastTrue10 = function () {
+    const l4c = V40.get('liga4-campeoes', []);
+    if (l4c.length) return l4c[l4c.length - 1].name;
     const list = V40.get('liga-campeoes', []);
     if (list.length) return list[list.length - 1].name;
     const ko = V40.get('knockout', null);
@@ -617,7 +935,7 @@
 
   // ---------- imagem pra compartilhar ----------
   V40.shareLigaImage = function () {
-    const table = V40.leagueTable();
+    const table = V40.ligaStandings().map(t => Object.assign({}, t, { pts: t.P, rating: t.J }));
     const heroes = V40.heroTable(V40.heroLeague(), 'geral').slice(0, 5);
     const W = 1080, H = 1350;
     const cv = document.createElement('canvas');
@@ -633,12 +951,12 @@
     ctx.fillText('LIGA UCM 🥇', W / 2, 120);
     ctx.font = '600 34px "Baloo 2", sans-serif';
     ctx.fillStyle = '#d9a441';
-    ctx.fillText(`Rodada ${V40.rodada()} · ${V40.fmtBR(V40.today(), true)}`, W / 2, 175);
+    ctx.fillText(`Rodada ${V40.ligaProgress().rodada} · ${V40.fmtBR(V40.today(), true)}`, W / 2, 175);
     ctx.textAlign = 'left';
     let y = 250;
     ctx.font = 'bold 30px "Baloo 2", sans-serif';
     ctx.fillStyle = '#9a927e';
-    ctx.fillText('#', 70, y); ctx.fillText('TÍTULO', 150, y); ctx.textAlign = 'right'; ctx.fillText('PTS', 900, y); ctx.fillText('NOTA', 1010, y); ctx.textAlign = 'left';
+    ctx.fillText('#', 70, y); ctx.fillText('TIME', 150, y); ctx.textAlign = 'right'; ctx.fillText('PTS', 900, y); ctx.fillText('J', 1010, y); ctx.textAlign = 'left';
     y += 20;
     let lastPos = null;
     table.slice(0, 12).forEach(p => {
@@ -655,9 +973,9 @@
       ctx.fillText(name, 150, y);
       ctx.textAlign = 'right';
       ctx.font = 'bold 34px "JetBrains Mono", monospace';
-      ctx.fillText(V40.fmt1(p.pts), 900, y);
+      ctx.fillText(String(p.pts), 900, y);
       ctx.fillStyle = '#9a927e';
-      ctx.fillText(V40.fmt1(p.rating), 1010, y);
+      ctx.fillText(String(p.rating), 1010, y);
       ctx.textAlign = 'left';
     });
     y += 90;

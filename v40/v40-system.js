@@ -12,7 +12,7 @@
   V40.BUILD = BUILD;
   const MODE = window.V40_MODE || 'beta';
   V40.MODE = MODE;
-  V40.VERSION_LABEL = MODE === 'beta' ? 'v40.3 beta' : 'v40.3';
+  V40.VERSION_LABEL = MODE === 'beta' ? 'v40.4 beta' : 'v40.4';
 
   // =================== APARÊNCIA ===================
   let mql = null;
@@ -171,7 +171,7 @@
   window.downloadBackup = function (filename) {
     const v40 = {};
     try {
-      ['settings', 'collections', 'activity', 'knockout', 'liga-edicao', 'liga-campeoes', 'liga-tb', 'liga-history', 'rate-history', 'extra-pauses', 'month-goals', 'challenges-done', 'watch-time', 'day-status', 'best-streak'].forEach(k => { v40[k] = V40.get(k, null); });
+      ['settings', 'collections', 'activity', 'knockout', 'liga-edicao', 'liga-campeoes', 'liga-tb', 'liga4', 'liga4-liberta', 'liga4-campeoes', 'liga4-history', 'liga-history', 'rate-history', 'extra-pauses', 'month-goals', 'challenges-done', 'watch-time', 'day-status', 'best-streak'].forEach(k => { v40[k] = V40.get(k, null); });
     } catch (e) {}
     const blob = new Blob([JSON.stringify({ version: LIST_VERSION, items, trash, v40 }, null, 2)], { type: 'application/json' });
     const a = document.createElement('a');
@@ -236,8 +236,8 @@
     ['Como marco um título?', 'Toque no quadradinho à esquerda — ou deslize o título pra direita.'],
     ['Como marco vários episódios?', 'Abra os episódios ▸ "✓ Marcar todos até hoje", ou segure o dedo num episódio pra marcar todos até ele.'],
     ['Onde ficam os extras de cada título?', 'Toque no NOME do título na Lista: aparecem quero rever, coleções, notas detalhadas, cartão do herói e duelo.'],
-    ['Como funciona a pontuação da Liga?', 'A pontuação é a nota exata, sem arredondar: 9,8 fica à frente de 9,6. Nota igual = mesma posição. Série em andamento entra com a média dos episódios que você avaliou.'],
-    ['Como funciona o mata-mata?', 'Entre os títulos concluídos, 1º e 2º da Liga vão direto pras semifinais. Do 3º ao 10º jogam a repescagem (2 vagas). Você escolhe o vencedor de cada jogo; o campeão da final é o Verdadeiro 10.'],
+    ['A nota ainda conta na Liga?', 'Na tabela do campeonato não: lá vale quem você escolhe em cada jogo. A nota continua valendo no campeonato de heróis, no Por fase e no Duelo.'],
+    ['Como funciona o campeonato?', 'Todos contra todos: em ⚽ Jogos você escolhe o vencedor de cada partida ou dá empate (vitória 3, empate 1, derrota 0). Séries contam como 1 time. Os 8 primeiros jogam a 🏆 Libertadores (quartas, semi e final).'],
     ['Mudei o ritmo e quero voltar', 'Início ▸ ⏱ Episódios por dia ▸ escolha de novo. Vale a partir de amanhã; o passado não muda.'],
     ['Fiquei atrasado', 'Início ▸ botão vermelho de atraso ▸ escolha recomeçar de hoje ou diluir.'],
     ...(MODE === 'beta' ? [['A beta mexe no meu app de verdade?', 'Não. A beta tem a gaveta dela. Ela copiou seu progresso quando abriu pela primeira vez, e dá pra copiar de novo em Config.']] : []),
