@@ -468,8 +468,8 @@
     if (W.pos === 1 && W.J > 0) return `👑 O líder ${nm(W)} segue firme: venceu ${nm(L)}.`;
     return pick([`${nm(W)} venceu ${nm(L)}.`, `Vitória de ${nm(W)} sobre ${nm(L)}.`, `${nm(W)} passou por ${nm(L)}.`, `3 pontos pra ${nm(W)}!`]);
   }
-  // 🎯 ritmo pra Liga acabar junto com a lista: a Liga até o dia anterior ao fim da lista e a
-  // Copa do Infinito no último dia. Conta os times que ainda vão entrar (tudo lançado até lá).
+  // 🎯 ritmo pra Liga acabar junto com a lista: a Liga até 2 dias antes do fim da lista e a
+  // Copa do Infinito nos 2 últimos dias (dia 1: grupos/1ª fase · dia 2: mata-mata até a final). Conta os times que ainda vão entrar (tudo lançado até lá).
   V40.ligaPace = function (teams) {
     const st = l4();
     const end = V40.endDate && V40.endDate();
@@ -479,9 +479,10 @@
     const playedAll = st.log.filter(k => st.res[k]).length;
     const todayDone = st.day && st.day.d === V40.today() ? st.day.keys.length : 0;
     const remaining = Math.max(0, totalProj - (playedAll - todayDone));   // conta a partir do começo de hoje
-    let days = end ? Math.max(1, V40.daysBetween(V40.today(), end)) : 365;  // dias até a véspera do fim + hoje
+    let days = end ? Math.max(1, V40.daysBetween(V40.today(), end) - 1) : 365;  // de hoje até 2 dias antes do fim
     const perDay = Math.ceil(remaining / days);
-    return { end, projN, totalProj, remaining, days, perDay };
+    const copa1 = end ? V40.addDays(end, -1) : null;
+    return { end, projN, totalProj, remaining, days, perDay, copa1, copa2: end };
   };
   // ⚽ limite por dia: 1 rodada (metade dos times) — ou mais, se for preciso pra acabar junto com a lista
   V40.ligaDaily = function (teams) {
@@ -769,7 +770,8 @@
         <p class="v40-muted" style="margin-top:-4px;"><b>${slotsNow} vagas</b> (${teams.length} times${slotsNow < 32 ? ` · a próxima vaga abre com o ${Math.max(52, teams.length + 1)}º time` : ' · máximo'}) · ${slotsNow === 32 ? 'com fase de grupos' : 'mata-mata direto'} · ${prog.played} de ${prog.total} jogos disputados</p>
         ${top.map((t, k) => `<div class="v40-l4row lib"><span class="lpos">${k + 1}º</span><span class="lname">${t.icon} ${V40.esc(t.name)}</span><span></span><span></span><span></span><span></span><span class="lpts">${t.P}</span></div>`).join('')}
         <button class="v40-primary" id="v40LibStart" style="margin-top:10px;width:100%;">▶️ Começar a Copa do Infinito</button>
-        ${prog.played < prog.total ? `<p class="v40-muted">Ainda faltam ${prog.total - prog.played} jogos dos pontos corridos — o ideal é começar quando acabarem.</p>` : ''}`}
+        ${prog.played < prog.total ? `<p class="v40-muted">Ainda faltam ${prog.total - prog.played} jogos dos pontos corridos — o ideal é começar quando acabarem.</p>` : ''}
+        ${(() => { try { const pc = V40.ligaPace(teams); return pc.end ? `<p class="v40-muted">📅 Planejada pros 2 últimos dias da lista: <b>${V40.fmtBR(pc.copa1, true)}</b> ${slotsNow === 32 ? 'fase de grupos' : '1ª metade dos jogos'} · <b>${V40.fmtBR(pc.copa2, true)}</b> ${slotsNow === 32 ? 'oitavas até a final' : 'até a final'}.</p>` : ''; } catch (e) { return ''; } })()}`}
         ${rules}
       </div>${champs.length ? galleryHtml(champs) : ''}`;
     }
