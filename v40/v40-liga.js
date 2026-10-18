@@ -215,7 +215,17 @@
   // v40.4.3: cada TEMPORADA é um time (partes da mesma temporada juntam; ex.: Agents of SHIELD T1
   // em 3 partes vira "T1"). Filme é sempre independente. Só entra o que você CONCLUIU (temporada
   // inteira vista / filme visto) — o que não lançou ou você não terminou fica de fora até terminar.
+  // ⭐ times especiais: entram no campeonato numa data, mesmo sem o título estar marcado na lista
+  // (ex.: Vingadores: Doomsday visto no cinema na estreia — na lista ele continua desmarcado
+  // até chegar a vez dele na ordem). Se depois ele for marcado na lista, NÃO vira um time a mais.
+  const SPECIAL_TEAMS = [
+    { key: 'k165', name: 'Vingadores: Doomsday', from: '2026-12-17', tag: '🎟️ visto no cinema' }
+  ];
+  V40.LIGA_SPECIALS = SPECIAL_TEAMS;
   V40.ligaTeams = function (projectAll) {
+    const today = V40.today();
+    const activeSpecial = SPECIAL_TEAMS.filter(x => projectAll || today >= x.from);
+    const specialKeys = new Set(activeSpecial.map(x => x.key));
     const map = new Map();
     const seriesSeasons = {};
     const add = (key, base, season, icon, kind, unit, order) => {
@@ -225,8 +235,10 @@
       t.order = Math.min(t.order, order);
     };
     V40.participants().forEach(p => p.items.forEach(it => {
+      if (it.key === 'k172') return;   // "🍿 Iniciar Maratona Doomsday" é um marcador, não um título
       const order = p.order;
       if (p.kind !== 'serie') {
+        if (specialKeys.has(it.key)) return;   // já está no campeonato como time especial
         add('T:i' + it.id, V40.shortName(it), null, p.icon, 'filme', { it, from: 0, to: null }, order);
         return;
       }
@@ -257,7 +269,7 @@
     // projeção: todos os times que vão existir quando a lista acabar (lançados até o fim da lista)
     const endD = projectAll ? (V40.endDate && V40.endDate()) : null;
     const released = t => !endD || t.units.every(u => { const c = V40.catOf(u.it); const r = c && c.x && c.x.rel; return !r || r <= endD; });
-    return [...map.values()].filter(t => projectAll ? released(t) : t.units.every(unitDone)).map(t => {
+    const list = [...map.values()].filter(t => projectAll ? released(t) : t.units.every(unitDone)).map(t => {
       const multi = t.kind === 'serie' && seriesSeasons[t.base] && seriesSeasons[t.base].size > 1;
       t.name = t.kind === 'serie' && multi ? `${t.base} ${typeof t.season === 'number' ? 'T' + t.season : t.season}` : t.base;
       t.items = t.units.map(u => u.it);
@@ -266,7 +278,16 @@
       for (const it of t.items) { const u = V40.posterUrl && V40.posterUrl(it, 'w185'); if (u) { t.poster = u; break; } }
       t.franchise = franchiseOf(t);
       return t;
-    }).sort((a, b) => a.order - b.order);
+    });
+    activeSpecial.forEach(x => {
+      const it = items.find(i => i.key === x.key) || { key: x.key, id: 0, text: '🎬 ' + x.name, done: true };
+      const t = { pid: 'T:x:' + x.key, base: x.name, name: x.name, season: null, icon: '🎬', kind: 'filme', units: [{ it, from: 0, to: null }], order: -1, special: x.tag };
+      t.items = [it]; t.done = true; t.inProgress = false;
+      t.poster = V40.posterUrl ? V40.posterUrl({ key: x.key }, 'w185') : null;
+      t.franchise = franchiseOf(t);
+      list.push(t);
+    });
+    return list.sort((a, b) => a.order - b.order);
   };
   // ---------- ⚡ clássicos: mesma franquia / mesma série ----------
   const FRANCHISES = [
@@ -509,7 +530,7 @@
   }
   const teamCard = (t, attrs) => `<button class="v40-l4-team" ${attrs}>
       ${t.poster ? `<img src="${t.poster}" alt="" onerror="this.outerHTML='<span class=&quot;ph&quot;>${t.icon}</span>'">` : `<span class="ph">${t.icon}</span>`}
-      <span class="nm">${V40.esc(t.name)}</span>
+      <span class="nm">${V40.esc(t.name)}</span>${t.special ? `<small class="v40-muted">${t.special}</small>` : ''}
     </button>`;
   // posições da tabela nova a cada rodada (n/2 jogos), pras setinhas ▲▼
   function recordL4History(table, rodada) {
@@ -528,7 +549,7 @@
     const leader = table[0];
     const rows = table.map(t => `<div class="v40-l4row ${t.zone === 'liberta' ? 'lib' : ''}">
         <span class="lpos">${t.pos}º</span>
-        <span class="lname">${t.pos === 1 && t.J ? '👑 ' : ''}${t.icon} ${V40.esc(t.name)}${t.inProgress ? ' <small class="v40-prog">em andamento</small>' : ''} ${moveHtml(prev && prev.titles[t.pid], t.pos)}</span>
+        <span class="lname">${t.pos === 1 && t.J ? '👑 ' : ''}${t.icon} ${V40.esc(t.name)}${t.special ? ` <small class="v40-prog">${t.special}</small>` : ''}${t.inProgress ? ' <small class="v40-prog">em andamento</small>' : ''} ${moveHtml(prev && prev.titles[t.pid], t.pos)}</span>
         <span>${t.J}</span><span>${t.V}</span><span>${t.E}</span><span>${t.D}</span>
         <span class="lpts">${t.P}</span>
       </div>`).join('');
