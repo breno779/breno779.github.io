@@ -290,6 +290,13 @@
       else if (info && EPISODE_TITLES[info.key]) delete EPISODE_TITLES[info.key];
     });
   };
+  // a Liga é desenhada uma vez; quando as capas terminam de carregar, redesenha se estiver aberta
+  V40.refreshLigaIfOpen = function () {
+    try {
+      const l = document.getElementById('tabLiga');
+      if (l && l.classList.contains('tab-visible') && V40.renderLiga) V40.renderLiga();
+    } catch (e) {}
+  };
   V40.posterUrl = function (it, size) {
     const info = V40.extInfo(it);
     if (!info) return null;
@@ -372,7 +379,7 @@
       }
       V40.applyExt();
       V40.set('ext-last', new Date().toISOString());
-      try { render(); } catch (e) {}
+      try { render(); } catch (e) {} V40.refreshLigaIfOpen();
       const p = V40.extProgress;
       V40.extJob = null;
       V40.extProgress = null;
@@ -600,7 +607,7 @@
     } catch (e) { console.error('v40 data load', e); }
     V40.extReady = true;
     V40.applyExt();
-    try { render(); } catch (e) {}
+    try { render(); } catch (e) {} V40.refreshLigaIfOpen();
     // primeira vez ou vencido: busca sozinho em segundo plano (só com internet)
     if (navigator.onLine && V40.settings.autoExt !== false) {
       setTimeout(() => { V40.refreshExt({}); }, 2500);

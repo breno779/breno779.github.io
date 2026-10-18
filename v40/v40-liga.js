@@ -327,7 +327,7 @@
     V40.renderLiga();
   }
   const teamCard = (t, attrs) => `<button class="v40-l4-team" ${attrs}>
-      ${t.poster ? `<img src="${t.poster}" alt="" loading="lazy">` : `<span class="ph">${t.icon}</span>`}
+      ${t.poster ? `<img src="${t.poster}" alt="" onerror="this.outerHTML='<span class=&quot;ph&quot;>${t.icon}</span>'">` : `<span class="ph">${t.icon}</span>`}
       <span class="nm">${V40.esc(t.name)}</span>
     </button>`;
   // posições da tabela nova a cada rodada (n/2 jogos), pras setinhas ▲▼
