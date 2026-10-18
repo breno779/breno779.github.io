@@ -205,13 +205,15 @@
   V40.ligaTeams = function () {
     const map = new Map();
     V40.participants().forEach(p => {
-      const base = teamBase(p.name);
-      const key = 'T:' + p.kind + ':' + base;
+      // só série junta (todas as temporadas viram 1 time); filme é sempre independente
+      const base = p.kind === 'serie' ? teamBase(p.name) : p.name;
+      const key = p.kind === 'serie' ? 'T:serie:' + base : 'T:' + p.pid;
       if (!map.has(key)) map.set(key, { pid: key, name: base, icon: p.icon, kind: p.kind, members: [], order: p.order });
       const t = map.get(key);
       t.members.push(p);
       t.order = Math.min(t.order, p.order);
     });
+    // entra quem você já concluiu ou começou (o que não lançou ainda não tem como ter começado)
     const started = m => m.done || m.inProgress || m.items.some(it => Array.isArray(it.epDone) && it.epDone.some(Boolean));
     return [...map.values()].filter(t => t.members.some(started)).map(t => {
       t.items = [].concat.apply([], t.members.map(m => m.items));
@@ -222,7 +224,27 @@
       return t;
     }).sort((a, b) => a.order - b.order);
   };
-  const l4 = () => { const s = V40.get(L4_KEY, null); return s && s.res ? s : { res: {}, log: [] }; };
+  const l4 = () => { const s = V40.get(L4_KEY, null); return s && s.res ? migrateL4(s) : { res: {}, log: [] }; };
+  // v40.4 → v40.4.1: filmes passaram a ter id próprio (antes 'T:filme:Nome')
+  function migrateL4(st) {
+    if (!JSON.stringify(st).includes('T:filme:')) return st;
+    const byName = {};
+    V40.participants().forEach(p => { if (p.kind !== 'serie') byName['T:filme:' + p.name] = 'T:' + p.pid; });
+    const fix = id => byName[id] || id;
+    const fixKey = k => { const [a, b] = k.split('§').map(fix); return a < b ? a + '§' + b : b + '§' + a; };
+    const res = {};
+    Object.keys(st.res).forEach(k => {
+      const [a0] = k.split('§'); const nk = fixKey(k); const [na] = nk.split('§');
+      let v = st.res[k];
+      if (v !== 'd' && fix(a0) !== na) v = v === 'a' ? 'b' : 'a';   // a ordem do par mudou
+      res[nk] = v;
+    });
+    st.res = res; st.log = st.log.map(fixKey);
+    V40.set(L4_KEY, st);
+    const ed = V40.get('liga4-liberta', null);
+    if (ed) { ed.seeds = ed.seeds.map(fix); if (ed.champion) ed.champion = fix(ed.champion); V40.set('liga4-liberta', ed); }
+    return st;
+  }
   const pairKey = (a, b) => (a < b ? a + '§' + b : b + '§' + a);
   V40.ligaStandings = function (teams) {
     teams = teams || V40.ligaTeams();
