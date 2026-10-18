@@ -32,7 +32,7 @@ jobs:
           VERSION_CODE: ${{ github.run_number }}
         run: gradle assembleRelease --no-daemon --stacktrace
 
-      - name: Preparar arquivo (nome com a versão, ex.: ucm-watchlist-v40.6.apk)
+      - name: "Preparar arquivo (nome com a versão, ex. ucm-watchlist-v40.6.apk)"
         id: nome
         run: |
           V=$(grep -oP "versionName '\K[^']+" android/app/build.gradle)
