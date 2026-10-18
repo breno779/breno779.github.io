@@ -2416,6 +2416,16 @@ function wireEpRateInputs(getShow, getTotal) {
       }
       show.epRatings[idx] = val;
       inp.value = val === null ? '' : val;
+      // v40.1: nota no episódio já marca ele (e atualiza o quadradinho na janela aberta)
+      if (val !== null && !show.done) {
+        const total = getTotal(inp);
+        if (!Array.isArray(show.epDone)) show.epDone = new Array(total).fill(false);
+        show.epDone[idx] = true;
+        const row = inp.closest('.interleaved-row');
+        const cb = row && row.querySelector('input[type="checkbox"]');
+        if (cb) cb.checked = true;
+        if (row) row.classList.remove('iv-today', 'iv-overdue');
+      }
       recomputeSeriesRating(show);
       save();
       render();
