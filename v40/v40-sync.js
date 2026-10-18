@@ -774,7 +774,9 @@
   };
 
   // =================== 📲 APP ANDROID ===================
-  V40.APK_URL = 'https://github.com/breno779/breno779.github.io/releases/download/apk-latest/ucm-watchlist.apk';
+  // o nome do arquivo leva a versão do app Android (preenchida pelo tools/build_v40.py)
+  V40.APK_VERSION = window.V40_APK_VERSION || '40.6';
+  V40.APK_URL = 'https://github.com/breno779/breno779.github.io/releases/download/apk-latest/ucm-watchlist-v' + V40.APK_VERSION + '.apk';
   V40.isApk = /UCMWatchlistApp\//.test(navigator.userAgent);
   V40.openApk = function () {
     V40.modal(`<h3>📲 App Android (APK)</h3>
@@ -782,7 +784,7 @@
       <p>Um app de verdade, com ícone próprio, que abre a lista sem passar pelo Chrome (usa o WebView do sistema). Isso deve evitar o problema do modo de suspensão que bloqueia o Chrome.</p>
       <h4 style="margin:10px 0 4px;">Como instalar</h4>
       <ol class="v40-steps">
-        <li>No celular, toque em <b>Baixar APK</b> (abre o GitHub e baixa o arquivo <i>ucm-watchlist.apk</i>).</li>
+        <li>No celular, toque em <b>Baixar APK</b> (abre o GitHub e baixa o arquivo <i>ucm-watchlist-v${V40.APK_VERSION}.apk</i>).</li>
         <li>Abra o arquivo baixado. O Android vai pedir pra <b>permitir instalar apps desta fonte</b> (do Chrome ou do app de Arquivos) — permita só pra isso.</li>
         <li>Toque em <b>Instalar</b>. Se o Play Protect avisar, toque em "Instalar mesmo assim" (é porque o app não é da Play Store).</li>
         <li>Abra o <b>UCM Watchlist</b>. Segure o ícone pra ver os atalhos: Hoje, Liga e beta.</li>
@@ -790,7 +792,7 @@
       <h4 style="margin:10px 0 4px;">Seus dados</h4>
       <p class="v40-muted">O app guarda os dados dele separados do Chrome. Pra levar seu progresso: no Chrome, <b>Config ▸ ⬆️ Enviar pra nuvem</b>; no app, use o MESMO código e <b>⬇️ Puxar da nuvem</b>. Ou exporte um backup e importe no app.</p>
       <p class="v40-muted">Atualizações: o site atualiza sozinho dentro do app. Só precisa baixar o APK de novo quando eu mudar o próprio app (aí instala por cima, sem perder nada).</p>
-      <a class="v40-primary" style="display:block;text-align:center;text-decoration:none;margin-top:10px;" href="${V40.APK_URL}" target="_blank" rel="noopener">⬇️ Baixar APK</a>`);
+      <a class="v40-primary" style="display:block;text-align:center;text-decoration:none;margin-top:10px;" href="${V40.APK_URL}" target="_blank" rel="noopener">⬇️ Baixar APK v${V40.APK_VERSION}</a>`);
   };
 
   V40.initSync = async function () {

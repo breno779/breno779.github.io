@@ -24,7 +24,7 @@ from pathlib import Path
 ROOT = Path(__file__).resolve().parent.parent
 SRC = ROOT / 'tools' / 'base.html'
 BUILD = time.strftime('%Y%m%d%H%M')
-VERSION = 'v40.6.5'
+VERSION = 'v40.6.6'
 
 V40_SCRIPTS = ['v40-catalog.js', 'v40-core.js', 'v40-liga.js', 'v40-stats.js', 'v40-fun.js', 'v40-data.js',
                'v40-content.js', 'v40-sync.js', 'v40-pedidos.js', 'v40-extra.js', 'v40-system.js']
@@ -41,6 +41,7 @@ def sub_once(text, old, new, label):
 MODE_SHIM = r"""<script>
 // ===== v40: modo da página + ritmo configurável + pausas extras =====
 window.V40_MODE = '__MODE__';
+window.V40_APK_VERSION = '__APKV__';
 (function () {
   // ritmo (episódios por dia) com histórico: cada mudança vale A PARTIR de uma data
   window.v40RateHistory = function () {
@@ -172,7 +173,8 @@ AMIGO_FIRST_RUN = """
 
 def common(s, mode, asset_prefix):
     # shim de modo/ritmo logo no começo do <head>
-    s = sub_once(s, '<head>\n<meta charset="UTF-8">\n', '<head>\n<meta charset="UTF-8">\n' + MODE_SHIM.replace('__MODE__', mode), 'mode shim')
+    apkv = re.search(r"versionName '([^']+)'", (ROOT / 'android' / 'app' / 'build.gradle').read_text(encoding='utf-8')).group(1)
+    s = sub_once(s, '<head>\n<meta charset="UTF-8">\n', '<head>\n<meta charset="UTF-8">\n' + MODE_SHIM.replace('__MODE__', mode).replace('__APKV__', apkv), 'mode shim')
     s = sub_once(s, '</head>', f'<link rel="stylesheet" href="{asset_prefix}v40.css?b={BUILD}">\n</head>', 'css link')
     # ritmo + pausas
     s, n = re.subn(r"function trioRateFor\(dateIso\) \{ return (.+?); \}",
