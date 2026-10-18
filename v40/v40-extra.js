@@ -267,13 +267,21 @@
   V40.renderHomeExtra = function () {
     origHome.apply(this, arguments);
     const page = document.getElementById('tabInicio');
+    // 🔄 Recarregar no topo do Início também (o antigo ficou dentro de "Mais ferramentas")
+    if (page && !page.querySelector(':scope > .tab-reload-btn')) {
+      const rb = document.createElement('button');
+      rb.className = 'tab-reload-btn';
+      rb.textContent = '🔄 Recarregar (' + APP_VERSION + ')';
+      rb.addEventListener('click', () => reloadAppNoCache('tabInicio'));
+      page.insertBefore(rb, page.firstChild);
+    }
     if (!page || document.getElementById('v40HomeMore')) return;
     const olds = Array.from(page.querySelectorAll('.dash-actions:not(.v40-actions)'));
     if (!olds.length) return;
     const det = document.createElement('details');
     det.id = 'v40HomeMore';
     det.className = 'v40-cfg-group';
-    det.innerHTML = '<summary>⋯ Mais ferramentas (as do app antigo)</summary>';
+    det.innerHTML = '<summary>⋯ Mais ferramentas</summary>';
     olds[0].parentNode.insertBefore(det, olds[0]);
     olds.forEach(o => det.appendChild(o));
   };
