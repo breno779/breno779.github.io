@@ -12,7 +12,7 @@
   V40.BUILD = BUILD;
   const MODE = window.V40_MODE || 'beta';
   V40.MODE = MODE;
-  V40.VERSION_LABEL = MODE === 'beta' ? 'v40.4.3 beta' : 'v40.4.3';
+  V40.VERSION_LABEL = MODE === 'beta' ? 'v40.4.4 beta' : 'v40.4.4';
 
   // =================== APARÊNCIA ===================
   let mql = null;

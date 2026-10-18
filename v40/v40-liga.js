@@ -347,12 +347,11 @@
     });
     const list = teams.slice();
     list.forEach(t => { t.apr = t.J ? t.P / (t.J * 3) : 0; });
-    list.sort((x, y) => (y.P - x.P) || (y.V - x.V) || (y.apr - x.apr) || (x.order - y.order));
-    let pos = 0, lastKey = null;
+    // igual Brasileirão: pontos ▸ vitórias ▸ aproveitamento ▸ ordem alfabética (no começo, todo
+    // mundo zerado, a tabela fica em ordem alfabética); posição sempre 1º, 2º, 3º…
+    list.sort((x, y) => (y.P - x.P) || (y.V - x.V) || (y.apr - x.apr) || x.name.localeCompare(y.name, 'pt-BR', { sensitivity: 'base' }));
     list.forEach((t, i) => {
-      const k = t.P + '|' + t.V + '|' + t.J;
-      if (k !== lastKey) { pos = i + 1; lastKey = k; }
-      t.pos = pos;
+      t.pos = i + 1;
       t.zone = i < 8 ? 'liberta' : '';
     });
     return list;
@@ -448,7 +447,7 @@
         <div class="v40-l4row head"><span class="lpos">#</span><span class="lname">TIME</span><span>J</span><span>V</span><span>E</span><span>D</span><span class="lpts">P</span></div>
         ${rows}
         <div class="v40-legend"><span><i class="zc"></i>1º ao 8º: Libertadores</span></div>
-        <p class="v40-muted" style="margin:6px 0 0;">Vitória 3 · empate 1 · derrota 0. Desempate: vitórias ▸ aproveitamento. Cada temporada é um time; só entra o que você concluiu. ⚡ Clássico = mesma franquia ou mesma série. ▲▼ = desde a rodada anterior.</p>
+        <p class="v40-muted" style="margin:6px 0 0;">Vitória 3 · empate 1 · derrota 0. Desempate: vitórias ▸ aproveitamento ▸ ordem alfabética. Cada temporada é um time; só entra o que você concluiu. ⚡ Clássico = mesma franquia ou mesma série. ▲▼ = desde a rodada anterior.</p>
       </div>
       <button class="big-action v40-share-btn" id="v40ShareLiga">📤 Compartilhar a tabela como imagem</button>`;
   }
@@ -518,7 +517,7 @@
     const nm = pid => pid && by[pid] ? `${by[pid].icon} ${V40.esc(by[pid].name)}` : (pid ? '(saiu)' : '<i class="v40-muted">—</i>');
     const rules = `<details class="v40-help"><summary>📜 Regulamento</summary><ol style="margin:6px 0 0 18px;padding:0;font-size:0.8rem;">
         <li>Pontos corridos, todos contra todos (1 jogo cada). Você escolhe o vencedor de cada jogo ou dá empate.</li>
-        <li>Vitória 3 · empate 1 · derrota 0. Desempate: vitórias ▸ aproveitamento.</li>
+        <li>Vitória 3 · empate 1 · derrota 0. Desempate: vitórias ▸ aproveitamento ▸ ordem alfabética.</li>
         <li>Cada temporada é um time (partes da mesma temporada juntam). Filme é sempre independente. Só entra o que você concluiu (temporada inteira / filme visto).</li><li>⚡ Clássico: jogo entre títulos da mesma franquia ou temporadas da mesma série.</li>
         <li>Os 8 primeiros jogam a Libertadores: 1×8, 4×5, 2×7, 3×6 nas quartas, depois semi e final. No mata-mata não tem empate.</li>
       </ol></details>`;
