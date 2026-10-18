@@ -12,7 +12,7 @@
   V40.BUILD = BUILD;
   const MODE = window.V40_MODE || 'beta';
   V40.MODE = MODE;
-  V40.VERSION_LABEL = MODE === 'beta' ? 'v40.1.1 beta' : 'v40.1.1';
+  V40.VERSION_LABEL = MODE === 'beta' ? 'v40.3 beta' : 'v40.3';
 
   // =================== APARÊNCIA ===================
   let mql = null;
@@ -171,7 +171,7 @@
   window.downloadBackup = function (filename) {
     const v40 = {};
     try {
-      ['settings', 'collections', 'activity', 'knockout', 'liga-history', 'rate-history', 'extra-pauses', 'month-goals', 'challenges-done', 'watch-time', 'day-status', 'best-streak'].forEach(k => { v40[k] = V40.get(k, null); });
+      ['settings', 'collections', 'activity', 'knockout', 'liga-edicao', 'liga-campeoes', 'liga-tb', 'liga-history', 'rate-history', 'extra-pauses', 'month-goals', 'challenges-done', 'watch-time', 'day-status', 'best-streak'].forEach(k => { v40[k] = V40.get(k, null); });
     } catch (e) {}
     const blob = new Blob([JSON.stringify({ version: LIST_VERSION, items, trash, v40 }, null, 2)], { type: 'application/json' });
     const a = document.createElement('a');
@@ -237,7 +237,7 @@
     ['Como marco vários episódios?', 'Abra os episódios ▸ "✓ Marcar todos até hoje", ou segure o dedo num episódio pra marcar todos até ele.'],
     ['Onde ficam os extras de cada título?', 'Toque no NOME do título na Lista: aparecem quero rever, coleções, notas detalhadas, cartão do herói e duelo.'],
     ['Como funciona a pontuação da Liga?', 'A pontuação é a nota exata, sem arredondar: 9,8 fica à frente de 9,6. Nota igual = mesma posição. Série em andamento entra com a média dos episódios que você avaliou.'],
-    ['O que é o mata-mata dos 10?', 'Todos os títulos concluídos com nota 9,5 ou mais se enfrentam; você escolhe o vencedor de cada jogo até sobrar o verdadeiro 10.'],
+    ['Como funciona o mata-mata?', 'Entre os títulos concluídos, 1º e 2º da Liga vão direto pras semifinais. Do 3º ao 10º jogam a repescagem (2 vagas). Você escolhe o vencedor de cada jogo; o campeão da final é o Verdadeiro 10.'],
     ['Mudei o ritmo e quero voltar', 'Início ▸ ⏱ Episódios por dia ▸ escolha de novo. Vale a partir de amanhã; o passado não muda.'],
     ['Fiquei atrasado', 'Início ▸ botão vermelho de atraso ▸ escolha recomeçar de hoje ou diluir.'],
     ...(MODE === 'beta' ? [['A beta mexe no meu app de verdade?', 'Não. A beta tem a gaveta dela. Ela copiou seu progresso quando abriu pela primeira vez, e dá pra copiar de novo em Config.']] : []),

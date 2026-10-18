@@ -11,17 +11,118 @@
 
   V40.ligaTab = V40.get('liga-tab', 'titulos');
 
-  // ---------- tabela de pontos corridos ----------
-  // ordem: pontos ▸ nota exata ▸ ordem cronológica. Posição "densa": mesmo ponto = mesma posição.
+  // ---------- tabela de pontos corridos (regulamento v40.3) ----------
+  // ordem: 1) pontos (nota exata) ▸ 2) ⭐ favorito ▸ 3) consistência (% de episódios com nota 9+;
+  // filme conta como 1 episódio) ▸ 4) decisão sua num duelo (só quando o empate vale vaga).
+  // Posição: empate sem decisão = mesma posição (1º, 1º, 3º…).
+  V40.LIGA_DIRECT = 2;     // 1º e 2º vão direto pro mata-mata
+  V40.LIGA_REP_END = 10;   // 3º ao 10º vão pra repescagem
+  function consistency(p) {
+    let n = 0, good = 0;
+    p.items.forEach(it => {
+      const eps = Array.isArray(it.epRatings) ? it.epRatings.filter(v => typeof v === 'number') : [];
+      if (eps.length) { n += eps.length; good += eps.filter(v => v >= 9).length; }
+      else if (V40.effRating(it) > 0) { n += 1; if (V40.effRating(it) >= 9) good += 1; }
+    });
+    return n ? good / n : 0;
+  }
+  const tbRank = () => V40.get('liga-tb', []);
   V40.leagueTable = function (list) {
     const parts = (list || V40.participants()).filter(p => p.rating > 0);
-    parts.sort((a, b) => (b.pts - a.pts) || (b.rating - a.rating) || (a.order - b.order));
-    let pos = 0, lastPts = null;
+    const rank = tbRank();
+    const idx = {};
+    rank.forEach((pid, i) => { idx[pid] = i; });
     parts.forEach(p => {
-      if (p.pts !== lastPts) { pos++; lastPts = p.pts; }
-      p.pos = pos;
+      p.fav = p.items.some(it => it.favorite) ? 1 : 0;
+      p.cons = Math.round(consistency(p) * 1000) / 1000;
+      p.autoKey = `${p.pts}|${p.fav}|${p.cons}`;
+    });
+    parts.sort((a, b) => (b.pts - a.pts) || (b.fav - a.fav) || (b.cons - a.cons)
+      || ((idx[a.pid] != null && idx[b.pid] != null) ? idx[a.pid] - idx[b.pid] : 0)
+      || ((idx[a.pid] != null ? 0 : 1) - (idx[b.pid] != null ? 0 : 1))
+      || (a.order - b.order));
+    // grupos de empate (mesmos critérios automáticos)
+    let i = 0;
+    while (i < parts.length) {
+      let j = i;
+      while (j + 1 < parts.length && parts[j + 1].autoKey === parts[i].autoKey) j++;
+      const group = parts.slice(i, j + 1);
+      const doneMembers = group.filter(p => p.done);
+      const resolved = group.length === 1 || (doneMembers.length > 0 && doneMembers.every(p => idx[p.pid] != null));
+      let pos = i + 1;
+      group.forEach((p, k) => {
+        p.tieSize = group.length;
+        p.tieStart = i;
+        p.tieResolved = resolved;
+        if (resolved && idx[p.pid] != null) p.pos = i + 1 + k;
+        else if (resolved) p.pos = i + 1 + group.filter(x => idx[x.pid] != null).length;
+        else p.pos = pos;
+      });
+      i = j + 1;
+    }
+    // zonas: só títulos concluídos ocupam vaga
+    let n = 0;
+    parts.forEach(p => {
+      p.zone = '';
+      p.seed = null;
+      if (!p.done) return;
+      n++;
+      p.seed = n;
+      if (n <= V40.LIGA_DIRECT) p.zone = 'direto';
+      else if (n <= V40.LIGA_REP_END) p.zone = 'rep';
     });
     return parts;
+  };
+  // empates que decidem vaga (cortam a linha 2|3 ou 10|11 entre os concluídos) e ainda não foram decididos
+  V40.pendingTies = function (table) {
+    table = table || V40.leagueTable();
+    const out = [];
+    const seen = new Set();
+    table.forEach(p => {
+      if (p.tieResolved || p.tieSize < 2 || seen.has(p.tieStart)) return;
+      seen.add(p.tieStart);
+      const members = table.filter(x => x.tieStart === p.tieStart && x.done);
+      if (members.length < 2) return;
+      const seeds = members.map(x => x.seed);
+      const lo = Math.min.apply(null, seeds), hi = Math.max.apply(null, seeds);
+      const cuts = [V40.LIGA_DIRECT, V40.LIGA_REP_END].filter(c => lo <= c && hi > c);
+      if (cuts.length) out.push({ members, cuts, lo, hi });
+    });
+    return out;
+  };
+  V40.resolveTie = function (orderedPids) {
+    const rank = tbRank().filter(pid => !orderedPids.includes(pid)).concat(orderedPids);
+    V40.set('liga-tb', rank);
+  };
+  V40.openTieResolver = function (tie) {
+    const chosen = [];
+    const draw = () => {
+      V40.modal(`<h3>⚖️ Desempate valendo vaga</h3>
+        <p class="v40-muted">Esses títulos empataram em tudo (nota${tie.members[0].fav ? ', favorito' : ''} e consistência) e o empate decide ${tie.cuts.map(c => c === V40.LIGA_DIRECT ? 'quem vai direto pro mata-mata' : 'quem entra na repescagem').join(' e ')}.<br>Toque do <b>melhor</b> pro <b>pior</b>.</p>
+        <div class="v40-tie-list">${tie.members.map(p => {
+          const k = chosen.indexOf(p.pid);
+          return `<button class="v40-tie-btn ${k >= 0 ? 'on' : ''}" data-tie="${p.pid}"><b class="v40-tie-n">${k >= 0 ? k + 1 + 'º' : ''}</b> ${p.icon} ${V40.esc(p.name)} <small class="v40-muted">${V40.fmt1(p.rating)}</small></button>`;
+        }).join('')}</div>
+        <div style="display:flex;gap:8px;margin-top:10px;">
+          <button id="v40TieClear">↺ Limpar</button>
+          <button class="v40-primary" id="v40TieOk" ${chosen.length >= tie.members.length - 1 ? '' : 'disabled'}>✔ Confirmar ordem</button>
+        </div>`);
+      document.querySelectorAll('[data-tie]').forEach(b => b.addEventListener('click', () => {
+        const pid = b.dataset.tie;
+        const k = chosen.indexOf(pid);
+        if (k >= 0) chosen.splice(k); else chosen.push(pid);
+        draw();
+      }));
+      document.getElementById('v40TieClear').addEventListener('click', () => { chosen.length = 0; draw(); });
+      document.getElementById('v40TieOk').addEventListener('click', () => {
+        const rest = tie.members.map(p => p.pid).filter(pid => !chosen.includes(pid));
+        V40.resolveTie(chosen.concat(rest));
+        closeModal();
+        V40.toast('⚖️ Desempate decidido');
+        V40.renderLiga();
+      });
+    };
+    draw();
   };
   V40.rodada = function (parts) {
     return (parts || V40.participants()).filter(p => p.rating > 0 && p.done).length;
@@ -100,7 +201,7 @@
     const heroRows = V40.heroLeague();
     const hist = recordHistory(table, heroRows);
     const rodada = V40.rodada(all);
-    const tabs = [['titulos', '📋 Títulos'], ['herois', '🦸 Heróis'], ['mata', '⚔️ Mata-mata 10'], ['fases', '🗂 Por fase'], ['duelo', '🥊 Duelo'], ['historico', '📈 Histórico']];
+    const tabs = [['titulos', '📋 Títulos'], ['herois', '🦸 Heróis'], ['mata', '🏆 Mata-mata'], ['fases', '🗂 Por fase'], ['duelo', '🥊 Duelo'], ['historico', '📈 Histórico']];
     let body = '';
     if (V40.ligaTab === 'titulos') body = titlesHtml(all, table, hist);
     else if (V40.ligaTab === 'herois') body = heroesHtml(heroRows, hist);
@@ -122,10 +223,15 @@
 
   // ---------- 📋 títulos ----------
   function zoneOf(p, maxPos) {
-    if (p.pos === 1) return 'champ';
-    if (p.pos === 2) return 'g';
-    if (maxPos >= 4 && p.pos === maxPos) return 'z';
+    if (p.zone === 'direto') return 'champ';
+    if (p.zone === 'rep') return 'g';
+    if (maxPos >= 12 && p.pos === maxPos) return 'z';
     return '';
+  }
+  function tiesHtml(table) {
+    const ties = V40.pendingTies(table);
+    if (!ties.length) return '';
+    return `<div class="stat-card v40-warn">⚖️ <b>Empate valendo vaga</b><br>${ties.map((t, k) => `${t.members.length} títulos empatados em tudo disputam ${t.cuts.map(c => c === V40.LIGA_DIRECT ? 'vaga direta no mata-mata' : 'vaga na repescagem').join(' e ')}. <button class="v40-link" data-tiefix="${k}">Decidir ›</button>`).join('<br>')}</div>`;
   }
   function titlesHtml(all, table, hist) {
     if (!table.length) return '<div class="stat-card"><p>Nenhum título com nota ainda. Dê nota a um filme ou série e ele estreia na tabela.</p></div>';
@@ -145,20 +251,21 @@
       </div>`;
     }).join('');
     return `
+      ${tiesHtml(table)}
       <div class="stat-card v40-champ-card">
         <div class="v40-champ-crown">🏆</div>
-        <div><b>${champs.length === 1 ? 'Campeão' : champs.length + ' campeões empatados'}</b> com ${V40.fmt1(champs[0].pts)} pontos</div>
+        <div><b>${champs.length === 1 ? 'Líder' : champs.length + ' líderes empatados'}</b> com ${V40.fmt1(champs[0].pts)} pontos</div>
         <div class="v40-muted">${champs.slice(0, 6).map(p => V40.esc(p.name)).join(' · ')}${champs.length > 6 ? ' …' : ''}</div>
-        ${champs.length > 1 && champs[0].pts === 10 ? '<button class="v40-link" data-goto="mata">⚔️ Decidir o verdadeiro 10 no mata-mata ›</button>' : ''}
+        <button class="v40-link" data-goto="mata">🏆 Quem é o verdadeiro 10? Ver o mata-mata ›</button>
       </div>
       <div class="stat-card">
         <h4>📋 Classificação — pontos corridos</h4>
         <div class="v40-lrow head"><span class="lpos">#</span><span class="lname">TÍTULO</span><span class="lpts">PTS</span><span class="lrat">NOTA</span></div>
         ${rows}
         <div class="v40-legend">
-          <span><i class="zc"></i>Campeão(ões)</span><span><i class="zg"></i>Vice (Libertadores)</span>${maxPos >= 4 ? '<span><i class="zz"></i>Rebaixamento — talvez valha rever</span>' : ''}
+          <span><i class="zc"></i>1º e 2º: direto pro mata-mata</span><span><i class="zg"></i>3º ao 10º: repescagem</span>${maxPos >= 12 ? '<span><i class="zz"></i>Lanterna</span>' : ''}
         </div>
-        <p class="v40-muted" style="margin:6px 0 0;">Empate de pontos = mesma posição. Dentro do empate, a ordem é pela nota exata e depois pela ordem cronológica (só exibição). ▲▼ = posições desde a rodada anterior.</p>
+        <p class="v40-muted" style="margin:6px 0 0;">Desempate: ⭐ favorito ▸ consistência (% de episódios com nota 9+; filme conta como 1 episódio) ▸ você decide, se o empate valer vaga. Só títulos concluídos ocupam vaga. ▲▼ = posições desde a rodada anterior.</p>
       </div>
       <div class="stat-card">
         <button class="v40-collapse" data-toggle="v40Unrated">🕓 Ainda não estrearam (sem nota): ${unrated.length} ▾</button>
@@ -333,154 +440,179 @@
     </svg>`;
   }
 
-  // ---------- ⚔️ mata-mata dos 10 ----------
-  // participantes: títulos CONCLUÍDOS que valem 10 pontos (nota ≥ 9,5). Chave do tamanho da próxima
-  // potência de 2; quem sobra, os melhores cabeças de chave (nota exata, depois ordem cronológica)
-  // passam direto da 1ª rodada.
-  function tens(all) {
-    return all.filter(p => p.done && V40.round1(p.rating) >= 9.5).sort((a, b) => (b.rating - a.rating) || (a.order - b.order));
+  // ---------- 🏆 mata-mata (regulamento v40.3) ----------
+  // 1º e 2º (entre os concluídos) vão direto pra semifinal. 3º ao 10º jogam a repescagem:
+  //   1ª fase: 3×10 · 6×7 (lado A) e 4×9 · 5×8 (lado B) → final da repescagem de cada lado.
+  // Semifinais: 1º × vencedor B e 2º × vencedor A. Depois a final: o campeão é o Verdadeiro 10.
+  // Guardamos só a classificação do início (seeds) e os seus palpites; o resto é recalculado.
+  const KO_KEY = 'liga-edicao';
+  const MATCHES = [
+    { a: { s: 3 }, b: { s: 10 }, phase: 'rep1', label: 'Repescagem · lado A' },
+    { a: { s: 6 }, b: { s: 7 }, phase: 'rep1', label: 'Repescagem · lado A' },
+    { a: { s: 4 }, b: { s: 9 }, phase: 'rep1', label: 'Repescagem · lado B' },
+    { a: { s: 5 }, b: { s: 8 }, phase: 'rep1', label: 'Repescagem · lado B' },
+    { a: { m: 0 }, b: { m: 1 }, phase: 'rep2', label: 'Final da repescagem · vaga A' },
+    { a: { m: 2 }, b: { m: 3 }, phase: 'rep2', label: 'Final da repescagem · vaga B' },
+    { a: { s: 1 }, b: { m: 5 }, phase: 'semi', label: 'Semifinal 1' },
+    { a: { s: 2 }, b: { m: 4 }, phase: 'semi', label: 'Semifinal 2' },
+    { a: { m: 6 }, b: { m: 7 }, phase: 'final', label: 'Final' }
+  ];
+  const PHASES = [['rep1', 'Repescagem — 1ª fase'], ['rep2', 'Repescagem — final'], ['semi', 'Semifinais'], ['final', 'Final']];
+  function currentSeeds(table) {
+    const done = (table || V40.leagueTable()).filter(p => p.done && p.seed && p.seed <= V40.LIGA_REP_END);
+    const seeds = [];
+    done.forEach(p => { seeds[p.seed - 1] = p.pid; });
+    return seeds;
   }
-  function seedOrder(size) {
-    let order = [1];
-    while (order.length < size) {
-      const n = order.length * 2 + 1;
-      order = order.reduce((acc, s) => acc.concat([s, n - s]), []);
-    }
-    return order;
-  }
-  function roundName(size) {
-    if (size === 2) return 'Final';
-    if (size === 4) return 'Semifinal';
-    if (size === 8) return 'Quartas de final';
-    if (size === 16) return 'Oitavas de final';
-    return `Rodada de ${size}`;
-  }
-  V40.newKnockout = function (all) {
-    const seeds = tens(all || V40.participants());
-    if (seeds.length < 2) return null;
-    let size = 1;
-    while (size < seeds.length) size *= 2;
-    const slots = seedOrder(size).map(s => (s <= seeds.length ? seeds[s - 1].pid : null));
-    const first = [];
-    for (let i = 0; i < size; i += 2) first.push({ a: slots[i], b: slots[i + 1], w: null });
-    const ko = { created: new Date().toISOString(), seeds: seeds.map(p => p.pid), size, rounds: [first], champion: null, picks: [] };
-    autoAdvance(ko);
-    V40.set('knockout', ko);
-    return ko;
-  };
-  function autoAdvance(ko) {
-    // resolve byes e monta as rodadas seguintes conforme os vencedores saem
-    for (let r = 0; r < ko.rounds.length; r++) {
-      const round = ko.rounds[r];
-      round.forEach(m => {
-        if (m.w) return;
-        if (m.a && !m.b) m.w = m.a;
-        else if (m.b && !m.a) m.w = m.b;
-      });
-      const done = round.every(m => m.w || (!m.a && !m.b));
-      if (done && round.length > 1 && !ko.rounds[r + 1]) {
-        const next = [];
-        for (let i = 0; i < round.length; i += 2) next.push({ a: round[i].w || null, b: round[i + 1] ? (round[i + 1].w || null) : null, w: null });
-        ko.rounds.push(next);
+  // resolve a chave: cada jogo vira {a, b, w, ready, done}; undefined = ainda não definido
+  function solve(ed) {
+    const picks = {};
+    (ed.picks || []).forEach(x => { picks[x.i] = x.side; });
+    const res = [];
+    const side = src => {
+      if (src.s) return ed.seeds[src.s - 1] || null;
+      const m = res[src.m];
+      return m.done ? m.w : undefined;
+    };
+    MATCHES.forEach((def, i) => {
+      const a = side(def.a), b = side(def.b);
+      const m = { i, def, a, b, w: undefined, done: false, bye: false, played: false };
+      if (a !== undefined && b !== undefined) {
+        if (!a || !b) { m.w = a || b || null; m.done = true; m.bye = true; }
+        else if (picks[i]) { m.w = picks[i] === 'a' ? a : b; m.done = true; m.played = true; }
       }
-      if (done && round.length === 1) ko.champion = round[0].w;
-    }
+      res.push(m);
+    });
+    return res;
   }
-  function currentMatch(ko) {
-    for (let r = 0; r < ko.rounds.length; r++) {
-      const i = ko.rounds[r].findIndex(m => !m.w && m.a && m.b);
-      if (i >= 0) return { r, i, m: ko.rounds[r][i] };
-    }
+  V40.ligaEdition = function () { return V40.get(KO_KEY, null); };
+  // último Verdadeiro 10 (edições novas; se ainda não teve, o do mata-mata antigo)
+  V40.lastTrue10 = function () {
+    const list = V40.get('liga-campeoes', []);
+    if (list.length) return list[list.length - 1].name;
+    const ko = V40.get('knockout', null);
+    if (ko && ko.champion) { const p = V40.participants().find(x => x.pid === ko.champion); return p ? p.name : null; }
     return null;
+  };
+  V40.newEdition = function () {
+    const table = V40.leagueTable();
+    const seeds = currentSeeds(table);
+    const editions = V40.get('liga-campeoes', []);
+    const ed = { n: editions.length + 1, created: new Date().toISOString(), seeds, picks: [], champion: null };
+    V40.set(KO_KEY, ed);
+    return ed;
+  };
+  function koPick(i, s) {
+    if (!V40.guard()) return;
+    const ed = V40.ligaEdition();
+    if (!ed) return;
+    ed.picks.push({ i, side: s });
+    const res = solve(ed);
+    const fin = res[res.length - 1];
+    if (fin.done && fin.w && !ed.champion) {
+      ed.champion = fin.w;
+      ed.finishedAt = new Date().toISOString();
+      const list = V40.get('liga-campeoes', []);
+      const p = V40.participants().find(x => x.pid === fin.w);
+      list.push({ n: ed.n, pid: fin.w, name: p ? p.name : fin.w, rating: p ? p.rating : null, at: ed.finishedAt, created: ed.created });
+      V40.set('liga-campeoes', list);
+      V40.confetti(true); V40.sound('trophy');
+      V40.logEvent('ko-champion', { name: p ? p.name : fin.w });
+    } else V40.sound('tick');
+    V40.set(KO_KEY, ed);
+    V40.renderLiga();
+  }
+  function koUndo() {
+    const ed = V40.ligaEdition();
+    if (!ed || !ed.picks.length) return;
+    ed.picks.pop();
+    if (ed.champion) {
+      V40.set('liga-campeoes', V40.get('liga-campeoes', []).filter(c => c.created !== ed.created));
+      ed.champion = null; delete ed.finishedAt;
+    }
+    V40.set(KO_KEY, ed);
+    V40.renderLiga();
   }
   function knockoutHtml(all) {
-    const eligible = tens(all);
-    let ko = V40.get('knockout', null);
-    if (eligible.length < 2) {
-      return `<div class="stat-card"><h4>⚔️ Mata-mata dos 10</h4><p>Precisa de pelo menos 2 títulos concluídos com nota 9,5 ou mais. Agora: ${eligible.length}.</p></div>`;
-    }
-    if (!ko) ko = V40.newKnockout(all);
+    const table = V40.leagueTable(all);
     const byPid = {};
     all.forEach(p => { byPid[p.pid] = p; });
-    const missing = eligible.filter(p => !ko.seeds.includes(p.pid));
-    const gone = ko.seeds.filter(pid => !eligible.some(p => p.pid === pid));
-    const nm = pid => pid && byPid[pid] ? `${byPid[pid].icon} ${V40.esc(byPid[pid].name)}` : (pid ? '(saiu da lista)' : '<i>passa direto</i>');
-    const cur = currentMatch(ko);
+    const tbl = {};
+    table.forEach(p => { tbl[p.pid] = p; });
+    const nm = pid => pid && byPid[pid] ? `${byPid[pid].icon} ${V40.esc(byPid[pid].name)}` : (pid ? '(saiu da lista)' : '<i class="v40-muted">—</i>');
+    const seedTag = (ed, pid) => { const k = ed.seeds.indexOf(pid); return k >= 0 ? `<small class="v40-muted">${k + 1}º</small> ` : ''; };
+    const ties = V40.pendingTies(table);
+    const seedsNow = currentSeeds(table);
+    const ed = V40.ligaEdition();
+    const doneCount = table.filter(p => p.done).length;
+    const rules = `<details class="v40-help"><summary>📜 Regulamento</summary>
+      <ol style="margin:6px 0 0 18px;padding:0;font-size:0.8rem;">
+        <li>Pontos corridos: a pontuação é a nota exata.</li>
+        <li>Desempate: ⭐ favorito ▸ consistência (% de episódios com nota 9+; filme conta como 1 episódio) ▸ você decide num duelo, se o empate valer vaga.</li>
+        <li>Só títulos concluídos ocupam vaga. 1º e 2º vão direto pras semifinais.</li>
+        <li>3º ao 10º jogam a repescagem: 3×10 e 6×7 (lado A), 4×9 e 5×8 (lado B). Cada lado dá 1 vaga.</li>
+        <li>Semifinais: 1º × vencedor B e 2º × vencedor A. O campeão da final é o 👑 Verdadeiro 10.</li>
+        <li>A chave usa a classificação do dia em que a edição começa.</li>
+      </ol></details>`;
+    if (!ed) {
+      const list = seedsNow.map((pid, k) => `<div class="v40-lrow ${k < V40.LIGA_DIRECT ? 'champ' : 'g'}"><span class="lpos">${k + 1}º</span><span class="lname">${nm(pid)}</span><span class="lpts">${tbl[pid] ? V40.fmt1(tbl[pid].pts) : ''}</span><span class="lrat">${k < V40.LIGA_DIRECT ? 'direto' : 'repesc.'}</span></div>`).join('');
+      return `${tiesHtml(table)}
+        <div class="stat-card">
+          <h4>🏆 Mata-mata — edição ${V40.get('liga-campeoes', []).length + 1}</h4>
+          ${doneCount < 2 ? `<p>Precisa de pelo menos 2 títulos concluídos com nota. Agora: ${doneCount}.</p>` : `
+          <p class="v40-muted" style="margin-top:-4px;">Classificados pela tabela de agora:</p>
+          ${list}
+          <button class="v40-primary" id="v40EdStart" style="margin-top:10px;width:100%;" ${ties.length ? 'disabled' : ''}>▶️ Começar a edição</button>
+          ${ties.length ? '<p class="v40-muted">Decida o empate acima antes de começar.</p>' : ''}`}
+          ${rules}
+        </div>`;
+    }
+    const res = solve(ed);
+    const cur = res.find(m => !m.done && m.a && m.b);
+    const changed = seedsNow.join('|') !== ed.seeds.join('|');
     let stage = '';
-    if (ko.champion) {
-      const c = byPid[ko.champion];
+    if (ed.champion) {
+      const c = byPid[ed.champion];
       stage = `<div class="stat-card v40-ko-champ">
         <div class="v40-champ-crown">👑</div>
-        <div class="v40-muted">O VERDADEIRO 10</div>
-        <div class="v40-big">${nm(ko.champion)}</div>
-        ${c ? `<div class="v40-muted">nota ${V40.fmt1(c.rating)} · campeão em ${V40.fmtBR((ko.finishedAt || V40.today()).slice(0, 10), true)}</div>` : ''}
+        <div class="v40-muted">O VERDADEIRO 10 · EDIÇÃO ${ed.n}</div>
+        <div class="v40-big">${nm(ed.champion)}</div>
+        ${c ? `<div class="v40-muted">nota ${V40.fmt1(c.rating)} · ${seedTag(ed, ed.champion).replace(/<[^>]+>/g, '')}na tabela · campeão em ${V40.fmtBR((ed.finishedAt || V40.today()).slice(0, 10), true)}</div>` : ''}
       </div>`;
     } else if (cur) {
-      const sizeOfRound = ko.size / Math.pow(2, cur.r);
-      const pa = byPid[cur.m.a], pb = byPid[cur.m.b];
-      const card = (p, side) => `<button class="v40-ko-pick" data-pick="${side}">
+      const pa = byPid[cur.a], pb = byPid[cur.b];
+      const card = (p, s, pid) => `<button class="v40-ko-pick" data-kopick="${cur.i}" data-side="${s}">
           ${p && V40.posterUrl && V40.posterUrl(p.items[0], 'w185') ? `<img class="v40-ko-img" src="${V40.posterUrl(p.items[0], 'w185')}" alt="">` : `<span class="ico">${p ? p.icon : '❔'}</span>`}
           <span class="nm">${p ? V40.esc(p.name) : '(saiu)'}</span>
-          <span class="v40-muted">${p ? 'nota ' + V40.fmt1(p.rating) : ''}${p && p.completedAt ? ' · visto ' + V40.fmtBR(p.completedAt, true) : ''}</span>
+          <span class="v40-muted">${ed.seeds.indexOf(pid) + 1}º na tabela${p ? ' · nota ' + V40.fmt1(p.rating) : ''}</span>
         </button>`;
       stage = `<div class="stat-card">
-        <h4>⚔️ ${roundName(sizeOfRound)} — jogo ${ko.rounds[cur.r].slice(0, cur.i + 1).filter(m => m.a && m.b).length} de ${ko.rounds[cur.r].filter(m => m.a && m.b).length}</h4>
+        <h4>⚔️ ${cur.def.label}</h4>
         <p class="v40-muted" style="margin-top:-4px;">Qual dos dois é <b>mais 10</b>? Toque no vencedor.</p>
-        <div class="v40-ko-match">${card(pa, 'a')}<div class="v40-vs">VS</div>${card(pb, 'b')}</div>
+        <div class="v40-ko-match">${card(pa, 'a', cur.a)}<div class="v40-vs">VS</div>${card(pb, 'b', cur.b)}</div>
       </div>`;
     }
-    const bracket = ko.rounds.map((round, r) => {
-      const sizeOfRound = ko.size / Math.pow(2, r);
-      return `<div class="v40-ko-round"><div class="v40-ko-rname">${roundName(sizeOfRound)}</div>${round.map(m => `
-        <div class="v40-ko-m">
-          <span class="${m.w && m.w === m.a ? 'win' : (m.w ? 'lose' : '')}">${nm(m.a)}</span>
-          <span class="${m.w && m.w === m.b ? 'win' : (m.w ? 'lose' : '')}">${nm(m.b)}</span>
+    const bracket = PHASES.map(([ph, name]) => {
+      const ms = res.filter(m => m.def.phase === ph);
+      return `<div class="v40-ko-round"><div class="v40-ko-rname">${name}</div>${ms.map(m => `
+        <div class="v40-ko-m" title="${V40.esc(m.def.label)}">
+          <span class="${m.done && m.w && m.w === m.a ? 'win' : (m.played ? 'lose' : '')}">${m.a === undefined ? '<i class="v40-muted">a definir</i>' : seedTag(ed, m.a) + nm(m.a)}</span>
+          <span class="${m.done && m.w && m.w === m.b ? 'win' : (m.played ? 'lose' : '')}">${m.b === undefined ? '<i class="v40-muted">a definir</i>' : seedTag(ed, m.b) + nm(m.b)}</span>
         </div>`).join('')}</div>`;
     }).join('');
     return `
-      ${missing.length || gone.length ? `<div class="stat-card v40-warn">${missing.length ? `🆕 ${missing.length} título(s) novo(s) com 10 ficou(aram) fora deste torneio. ` : ''}${gone.length ? `${gone.length} participante(s) não vale(m) mais 10. ` : ''}<button class="v40-link" id="v40KoReset2">Recomeçar com a lista atual ›</button></div>` : ''}
+      ${changed && !ed.champion ? `<div class="stat-card v40-warn">📋 A classificação mudou desde que esta edição começou. <button class="v40-link" id="v40EdReset2">Recomeçar com a tabela de agora ›</button></div>` : ''}
       ${stage}
       <div class="stat-card">
-        <h4>🗂 Chaveamento (${ko.seeds.length} participantes)</h4>
+        <h4>🗂 Chave — edição ${ed.n}</h4>
         <div class="v40-ko-bracket">${bracket}</div>
         <div style="display:flex;gap:8px;margin-top:10px;flex-wrap:wrap;">
-          <button id="v40KoUndo" ${ko.picks.length ? '' : 'disabled'}>↺ Desfazer último jogo</button>
-          <button id="v40KoReset" class="v40-danger">🔄 Recomeçar torneio</button>
+          <button id="v40KoUndo" ${ed.picks.length ? '' : 'disabled'}>↺ Desfazer último jogo</button>
+          <button id="v40EdReset" class="v40-danger">🔄 Recomeçar</button>
+          ${ed.champion ? '<button id="v40EdNew">▶️ Nova edição</button>' : ''}
         </div>
-        <p class="v40-muted">Cabeças de chave pela nota exata (e ordem cronológica). Quando o número de participantes não é 2, 4, 8, 16, 32…, os melhores cabeças passam direto da 1ª rodada.</p>
+        ${rules}
       </div>`;
-  }
-  function pickWinner(side) {
-    if (!V40.guard()) return;
-    const ko = V40.get('knockout', null);
-    if (!ko) return;
-    const cur = currentMatch(ko);
-    if (!cur) return;
-    cur.m.w = side === 'a' ? cur.m.a : cur.m.b;
-    ko.picks.push({ r: cur.r, i: cur.i });
-    autoAdvance(ko);
-    if (ko.champion) {
-      ko.finishedAt = new Date().toISOString();
-      V40.confetti(true);
-      V40.sound('trophy');
-      V40.logEvent('ko-champion', { name: ko.champion });
-    } else V40.sound('tick');
-    V40.set('knockout', ko);
-    V40.renderLiga();
-  }
-  function undoPick() {
-    const ko = V40.get('knockout', null);
-    if (!ko || !ko.picks.length) return;
-    const last = ko.picks.pop();
-    // apaga o resultado e tudo que dependia dele (rodadas seguintes são remontadas)
-    ko.rounds[last.r][last.i].w = null;
-    ko.rounds = ko.rounds.slice(0, last.r + 1);
-    ko.champion = null; delete ko.finishedAt;
-    // refaz byes e rodadas seguintes a partir dos resultados que ficaram
-    autoAdvance(ko);
-    // re-aplica picks posteriores não existem (eram depois do desfeito) — ok
-    V40.set('knockout', ko);
-    V40.renderLiga();
   }
 
   // ---------- imagem pra compartilhar ----------
@@ -633,14 +765,24 @@
     if (da) { da.addEventListener('change', upd); db.addEventListener('change', upd); }
     const hs = document.getElementById('v40HistSel');
     if (hs) hs.addEventListener('change', () => { V40.histHero = hs.value; V40.set('hist-hero', hs.value); V40.renderLiga(); });
-    el.querySelectorAll('[data-pick]').forEach(b => b.addEventListener('click', () => pickWinner(b.dataset.pick)));
+    el.querySelectorAll('[data-kopick]').forEach(b => b.addEventListener('click', () => koPick(+b.dataset.kopick, b.dataset.side)));
+    el.querySelectorAll('[data-tiefix]').forEach(b => b.addEventListener('click', () => {
+      const t = V40.pendingTies()[+b.dataset.tiefix];
+      if (t) V40.openTieResolver(t);
+    }));
     const undo = document.getElementById('v40KoUndo');
-    if (undo) undo.addEventListener('click', undoPick);
+    if (undo) undo.addEventListener('click', koUndo);
+    const start = document.getElementById('v40EdStart');
+    if (start) start.addEventListener('click', () => { if (!V40.guard()) return; V40.newEdition(); V40.renderLiga(); });
     const reset = () => {
-      if (!confirm('Recomeçar o mata-mata do zero (com os títulos nota 10 de agora)?')) return;
-      V40.newKnockout(); V40.renderLiga();
+      const ed = V40.ligaEdition();
+      if (ed && ed.picks.length && !confirm('Recomeçar a edição do zero com a tabela de agora? Os jogos já decididos nela se perdem.')) return;
+      if (ed && ed.champion) V40.set('liga-campeoes', V40.get('liga-campeoes', []).filter(c => c.created !== ed.created));
+      V40.set(KO_KEY, null); V40.renderLiga();
     };
-    const r1 = document.getElementById('v40KoReset'); if (r1) r1.addEventListener('click', reset);
-    const r2 = document.getElementById('v40KoReset2'); if (r2) r2.addEventListener('click', reset);
+    const r1 = document.getElementById('v40EdReset'); if (r1) r1.addEventListener('click', reset);
+    const r2 = document.getElementById('v40EdReset2'); if (r2) r2.addEventListener('click', reset);
+    const nw = document.getElementById('v40EdNew');
+    if (nw) nw.addEventListener('click', () => { V40.set(KO_KEY, null); V40.renderLiga(); });
   }
 })();

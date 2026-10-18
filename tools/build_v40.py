@@ -20,7 +20,7 @@ from pathlib import Path
 ROOT = Path(__file__).resolve().parent.parent
 SRC = ROOT / 'tools' / 'base.html'
 BUILD = time.strftime('%Y%m%d%H%M')
-VERSION = 'v40.1.1'
+VERSION = 'v40.3'
 
 V40_SCRIPTS = ['v40-catalog.js', 'v40-core.js', 'v40-liga.js', 'v40-stats.js', 'v40-fun.js', 'v40-data.js',
                'v40-content.js', 'v40-sync.js', 'v40-pedidos.js', 'v40-system.js']

@@ -578,9 +578,7 @@
     doneY.forEach(i => { const m = i.completedAt.slice(5, 7); months[m] = (months[m] || 0) + 1; });
     const bestMonth = Object.keys(months).sort((a, b) => months[b] - months[a])[0];
     const mn = ['', 'janeiro', 'fevereiro', 'março', 'abril', 'maio', 'junho', 'julho', 'agosto', 'setembro', 'outubro', 'novembro', 'dezembro'];
-    const ko = V40.get('knockout', null);
-    let koChamp = null;
-    if (ko && ko.champion) { const p = V40.participants().find(x => x.pid === ko.champion); koChamp = p ? p.name : null; }
+    const koChamp = V40.lastTrue10 ? V40.lastTrue10() : null;
     V40.modal(`<div class="v40-wrapped">
       <div class="w-head">🎁 SUA RETROSPECTIVA<br><span>${year}</span></div>
       <div class="w-grid">

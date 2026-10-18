@@ -495,3 +495,10 @@ body { overflow-x: clip; }
 .v40-att-p { position: relative; }
 .v40-att-p img, .v40-att-p .v40-att-ic { width: 56px; height: 56px; object-fit: cover; border-radius: 8px; border: 1px solid var(--gold); }
 .v40-att-p button { position: absolute; top: -6px; right: -6px; width: 20px; height: 20px; border-radius: 50%; border: none; background: var(--crimson); color: #fff; font-size: 0.65rem; line-height: 20px; padding: 0; cursor: pointer; }
+
+/* v40.3 — desempate da Liga */
+.v40-tie-list { display: flex; flex-direction: column; gap: 6px; margin-top: 8px; }
+.v40-tie-btn { text-align: left; padding: 10px 12px !important; border-radius: 8px; border: 1px solid var(--line) !important; background: rgba(255,255,255,0.03) !important; color: var(--paper) !important; display: flex; align-items: center; gap: 6px; }
+.v40-tie-btn.on { border-color: var(--gold) !important; background: rgba(217,164,65,0.12) !important; }
+.v40-tie-n { min-width: 2.2em; color: var(--gold); font-family: 'JetBrains Mono', monospace; }
+.v40-ko-round { flex-basis: 170px; }
