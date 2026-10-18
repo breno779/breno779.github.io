@@ -676,3 +676,8 @@ body.v40-compact .item .watch-date { font-size: 0.62rem; }
 .v40-up-art small { position: relative; z-index: 1; font-family: 'JetBrains Mono', monospace; font-size: 0.55rem; letter-spacing: 0.2em; font-weight: 800; color: #fff; text-shadow: 0 1px 3px #000; }
 .v40-up .ph.v40-up-art.v40-classic { background: linear-gradient(150deg, var(--c1), var(--c2)); }
 .v40-old-actions { margin-top: -4px !important; }
+
+/* v40.6.5 — atalhos rápidos no topo da Config */
+.v40-quick { display: grid; grid-template-columns: repeat(auto-fill, minmax(140px, 1fr)); gap: 8px; margin: 10px 0 4px; }
+.v40-quick button { display: flex; flex-direction: column; align-items: center; gap: 4px; padding: 12px 6px !important; border-radius: 12px !important; border: 1px solid var(--gold) !important; background: linear-gradient(180deg, rgba(217,164,65,0.12), transparent) !important; color: var(--paper) !important; font-family: 'Baloo 2', sans-serif; font-weight: 700; font-size: 0.78rem; cursor: pointer; }
+.v40-quick button span { font-size: 1.5rem; }

@@ -12,7 +12,7 @@
   V40.BUILD = BUILD;
   const MODE = window.V40_MODE || 'beta';
   V40.MODE = MODE;
-  V40.VERSION_LABEL = MODE === 'beta' ? 'v40.6.4 beta' : 'v40.6.4';
+  V40.VERSION_LABEL = MODE === 'beta' ? 'v40.6.5 beta' : 'v40.6.5';
 
   // =================== APARÊNCIA ===================
   let mql = null;
@@ -322,7 +322,15 @@
         <div class="dash-actions" style="margin:8px 0 0;"><button id="v40CfgNews">🆕 Novidades</button><button id="v40CfgHelp">❓ Ajuda</button><button id="v40CfgPed">💬 Pedidos</button></div>
       </div>`;
     box.innerHTML = `${head}
-      <details class="v40-cfg-group" open><summary>📋 Lista</summary><div class="config-list">
+      <div class="v40-quick">
+        <button id="v40QTimeline"><span>🗺</span>Linha do tempo</button>
+        <button id="v40QExt"><span>🖼</span>Capas e dados${V40.settings.tmdbKey ? '' : ' <b class="v40-badge">sem chave</b>'}</button>
+        <button id="v40QSync"><span>☁️</span>Sincronização</button>
+        <button id="v40QLook"><span>🎨</span>Aparência</button>
+        <button id="v40QUni"><span>📚</span>Universo</button>
+        <button id="v40QShort"><span>📲</span>Atalhos</button>
+      </div>
+      <details class="v40-cfg-group"><summary>📋 Lista</summary><div class="config-list">
         <button id="v40CfgAdd">➕ Adicionar / mover títulos</button>
         <button id="v40CfgCols">🗂 Coleções</button>
         <button id="v40CfgNick">🏷 Apelidos dos heróis</button>
@@ -386,6 +394,12 @@
     on('v40CfgActivity', V40.openActivity);
     on('v40CfgCSV', V40.exportCSV);
     on('v40CfgShortcuts', V40.openShortcuts);
+    on('v40QTimeline', () => V40.openTimeline());
+    on('v40QExt', V40.openExtSettings);
+    on('v40QSync', V40.openSync);
+    on('v40QLook', V40.openAppearance);
+    on('v40QUni', () => V40.openUniverse());
+    on('v40QShort', V40.openShortcuts);
     on('v40CfgNotif', V40.openNotifSettings);
     on('v40CfgTimeline', () => V40.openTimeline());
     on('v40CfgReset', () => {

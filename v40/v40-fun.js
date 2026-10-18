@@ -382,6 +382,7 @@
         <button id="v40HomeTravel">✈️ Modo viagem</button>
         <button id="v40HomeSim">🔮 Simulador</button>
         <button id="v40HomeCal">📅 Calendário do mês</button>
+        <button id="v40HomeTl">🗺 Linha do tempo</button>
         <button id="v40HomeUni">📚 Universo</button>
         <button id="v40HomeRem">⏰ Lembretes</button>
       </div>`;
@@ -398,6 +399,7 @@
     on('v40HomeSim', V40.openSimulator);
     on('v40HomeCal', () => V40.openMonthCalendar());
     on('v40HomeUni', () => V40.openUniverse());
+    on('v40HomeTl', () => V40.openTimeline && V40.openTimeline());
     on('v40HomeRem', () => V40.openReminders && V40.openReminders());
     on('v40HomeLiga', () => { const fin = V40.ligaProgress().played >= V40.ligaProgress().total; V40.ligaTab = fin ? 'mata' : 'jogos'; V40.set('liga-tab', V40.ligaTab); switchTab('tabLiga'); });
     on('v40HomeWeekend', () => V40.openWeekendMarathon());
