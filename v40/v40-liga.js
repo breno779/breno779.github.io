@@ -326,6 +326,13 @@
     if (t.kind === 'serie') return { id: 'serie:' + t.base, name: 'Clássico de ' + t.base, emoji: '🔥', c: ['#5a189a', '#d9a441'], pat: 'plain' };
     return null;
   }
+  // tema da franquia de um título (cores/padrão/emoji) — usado como capa provisória
+  V40.franchiseForItem = function (it) {
+    if (!it) return null;
+    const kind = simpleKind(it) === 'serie' ? 'serie' : 'filme';
+    const f = franchiseOf({ items: [it], kind, base: V40.shortName(it) });
+    return f && f.pat ? f : null;
+  };
   V40.isClassic = (a, b) => !!(a && b && a.franchise && b.franchise && a.franchise.id === b.franchise.id);
   const classicBanner = f => `<div class="v40-classic" data-pat="${f.pat}" style="--c1:${f.c[0]};--c2:${f.c[1]}">
       <span class="v40-classic-emo">${f.emoji}</span>

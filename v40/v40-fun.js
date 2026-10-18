@@ -368,7 +368,11 @@
     if (h.estreias !== false) {
       const up = V40.upcomingReleases(4);
       if (up.length) html += `<div class="stat-card v40-upcoming"><h4>🎬 Próximas estreias</h4><div class="v40-up-list">${up.map(x => `
-        <button class="v40-up" data-upinfo="${x.it.id}">${x.poster ? `<img src="${x.poster}" alt="" onerror="this.remove()">` : `<span class="ph">${V40.kindIcon(x.it)}</span>`}
+        <button class="v40-up" data-upinfo="${x.it.id}">${x.poster ? `<img src="${x.poster}" alt="" onerror="this.remove()">` : (() => {
+          // sem pôster ainda: capa provisória com a arte da franquia (as mesmas dos clássicos)
+          const f = V40.franchiseForItem && V40.franchiseForItem(x.it);
+          return f ? `<span class="ph v40-classic v40-up-art" data-pat="${f.pat}" style="--c1:${f.c[0]};--c2:${f.c[1]}"><span class="v40-up-emo">${f.emoji}</span><small>EM BREVE</small></span>` : `<span class="ph v40-up-art plain"><span class="v40-up-emo">${V40.kindIcon(x.it)}</span><small>EM BREVE</small></span>`;
+        })()}
           <b>${V40.esc(V40.shortName(x.it))}</b><small>${V40.fmtBR(x.date, true)}</small><span class="v40-up-days">${x.days === 0 ? 'HOJE!' : x.days === 1 ? 'amanhã' : 'faltam ' + x.days + ' dias'}</span></button>`).join('')}</div></div>`;
     }
     html += `<div class="dash-actions v40-actions">
