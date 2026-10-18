@@ -548,6 +548,8 @@
         <button id="v40ExtSave" class="v40-primary">Salvar e buscar</button>
         <button id="v40ExtForce">🔄 Buscar tudo de novo</button>
         <button id="v40ExtReport">📋 Relatório</button>
+        <button id="v40ExtCloudIn">☁️ Trazer capas da nuvem</button>
+        ${tmdbKey() ? '<button id="v40ExtCloudOut">☁️ Enviar capas pros outros aparelhos</button>' : ''}
         <button id="v40ExtClear" class="v40-danger">Apagar dados baixados</button>
       </div>`);
     document.getElementById('v40Posters').addEventListener('change', e => { V40.settings.posters = e.target.checked; V40.saveSettings(); render(); });
@@ -562,6 +564,9 @@
       V40.refreshExt(changed ? { onlyTmdb: !!k && Object.keys(V40.ext).length > 0 } : {});
     });
     document.getElementById('v40ExtForce').addEventListener('click', () => { closeModal(); V40.refreshExt({ force: true }); });
+    document.getElementById('v40ExtCloudIn').addEventListener('click', async () => { closeModal(); V40.toast('☁️ Buscando capas na nuvem…'); const n = await V40.pullCovers(true); if (!n) V40.toast('☁️ Nenhuma capa nova na nuvem. Abra o app no aparelho que tem a chave do TMDB e toque em "Enviar capas".'); });
+    const co = document.getElementById('v40ExtCloudOut');
+    if (co) co.addEventListener('click', async () => { closeModal(); V40.set('covers-pushed', ''); const ok = await V40.shareCovers(null, true); V40.toast(ok ? '☁️ Capas enviadas — os outros aparelhos pegam ao abrir' : '⚠️ Não deu pra enviar as capas agora'); });
     document.getElementById('v40ExtReport').addEventListener('click', V40.openExtReport);
     document.getElementById('v40ExtClear').addEventListener('click', async () => {
       if (!confirm('Apagar capas/episódios baixados? (sua lista não muda)')) return;
@@ -613,9 +618,9 @@
   // os outros aparelhos com o mesmo código pegam de lá — sem precisar da chave.
   const COVER_FIELDS = ['poster', 'posterTv', 'posterTvS', 'still', 'providers'];
   const coverDoc = () => 'v40capas-' + (V40.syncCode ? V40.syncCode() : 'x');
-  V40.shareCovers = async function (db) {
+  V40.shareCovers = async function (db, force) {
     try {
-      if (V40.get('covers-pushed', '') === V40.today()) return;
+      if (!force && V40.get('covers-pushed', '') === V40.today()) return false;
       const map = {};
       Object.keys(V40.ext).forEach(k => {
         const info = V40.ext[k];
@@ -624,21 +629,23 @@
         COVER_FIELDS.forEach(f => { if (info[f]) o[f] = f === 'providers' ? { stream: (info.providers.stream || []).slice(0, 3) } : info[f]; });
         if (Object.keys(o).length) map[info.key || k.slice(5)] = o;
       });
-      if (Object.keys(map).length < 10) return;
+      if (Object.keys(map).length < 10) return false;
       db = db || await V40.firestore();
       await db.collection('syncs').doc(coverDoc()).set({ covers: JSON.stringify(map), at: new Date().toISOString(), n: Object.keys(map).length });
       V40.set('covers-pushed', V40.today());
-    } catch (e) { /* tudo bem: tenta de novo outro dia */ }
+      return true;
+    } catch (e) { return false; }
   };
-  V40.pullCovers = async function () {
+  V40.pullCovers = async function (force) {
     try {
-      if (V40.get('covers-pulled', '') === V40.today() || !navigator.onLine || !V40.firestore) return;
+      if (!navigator.onLine || !V40.firestore) return 0;
+      if (!force && Date.now() - (V40.get('covers-pulled-at', 0) || 0) < 3600000) return 0;   // no máx. 1x por hora
       const missing = items.filter(it => it.key && !V40.posterUrl(it) && V40.catOf(it) && V40.catOf(it).type !== 'g').length;
-      if (missing < 3) return;
+      if (!force && missing < 3) return 0;
       const db = await V40.firestore();
       const snap = await db.collection('syncs').doc(coverDoc()).get();
-      V40.set('covers-pulled', V40.today());
-      if (!snap.exists) return;
+      V40.set('covers-pulled-at', Date.now());
+      if (!snap.exists) return 0;
       const map = JSON.parse(snap.data().covers || '{}');
       let n = 0;
       for (const key of Object.keys(map)) {
@@ -651,7 +658,8 @@
         n++;
       }
       if (n) { try { render(); } catch (e) {} V40.refreshLigaIfOpen(); V40.toast(`🖼 ${n} capa(s) vieram da nuvem`); }
-    } catch (e) { /* sem nuvem/sem internet: tudo bem */ }
+      return n;
+    } catch (e) { return 0; }
   };
 
   // ---------- init ----------
@@ -663,7 +671,7 @@
     V40.extReady = true;
     V40.applyExt();
     try { render(); } catch (e) {} V40.refreshLigaIfOpen();
-    setTimeout(() => { V40.pullCovers(); }, 5000);
+    setTimeout(() => { if (tmdbKey()) V40.shareCovers(); else V40.pullCovers(); }, 5000);
     // primeira vez ou vencido: busca sozinho em segundo plano (só com internet)
     if (navigator.onLine && V40.settings.autoExt !== false) {
       setTimeout(() => { V40.refreshExt({}); }, 2500);
