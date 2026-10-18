@@ -562,3 +562,12 @@ body { overflow-x: clip; }
 .v40-l4-match.classic .v40-l4-team { border-color: var(--c2); box-shadow: 0 0 0 2px var(--c1) inset; }
 .v40-l4-match.classic .v40-l4-draw { border-color: var(--c2); color: var(--c2); }
 .v40-classic-tag { display: inline-block; padding: 1px 6px; border-radius: 6px; color: #fff; font-weight: 800; font-size: 0.6rem; background: linear-gradient(90deg, var(--c1), var(--c2)); }
+
+/* v40.4.6 — Libertadores com fase de grupos */
+.v40-lib-groups { display: grid; grid-template-columns: repeat(auto-fill, minmax(220px, 1fr)); gap: 10px; }
+.v40-lib-group { border: 1px solid var(--line); border-radius: 8px; padding: 6px 8px; }
+.v40-lib-grow { display: grid; grid-template-columns: 1.2em 1fr 1.6em 1.8em; gap: 4px; font-size: 0.72rem; padding: 3px 0; border-top: 1px solid var(--line); align-items: center; }
+.v40-lib-grow.q { background: rgba(217,164,65,0.10); }
+.v40-lib-grow b { color: var(--gold); text-align: center; }
+.v40-lib-grow span:first-child, .v40-lib-grow span:nth-child(3) { font-family: 'JetBrains Mono', monospace; color: var(--muted); text-align: center; }
+.v40-lib-grow .n { overflow-wrap: anywhere; }

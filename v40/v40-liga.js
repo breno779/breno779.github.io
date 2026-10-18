@@ -196,7 +196,7 @@
   // v40.4 — CAMPEONATO DE VERDADE: todos contra todos, você escolhe cada jogo
   //   vitória 3 · empate 1 · derrota 0. Séries viram 1 time só (todas as temporadas/partes
   //   juntas, What If T1+T2+T3 também). Entram os concluídos e os em andamento.
-  //   Os 8 primeiros jogam a Libertadores (quartas ▸ semi ▸ final).
+  //   Libertadores: 8 vagas até 51 times, +1 por time novo, até 32 (com fase de grupos).
   // =====================================================================
   const L4_KEY = 'liga4';
   function teamBase(name) {
@@ -352,7 +352,7 @@
     list.sort((x, y) => (y.P - x.P) || (y.V - x.V) || (y.apr - x.apr) || x.name.localeCompare(y.name, 'pt-BR', { sensitivity: 'base' }));
     list.forEach((t, i) => {
       t.pos = i + 1;
-      t.zone = i < 8 ? 'liberta' : '';
+      t.zone = i < V40.libSlots(list.length) ? 'liberta' : '';
     });
     return list;
   };
@@ -446,7 +446,7 @@
         <h4>📋 Classificação</h4>
         <div class="v40-l4row head"><span class="lpos">#</span><span class="lname">TIME</span><span>J</span><span>V</span><span>E</span><span>D</span><span class="lpts">P</span></div>
         ${rows}
-        <div class="v40-legend"><span><i class="zc"></i>1º ao 8º: Libertadores</span></div>
+        <div class="v40-legend"><span><i class="zc"></i>1º ao ${V40.libSlots(table.length)}º: Libertadores${V40.libSlots(table.length) < 32 ? ` (cada time novo abre mais 1 vaga, até 32)` : ''}</span></div>
         <p class="v40-muted" style="margin:6px 0 0;">Vitória 3 · empate 1 · derrota 0. Desempate: vitórias ▸ aproveitamento ▸ ordem alfabética. Cada temporada é um time; só entra o que você concluiu. ⚡ Clássico = mesma franquia ou mesma série. ▲▼ = desde a rodada anterior.</p>
       </div>
       <button class="big-action v40-share-btn" id="v40ShareLiga">📤 Compartilhar a tabela como imagem</button>`;
@@ -482,51 +482,112 @@
       </div>
       ${last ? `<div class="stat-card"><h4>🗒 Últimos resultados</h4>${last}</div>` : ''}`;
   }
-  // ---------- 🏆 Libertadores (8 primeiros: quartas ▸ semi ▸ final) ----------
+  // ---------- 🏆 Libertadores ----------
+  // vagas: 8 com até 51 times; cada time a mais abre 1 vaga, até parar em 32.
+  // Com 32: fase de grupos (8 grupos de 4, todos contra todos no grupo, pode empatar) → os 2
+  // primeiros de cada grupo vão pras oitavas. Com 8 a 31: mata-mata direto; quando não fecha
+  // 8/16/32, os melhores colocados passam direto da 1ª fase (como bye).
   const LIB_KEY = 'liga4-liberta';
-  const LIB = [
-    { a: { s: 1 }, b: { s: 8 }, phase: 'q', label: 'Quartas de final 1' },
-    { a: { s: 4 }, b: { s: 5 }, phase: 'q', label: 'Quartas de final 2' },
-    { a: { s: 2 }, b: { s: 7 }, phase: 'q', label: 'Quartas de final 3' },
-    { a: { s: 3 }, b: { s: 6 }, phase: 'q', label: 'Quartas de final 4' },
-    { a: { m: 0 }, b: { m: 1 }, phase: 's', label: 'Semifinal 1' },
-    { a: { m: 2 }, b: { m: 3 }, phase: 's', label: 'Semifinal 2' },
-    { a: { m: 4 }, b: { m: 5 }, phase: 'f', label: 'Final' }
-  ];
-  function libSolve(ed) {
-    const picks = {};
-    (ed.picks || []).forEach(x => { picks[x.i] = x.side; });
-    const res = [];
-    const side = src => { if (src.s) return ed.seeds[src.s - 1] || null; const m = res[src.m]; return m.done ? m.w : undefined; };
-    LIB.forEach((def, i) => {
-      const a = side(def.a), b = side(def.b);
-      const m = { i, def, a, b, w: undefined, done: false, played: false };
-      if (a !== undefined && b !== undefined) {
-        if (!a || !b) { m.w = a || b || null; m.done = true; }
-        else if (picks[i]) { m.w = picks[i] === 'a' ? a : b; m.done = true; m.played = true; }
-      }
-      res.push(m);
+  V40.libSlots = n => Math.max(0, Math.min(32, n <= 51 ? Math.min(8, n) : 8 + (n - 51)));
+  const GROUP_NAMES = 'ABCDEFGH';
+  const GROUP_PAIRS = [[0, 1], [2, 3], [0, 2], [1, 3], [0, 3], [1, 2]];
+  function koRoundName(size) {
+    if (size === 2) return 'Final';
+    if (size === 4) return 'Semifinal';
+    if (size === 8) return 'Quartas de final';
+    if (size === 16) return 'Oitavas de final';
+    return 'Fase de ' + size;
+  }
+  function seedOrderN(size) {
+    let order = [1];
+    while (order.length < size) { const n = order.length * 2 + 1; order = order.reduce((acc, s) => acc.concat([s, n - s]), []); }
+    return order;
+  }
+  function libGroups(ed) {
+    // potes: 1–8, 9–16, 17–24, 25–32 (um de cada pote por grupo)
+    return Array.from({ length: 8 }, (_, g) => [ed.seeds[g], ed.seeds[15 - g], ed.seeds[16 + g], ed.seeds[31 - g]]);
+  }
+  function groupTable(ed, g, members) {
+    const rows = members.map((pid, k) => ({ pid, k, J: 0, V: 0, E: 0, D: 0, P: 0, seed: ed.seeds.indexOf(pid) }));
+    GROUP_PAIRS.forEach(([x, y], m) => {
+      const r = ed.res['g' + g + '_' + m];
+      if (!r) return;
+      const A = rows[x], B = rows[y];
+      A.J++; B.J++;
+      if (r === 'd') { A.E++; B.E++; A.P++; B.P++; } else if (r === 'a') { A.V++; B.D++; A.P += 3; } else { B.V++; A.D++; B.P += 3; }
     });
-    return res;
+    return rows.sort((a, b) => (b.P - a.P) || (b.V - a.V) || (a.seed - b.seed));
+  }
+  // resolve tudo a partir dos resultados: lista de jogos {key, a, b, label, phase, w, done, played, draw}
+  function libSolve(ed) {
+    const res = ed.res || {};
+    const out = { games: [], groups: null, champion: null };
+    let slots;
+    if (ed.format === 'groups') {
+      const groups = libGroups(ed);
+      out.groups = groups.map((members, g) => {
+        GROUP_PAIRS.forEach(([x, y], m) => {
+          const key = 'g' + g + '_' + m;
+          out.games.push({ key, a: members[x], b: members[y], label: `Grupo ${GROUP_NAMES[g]} · rodada ${Math.floor(m / 2) + 1}`, phase: 'grupos', draw: true, w: res[key] ? (res[key] === 'a' ? members[x] : res[key] === 'b' ? members[y] : null) : undefined, done: !!res[key], played: !!res[key], order: Math.floor(m / 2) * 100 + g * 2 + (m % 2) });
+        });
+        return { g, members, table: groupTable(ed, g, members) };
+      });
+      out.games.sort((p, q) => p.order - q.order);
+      const groupsDone = out.games.every(x => x.done);
+      // oitavas: 1A×2B, 1C×2D, 1E×2F, 1G×2H, 1B×2A, 1D×2C, 1F×2E, 1H×2G
+      const pos = (g, k) => groupsDone ? out.groups[g].table[k].pid : undefined;
+      slots = [];
+      [[0, 1], [2, 3], [4, 5], [6, 7], [1, 0], [3, 2], [5, 4], [7, 6]].forEach(([g1, g2]) => { slots.push(pos(g1, 0), pos(g2, 1)); });
+    } else {
+      const N = ed.seeds.length;
+      let size = 2; while (size < N) size *= 2;
+      slots = seedOrderN(size).map(s => (s <= N ? ed.seeds[s - 1] : null));
+    }
+    // mata-mata
+    let round = [];
+    for (let i = 0; i < slots.length; i += 2) round.push([slots[i], slots[i + 1]]);
+    let size = slots.length, r = 0;
+    while (round.length) {
+      const winners = [];
+      round.forEach(([a, b], i) => {
+        const key = 'k' + r + '_' + i;
+        const g = { key, a, b, label: koRoundName(size) + (round.length > 1 ? ` · jogo ${i + 1}` : ''), phase: 'k' + size, size, draw: false, w: undefined, done: false, played: false };
+        if (a !== undefined && b !== undefined) {
+          if (!a || !b) { g.w = a || b || null; g.done = true; g.bye = true; }
+          else if (res[key]) { g.w = res[key] === 'a' ? a : b; g.done = true; g.played = true; }
+        }
+        out.games.push(g);
+        winners.push(g.done ? g.w : undefined);
+      });
+      if (round.length === 1) { const f = out.games[out.games.length - 1]; if (f.done && f.w) out.champion = f.w; break; }
+      const next = [];
+      for (let i = 0; i < winners.length; i += 2) next.push([winners[i], winners[i + 1]]);
+      round = next; size /= 2; r++;
+    }
+    return out;
   }
   function libHtml(teams, table, prog) {
     const by = {};
     teams.forEach(t => { by[t.pid] = t; });
     const ed = V40.get(LIB_KEY, null);
     const champs = V40.get('liga4-campeoes', []);
-    const nm = pid => pid && by[pid] ? `${by[pid].icon} ${V40.esc(by[pid].name)}` : (pid ? '(saiu)' : '<i class="v40-muted">—</i>');
+    const slotsNow = V40.libSlots(teams.length);
+    const nm = pid => pid && by[pid] ? `${by[pid].icon} ${V40.esc(by[pid].name)}` : (pid ? '(saiu)' : (pid === null ? '<i class="v40-muted">passa direto</i>' : '<i class="v40-muted">a definir</i>'));
     const rules = `<details class="v40-help"><summary>📜 Regulamento</summary><ol style="margin:6px 0 0 18px;padding:0;font-size:0.8rem;">
         <li>Pontos corridos, todos contra todos (1 jogo cada). Você escolhe o vencedor de cada jogo ou dá empate.</li>
         <li>Vitória 3 · empate 1 · derrota 0. Desempate: vitórias ▸ aproveitamento ▸ ordem alfabética.</li>
-        <li>Cada temporada é um time (partes da mesma temporada juntam). Filme é sempre independente. Só entra o que você concluiu (temporada inteira / filme visto).</li><li>⚡ Clássico: jogo entre títulos da mesma franquia ou temporadas da mesma série.</li>
-        <li>Os 8 primeiros jogam a Libertadores: 1×8, 4×5, 2×7, 3×6 nas quartas, depois semi e final. No mata-mata não tem empate.</li>
+        <li>Cada temporada é um time (partes da mesma temporada juntam). Filme é sempre independente. Só entra o que você concluiu.</li>
+        <li>⚡ Clássico: jogo entre títulos da mesma franquia ou temporadas da mesma série.</li>
+        <li>Vagas na Libertadores: 8 com até 51 times; cada time novo abre mais 1 vaga, até 32.</li>
+        <li>Com 32 vagas: fase de grupos (8 grupos de 4, pode empatar) e os 2 primeiros de cada grupo vão pras oitavas. Com menos: mata-mata direto, e os melhores colocados passam direto da 1ª fase quando a chave não fecha.</li>
+        <li>No mata-mata não tem empate.</li>
       </ol></details>`;
     if (!ed) {
-      const top = table.slice(0, 8);
+      const top = table.slice(0, slotsNow);
       return `<div class="stat-card">
         <h4>🏆 Libertadores — edição ${champs.length + 1}</h4>
-        ${teams.length < 8 ? `<p>Precisa de pelo menos 8 times no campeonato. Agora: ${teams.length}.</p>` : `
-        <p class="v40-muted" style="margin-top:-4px;">Classificados pela tabela de agora (${prog.played} de ${prog.total} jogos disputados):</p>
+        ${slotsNow < 2 ? `<p>Precisa de pelo menos 2 times no campeonato. Agora: ${teams.length}.</p>` : `
+        <p class="v40-muted" style="margin-top:-4px;"><b>${slotsNow} vagas</b> (${teams.length} times${slotsNow < 32 ? ` · a próxima vaga abre com o ${Math.max(52, teams.length + 1)}º time` : ' · máximo'}) · ${slotsNow === 32 ? 'com fase de grupos' : 'mata-mata direto'} · ${prog.played} de ${prog.total} jogos disputados</p>
         ${top.map((t, k) => `<div class="v40-l4row lib"><span class="lpos">${k + 1}º</span><span class="lname">${t.icon} ${V40.esc(t.name)}</span><span></span><span></span><span></span><span></span><span class="lpts">${t.P}</span></div>`).join('')}
         <button class="v40-primary" id="v40LibStart" style="margin-top:10px;width:100%;">▶️ Começar a Libertadores</button>
         ${prog.played < prog.total ? `<p class="v40-muted">Ainda faltam ${prog.total - prog.played} jogos dos pontos corridos — o ideal é começar quando acabarem.</p>` : ''}`}
@@ -534,51 +595,75 @@
         ${rules}
       </div>`;
     }
-    const res = libSolve(ed);
-    const cur = res.find(m => !m.done && m.a && m.b);
+    const S = libSolve(ed);
+    const cur = S.games.find(g => !g.done && g.a && g.b);
     let stage = '';
-    if (ed.champion) {
-      stage = `<div class="stat-card v40-ko-champ"><div class="v40-champ-crown">👑</div><div class="v40-muted">CAMPEÃO DA LIBERTADORES · EDIÇÃO ${ed.n}</div><div class="v40-big">${nm(ed.champion)}</div><div class="v40-muted">${V40.fmtBR((ed.finishedAt || V40.today()).slice(0, 10), true)}</div></div>`;
+    if (S.champion) {
+      stage = `<div class="stat-card v40-ko-champ"><div class="v40-champ-crown">👑</div><div class="v40-muted">CAMPEÃO DA LIBERTADORES · EDIÇÃO ${ed.n}</div><div class="v40-big">${nm(S.champion)}</div><div class="v40-muted">${V40.fmtBR((ed.finishedAt || V40.today()).slice(0, 10), true)}</div></div>`;
     } else if (cur) {
-      stage = `<div class="stat-card"><h4>⚔️ ${cur.def.label}</h4>${V40.isClassic(by[cur.a], by[cur.b]) ? classicBanner(by[cur.a].franchise) : ''}<p class="v40-muted" style="margin-top:-4px;">Mata-mata não tem empate: toque no vencedor.</p>
-        <div class="v40-l4-match two">${teamCard(by[cur.a] || { name: '(saiu)', icon: '❔' }, `data-lib="${cur.i}" data-side="a"`)}<div class="v40-vs">VS</div>${teamCard(by[cur.b] || { name: '(saiu)', icon: '❔' }, `data-lib="${cur.i}" data-side="b"`)}</div></div>`;
+      const A = by[cur.a] || { name: '(saiu)', icon: '❔' }, B = by[cur.b] || { name: '(saiu)', icon: '❔' };
+      const cl = V40.isClassic(by[cur.a], by[cur.b]);
+      stage = `<div class="stat-card"><h4>⚔️ ${cur.label}</h4>${cl ? classicBanner(A.franchise) : ''}
+        <p class="v40-muted" style="margin-top:-4px;">${cur.draw ? 'Fase de grupos: toque no vencedor ou no = pra empate.' : 'Mata-mata não tem empate: toque no vencedor.'}</p>
+        <div class="v40-l4-match${cl ? ' classic' : ''}" ${cl ? `style="--c1:${A.franchise.c[0]};--c2:${A.franchise.c[1]}"` : ''}>
+          ${teamCard(A, `data-lib="${cur.key}" data-side="a"`)}
+          ${cur.draw ? `<button class="v40-l4-draw" data-lib="${cur.key}" data-side="d">=</button>` : '<div class="v40-vs">VS</div>'}
+          ${teamCard(B, `data-lib="${cur.key}" data-side="b"`)}
+        </div></div>`;
     }
     const seedTag = pid => { const k = ed.seeds.indexOf(pid); return k >= 0 ? `<small class="v40-muted">${k + 1}º</small> ` : ''; };
-    const bracket = [['q', 'Quartas'], ['s', 'Semifinais'], ['f', 'Final']].map(([ph, name]) => `<div class="v40-ko-round"><div class="v40-ko-rname">${name}</div>${res.filter(m => m.def.phase === ph).map(m => `
-        <div class="v40-ko-m"><span class="${m.done && m.w === m.a ? 'win' : (m.played ? 'lose' : '')}">${m.a === undefined ? '<i class="v40-muted">a definir</i>' : seedTag(m.a) + nm(m.a)}</span>
-        <span class="${m.done && m.w === m.b ? 'win' : (m.played ? 'lose' : '')}">${m.b === undefined ? '<i class="v40-muted">a definir</i>' : seedTag(m.b) + nm(m.b)}</span></div>`).join('')}</div>`).join('');
-    return `${stage}
-      <div class="stat-card"><h4>🗂 Chave — edição ${ed.n}</h4><div class="v40-ko-bracket">${bracket}</div>
+    const groupsHtml = S.groups ? `<div class="stat-card"><h4>🗂 Fase de grupos</h4><div class="v40-lib-groups">${S.groups.map(gr => `
+        <div class="v40-lib-group"><div class="v40-ko-rname">Grupo ${GROUP_NAMES[gr.g]}</div>
+        ${gr.table.map((row, k) => `<div class="v40-lib-grow ${k < 2 ? 'q' : ''}"><span>${k + 1}</span><span class="n">${nm(row.pid)}</span><span>${row.J}</span><b>${row.P}</b></div>`).join('')}</div>`).join('')}</div>
+        <p class="v40-muted" style="margin:6px 0 0;">Os 2 primeiros de cada grupo (em destaque) vão pras oitavas. Colunas: jogos e pontos.</p></div>` : '';
+    const koGames = S.games.filter(g => g.phase !== 'grupos');
+    const phases = [...new Set(koGames.map(g => g.phase))];
+    const bracket = phases.map(ph => {
+      const gs = koGames.filter(g => g.phase === ph);
+      return `<div class="v40-ko-round"><div class="v40-ko-rname">${koRoundName(gs[0].size)}</div>${gs.map(m => `
+        <div class="v40-ko-m"><span class="${m.done && m.w && m.w === m.a ? 'win' : (m.played ? 'lose' : '')}">${m.a === undefined ? '<i class="v40-muted">a definir</i>' : seedTag(m.a) + nm(m.a)}</span>
+        <span class="${m.done && m.w && m.w === m.b ? 'win' : (m.played ? 'lose' : '')}">${m.b === undefined ? '<i class="v40-muted">a definir</i>' : seedTag(m.b) + nm(m.b)}</span></div>`).join('')}</div>`;
+    }).join('');
+    return `${stage}${groupsHtml}
+      <div class="stat-card"><h4>🗂 Mata-mata — edição ${ed.n} (${ed.seeds.length} times)</h4><div class="v40-ko-bracket">${bracket}</div>
         <div style="display:flex;gap:8px;margin-top:10px;flex-wrap:wrap;">
-          <button id="v40LibUndo" ${ed.picks.length ? '' : 'disabled'}>↺ Desfazer último jogo</button>
+          <button id="v40LibUndo" ${(ed.log || []).length ? '' : 'disabled'}>↺ Desfazer último jogo</button>
           <button id="v40LibReset" class="v40-danger">🔄 Recomeçar</button>
-          ${ed.champion ? '<button id="v40LibNew">▶️ Nova edição</button>' : ''}
+          ${S.champion ? '<button id="v40LibNew">▶️ Nova edição</button>' : ''}
         </div>${rules}</div>`;
   }
-  function libPick(i, s) {
+  function libSyncChampion(ed) {
+    const S = libSolve(ed);
+    const list = V40.get('liga4-campeoes', []).filter(c => c.created !== ed.created);
+    if (S.champion) {
+      if (!ed.champion) {
+        ed.finishedAt = new Date().toISOString();
+        V40.confetti(true); V40.sound('trophy');
+        const t0 = V40.ligaTeams().find(x => x.pid === S.champion);
+        V40.logEvent('ko-champion', { name: t0 ? t0.name : S.champion });
+      }
+      ed.champion = S.champion;
+      const t = V40.ligaTeams().find(x => x.pid === S.champion);
+      list.push({ n: ed.n, pid: S.champion, name: t ? t.name : S.champion, at: ed.finishedAt, created: ed.created });
+    } else { ed.champion = null; delete ed.finishedAt; }
+    V40.set('liga4-campeoes', list);
+  }
+  function libPick(key, side) {
     if (!V40.guard()) return;
     const ed = V40.get(LIB_KEY, null);
     if (!ed) return;
-    ed.picks.push({ i, side: s });
-    const res = libSolve(ed);
-    const fin = res[res.length - 1];
-    if (fin.done && fin.w && !ed.champion) {
-      ed.champion = fin.w; ed.finishedAt = new Date().toISOString();
-      const t = V40.ligaTeams().find(x => x.pid === fin.w);
-      const list = V40.get('liga4-campeoes', []);
-      list.push({ n: ed.n, pid: fin.w, name: t ? t.name : fin.w, at: ed.finishedAt, created: ed.created });
-      V40.set('liga4-campeoes', list);
-      V40.confetti(true); V40.sound('trophy');
-      V40.logEvent('ko-champion', { name: t ? t.name : fin.w });
-    } else V40.sound('tick');
+    ed.res = ed.res || {}; ed.log = ed.log || [];
+    ed.res[key] = side; ed.log.push(key);
+    libSyncChampion(ed);
+    if (!ed.champion) V40.sound('tick');
     V40.set(LIB_KEY, ed);
     V40.renderLiga();
   }
   function libUndo() {
     const ed = V40.get(LIB_KEY, null);
-    if (!ed || !ed.picks.length) return;
-    ed.picks.pop();
-    if (ed.champion) { V40.set('liga4-campeoes', V40.get('liga4-campeoes', []).filter(c => c.created !== ed.created)); ed.champion = null; delete ed.finishedAt; }
+    if (!ed || !(ed.log || []).length) return;
+    delete ed.res[ed.log.pop()];
+    libSyncChampion(ed);
     V40.set(LIB_KEY, ed);
     V40.renderLiga();
   }
@@ -588,22 +673,23 @@
     if (sk) sk.addEventListener('click', () => { skipped.add(sk.dataset.k); V40.renderLiga(); });
     const un = document.getElementById('v40L4Undo');
     if (un) un.addEventListener('click', l4Undo);
-    el.querySelectorAll('[data-lib]').forEach(b => b.addEventListener('click', () => libPick(+b.dataset.lib, b.dataset.side)));
+    el.querySelectorAll('[data-lib]').forEach(b => b.addEventListener('click', () => libPick(b.dataset.lib, b.dataset.side)));
     const ls = document.getElementById('v40LibStart');
     if (ls) ls.addEventListener('click', () => {
       if (!V40.guard()) return;
       const prog = V40.ligaProgress();
       if (prog.played < prog.total && !confirm(`Ainda faltam ${prog.total - prog.played} jogos dos pontos corridos. Começar a Libertadores com a tabela de agora mesmo assim?`)) return;
       const table = V40.ligaStandings();
-      V40.set(LIB_KEY, { n: V40.get('liga4-campeoes', []).length + 1, created: new Date().toISOString(), seeds: table.slice(0, 8).map(t => t.pid), picks: [], champion: null });
+      const n = V40.libSlots(table.length);
+      V40.set(LIB_KEY, { n: V40.get('liga4-campeoes', []).length + 1, created: new Date().toISOString(), seeds: table.slice(0, n).map(t => t.pid), format: n === 32 ? 'groups' : 'ko', res: {}, log: [], champion: null });
       V40.renderLiga();
     });
     const lu = document.getElementById('v40LibUndo'); if (lu) lu.addEventListener('click', libUndo);
     const lr = document.getElementById('v40LibReset');
     if (lr) lr.addEventListener('click', () => {
       const ed = V40.get(LIB_KEY, null);
-      if (ed && ed.picks.length && !confirm('Recomeçar a Libertadores do zero? Os jogos já decididos nela se perdem.')) return;
-      if (ed && ed.champion) V40.set('liga4-campeoes', V40.get('liga4-campeoes', []).filter(c => c.created !== ed.created));
+      if (ed && (ed.log || []).length && !confirm('Recomeçar a Libertadores do zero? Os jogos já decididos nela se perdem.')) return;
+      if (ed) V40.set('liga4-campeoes', V40.get('liga4-campeoes', []).filter(c => c.created !== ed.created));
       V40.set(LIB_KEY, null); V40.renderLiga();
     });
     const ln = document.getElementById('v40LibNew'); if (ln) ln.addEventListener('click', () => { V40.set(LIB_KEY, null); V40.renderLiga(); });
