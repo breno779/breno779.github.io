@@ -302,7 +302,25 @@ public class MainActivity extends Activity {
             });
         }
 
+        /** Notificação diária: liga/desliga, horário (HH:MM) e o texto de cada dia (JSON data -> texto). */
         @JavascriptInterface
-        public String version() { return "40.1"; }
+        public void setNotifications(final boolean on, final String time, final String textsJson) {
+            if (on && Build.VERSION.SDK_INT >= 33 && checkSelfPermission(android.Manifest.permission.POST_NOTIFICATIONS) != android.content.pm.PackageManager.PERMISSION_GRANTED) {
+                runOnUiThread(() -> requestPermissions(new String[]{android.Manifest.permission.POST_NOTIFICATIONS}, 77));
+            }
+            Notifier.save(MainActivity.this, on, time == null ? "19:00" : time, textsJson == null ? "{}" : textsJson);
+        }
+
+        @JavascriptInterface
+        public void testNotification(final String title, final String text) {
+            if (Build.VERSION.SDK_INT >= 33 && checkSelfPermission(android.Manifest.permission.POST_NOTIFICATIONS) != android.content.pm.PackageManager.PERMISSION_GRANTED) {
+                runOnUiThread(() -> requestPermissions(new String[]{android.Manifest.permission.POST_NOTIFICATIONS}, 77));
+                return;
+            }
+            Notifier.show(MainActivity.this, title, text);
+        }
+
+        @JavascriptInterface
+        public String version() { return "40.6"; }
     }
 }

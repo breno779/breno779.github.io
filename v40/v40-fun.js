@@ -565,6 +565,15 @@
     for (let e = 0; e < eps; e++) if (!epDone[e]) return e;
     return -1;
   }
+  // v40.6: depois de marcar no modo "assistindo agora", já pede a nota (episódio ou título)
+  let cinemaRate = null;
+  function rateChips() {
+    if (!cinemaRate) return '';
+    const it = items.find(i => i.id === cinemaRate.id);
+    if (!it) return '';
+    const what = cinemaRate.ep != null ? `episódio ${cinemaRate.ep + 1}` : V40.esc(V40.shortName(it));
+    return `<div class="c-rate"><div class="c-sub">⭐ Nota pro ${what}?</div><div class="c-rate-row">${[5, 6, 7, 8, 8.5, 9, 9.5, 10].map(v => `<button data-crate="${v}">${String(v).replace('.', ',')}</button>`).join('')}<button data-crate="skip">pular</button></div></div>`;
+  }
   function updateCinema() {
     const el = document.getElementById('v40Cinema');
     if (!el) return;
@@ -580,15 +589,39 @@
           : (ne >= 0 ? `<button class="c-main" data-c="next">✓ Vi o episódio ${ne + 1}</button>` : '');
       } else action = `<button class="c-main" data-c="done">✓ Terminei</button>`;
     }
+    const poster = cur && V40.posterUrl ? V40.posterUrl(cur, 'w500') : null;
+    let epLine = '';
+    if (cur && simpleKind(cur) === 'serie' && !cur.epDates) {
+      const ne = nextEpisodeOf(cur), eps = extractEpsCount(cur.text) || 1;
+      if (ne >= 0) { const d = episodeDateFor(cur, ne, eps); epLine = `<div class="c-sub">Episódio ${ne + 1} de ${eps}${d ? ' · ' + V40.fmtBR(d) : ''}</div>`; }
+    }
     el.innerHTML = `
+      ${poster ? `<div class="c-poster" style="background-image:url('${poster}')"></div>` : ''}
       <button class="c-close" data-c="close">✕</button>
-      <div class="c-label">AGORA</div>
+      <div class="c-label">ASSISTINDO AGORA</div>
       <div class="c-title">${cur ? V40.esc(V40.cleanName(cur)) : 'Tudo visto! 🎉'}</div>
+      ${epLine}${rateChips()}
       ${plan.epsTotal ? `<div class="c-sub">${plan.epsDone} de ${plan.epsTotal} episódios de hoje</div>` : ''}
       ${action}
       <div class="c-timer ${st.running ? 'on' : ''}">${fmtSecs(timerSecs(st))}</div>
       <div class="c-row"><button data-c="timer">${st.running ? '⏸ Pausar' : '▶️ Cronômetro'}</button><button data-c="stop">⏹ Salvar tempo</button></div>
       <div class="c-sub">Hoje: ${fmtSecs(wt + (st.running ? 0 : 0))} assistidos</div>`;
+    el.querySelectorAll('[data-crate]').forEach(b => b.addEventListener('click', () => {
+      const r = cinemaRate; cinemaRate = null;
+      const it = r && items.find(i => i.id === r.id);
+      if (it && b.dataset.crate !== 'skip' && V40.guard()) {
+        const v = +b.dataset.crate;
+        if (r.ep != null) {
+          const eps = extractEpsCount(it.text) || 1;
+          if (!Array.isArray(it.epRatings)) it.epRatings = new Array(eps).fill(null);
+          it.epRatings[r.ep] = v;
+          recomputeSeriesRating(it);
+        } else it.rating = v;
+        save(); render();
+        V40.toast(`⭐ Nota ${String(v).replace('.', ',')} salva`);
+      }
+      updateCinema();
+    }));
     el.querySelectorAll('[data-c]').forEach(b => b.addEventListener('click', () => {
       const c = b.dataset.c;
       if (c === 'close') { el.remove(); clearInterval(timerInt); timerInt = null; document.body.classList.remove('v40-cinema-on'); return; }
@@ -604,12 +637,14 @@
         cur.epDone[ne] = true;
         save(); if (syncSeriesRatings()) save(); render();
         V40.toast(`✓ Episódio ${ne + 1} marcado`);
+        cinemaRate = { id: cur.id, ep: ne };
         updateCinema();
       }
       if (c === 'done' && cur) {
         const row = document.querySelector(`.item[data-id="${cur.id}"] .check`);
         if (row) toggleDone(cur.id, row);
         else { if (!V40.guard()) return; cur.done = true; cur.completedAt = V40.today(); markDoneToday(); save(); render(); }
+        if (!(cur.rating > 0)) cinemaRate = { id: cur.id, ep: null };
         updateCinema();
       }
     }));

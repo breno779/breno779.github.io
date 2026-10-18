@@ -11,7 +11,7 @@ android {
         minSdk 24
         targetSdk 34
         versionCode Integer.parseInt(System.getenv('VERSION_CODE') ?: '1')
-        versionName '40.1'
+        versionName '40.6'
     }
 
     // chave fixa: assim cada APK novo instala POR CIMA do antigo (sem perder os dados)

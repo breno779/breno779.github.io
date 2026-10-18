@@ -455,8 +455,8 @@
       doneToday: Math.max(0, Math.min(todayN, doneCount - before))
     };
   };
-  V40.todayPlan = function () {
-    const t = V40.today();
+  V40.todayPlan = function (day) {
+    const t = day || V40.today();
     let epsTotal = 0, epsDone = 0, late = 0;
     const titles = [];
     items.forEach(it => {

@@ -671,6 +671,7 @@
       </div>
       ${S.franchises.length ? `<div class="stat-card"><h4>⚡ Clássicos por franquia</h4>${S.franchises.map(x => `<div class="v40-row"><span style="flex:1"><small class="v40-classic-tag" style="--c1:${x.f.c[0]};--c2:${x.f.c[1]}">${x.f.emoji}</small> ${V40.esc(x.f.name)}</span><span class="v40-muted">${x.n} jogo(s)${x.d ? ` · ${x.d} empate(s)` : ''}</span></div>`).join('')}</div>` : ''}
       ${kingRows.length ? `<div class="stat-card"><h4>👑 Rei de cada franquia</h4><p class="v40-muted" style="margin-top:-4px;">O mais bem colocado de cada franquia na tabela.</p>${kingRows.map(k => `<div class="v40-row"><span style="flex:1">${k.f.emoji} <b>${V40.esc(k.list[0].name)}</b> <small class="v40-muted">${V40.esc(k.f.name.replace('Clássico ', ''))}</small></span><span class="v40-muted">${k.list[0].pos}º · ${k.list[0].P} pts</span></div>`).join('')}</div>` : ''}
+      ${V40.selecaoHtml ? V40.selecaoHtml(table) : ''}
       ${galleryHtml(champs)}`;
   }
   // 🧤 galeria das Manoplas (campeões da Copa do Infinito)

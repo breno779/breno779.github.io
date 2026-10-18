@@ -452,26 +452,26 @@
   }
   V40.showBanner = showBanner;
 
-  // =================== BACKUP NA NUVEM (1 por semana, guarda 4) ===================
-  function weekNo(d) { const t = new Date(d); t.setHours(0, 0, 0, 0); return Math.floor((t.getTime() / 86400000 + 3) / 7); }
+  // =================== BACKUP NA NUVEM (1 por dia, guarda 7) ===================
+  function dayNo(d) { const t = new Date(d); t.setHours(12, 0, 0, 0); return Math.floor(t.getTime() / 86400000); }
   async function maybeCloudBackup(db) {
-    const w = weekNo(new Date());
-    if (V40.get('cloud-backup-week', null) === w) return;
-    const slot = w % 4;
+    const n = dayNo(new Date());
+    if (V40.get('cloud-backup-day', null) === n) return;
+    const slot = n % 7;
     const p = payload();
     p.backupAt = new Date().toISOString();
     await db.collection(COL).doc(`${PREFIX}bkp-${V40.syncCode()}-${slot}`).set(p);
-    V40.set('cloud-backup-week', w);
+    V40.set('cloud-backup-day', n);
   }
   V40.openCloudBackups = async function () {
     V40.modal('<h3>🗄 Backups na nuvem</h3><p class="v40-muted">Carregando…</p>');
     try {
       const db = await V40.firestore();
-      const docs = await Promise.all([0, 1, 2, 3].map(s => db.collection(COL).doc(`${PREFIX}bkp-${V40.syncCode()}-${s}`).get()));
+      const docs = await Promise.all([0, 1, 2, 3, 4, 5, 6].map(s => db.collection(COL).doc(`${PREFIX}bkp-${V40.syncCode()}-${s}`).get()));
       const list = docs.filter(d => d.exists).map(d => ({ id: d.id, data: d.data() })).sort((a, b) => (b.data.backupAt || '') < (a.data.backupAt || '') ? -1 : 1);
       V40.modal(`<h3>🗄 Backups na nuvem</h3>
-        <p class="v40-muted">Um por semana (quando a sincronização envia algo), guardando os 4 últimos. Código: <b>${V40.syncCode()}</b></p>
-        ${list.length ? list.map(x => `<div class="v40-row"><span style="flex:1">${new Date(x.data.backupAt).toLocaleString('pt-BR')}<br><small class="v40-muted">${x.data.deviceName || ''} · ${(x.data.summary || {}).done || 0} vistos · ${(x.data.summary || {}).rated || 0} notas</small></span><button data-bk="${x.id}">Restaurar</button></div>`).join('') : '<p>Nenhum backup ainda. Ele é feito na primeira vez que você enviar pra nuvem em cada semana.</p>'}`);
+        <p class="v40-muted">Um por dia (quando a sincronização envia algo), guardando os 7 últimos. Código: <b>${V40.syncCode()}</b></p>
+        ${list.length ? list.map(x => `<div class="v40-row"><span style="flex:1">${new Date(x.data.backupAt).toLocaleString('pt-BR')}<br><small class="v40-muted">${x.data.deviceName || ''} · ${(x.data.summary || {}).done || 0} vistos · ${(x.data.summary || {}).rated || 0} notas</small></span><button data-bk="${x.id}">Restaurar</button></div>`).join('') : '<p>Nenhum backup ainda. Ele é feito na primeira vez que você enviar pra nuvem em cada dia.</p>'}`);
       document.querySelectorAll('[data-bk]').forEach(b => b.addEventListener('click', () => {
         const x = list.find(y => y.id === b.dataset.bk);
         if (!x || !Array.isArray(x.data.items) || x.data.items.length < 100) { alert('Backup incompleto.'); return; }

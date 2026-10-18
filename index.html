@@ -102,6 +102,12 @@ if ('serviceWorker' in navigator) {
   if (shortcutAction === 'watchnow') {
     frames.frmPrincipal.dataset.src = `principal.html?shell=${SHELL_BUILD}&action=watchnow`;
   }
+  // v40.6: atalhos (?a=hoje, ?a=jogos, ?a=cinema, ?a=linha, ?a=sorteio) abrem direto na lista principal
+  let linkAction = null;
+  try { linkAction = new URLSearchParams(location.search).get('a'); } catch (e) {}
+  if (linkAction && /^[a-z]+$/.test(linkAction)) {
+    frames.frmPrincipal.dataset.src = `principal.html?shell=${SHELL_BUILD}&a=${linkAction}`;
+  }
 
   function activate(targetId) {
     tabs.forEach((t) => t.classList.toggle('active', t.dataset.target === targetId));
@@ -126,6 +132,7 @@ if ('serviceWorker' in navigator) {
     if (saved && frames[saved]) initialTab = saved;
   } catch (e) {}
   if (shortcutAction === 'watchnow') initialTab = 'frmPrincipal';
+  if (linkAction) initialTab = 'frmPrincipal';
   activate(initialTab);
 
   // instalação na tela inicial: o evento beforeinstallprompt só dispara no documento de topo

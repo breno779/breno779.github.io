@@ -12,7 +12,7 @@
   V40.BUILD = BUILD;
   const MODE = window.V40_MODE || 'beta';
   V40.MODE = MODE;
-  V40.VERSION_LABEL = MODE === 'beta' ? 'v40.5.2 beta' : 'v40.5.2';
+  V40.VERSION_LABEL = MODE === 'beta' ? 'v40.6 beta' : 'v40.6';
 
   // =================== APARÊNCIA ===================
   let mql = null;
@@ -21,6 +21,7 @@
     document.documentElement.style.fontSize = Math.round(16 * (s.fontScale || 1)) + 'px';
     document.body.classList.toggle('v40-battery', !!s.battery);
     document.body.classList.toggle('v40-contrast', !!s.contrast);
+    document.body.classList.toggle('v40-compact', !!s.compact);
     if (s.themeMode === 'auto') {
       mql = mql || window.matchMedia('(prefers-color-scheme: light)');
       applyTheme(mql.matches);
@@ -321,33 +322,43 @@
         <div class="dash-actions" style="margin:8px 0 0;"><button id="v40CfgNews">🆕 Novidades</button><button id="v40CfgHelp">❓ Ajuda</button><button id="v40CfgPed">💬 Pedidos</button></div>
       </div>`;
     box.innerHTML = `${head}
-      <h3 class="v40-cfg-h">✨ Novidades da v40</h3>
-      <div class="config-list">
+      <details class="v40-cfg-group" open><summary>📋 Lista</summary><div class="config-list">
         <button id="v40CfgAdd">➕ Adicionar / mover títulos</button>
-        <button id="v40CfgSync">☁️ Sincronização${MODE === 'beta' ? ' da beta' : ''} (celular ⇄ iPad): comparar e juntar ${V40.syncState && V40.syncState.auto ? '✅' : ''}</button>
-        <button id="v40CfgBackups">🗄 Backups na nuvem</button>
+        <button id="v40CfgCols">🗂 Coleções</button>
+        <button id="v40CfgNick">🏷 Apelidos dos heróis</button>
+        <label class="v40-switch"><input type="checkbox" id="v40CfgCompact" ${s.compact ? 'checked' : ''}><span>📏 Lista compacta (uma linha por título)</span></label>
+        <label class="v40-switch"><input type="checkbox" id="v40CfgSwipe" ${s.swipe ? 'checked' : ''}><span>👉 Deslizar pra marcar</span></label>
+        <button id="v40CfgCSV">📊 Exportar planilha (CSV)</button>
+      </div></details>
+      <details class="v40-cfg-group"><summary>☁️ Nuvem, backup e aparelhos</summary><div class="config-list">
+        <button id="v40CfgSync">☁️ Sincronização${MODE === 'beta' ? ' da beta' : ''} (celular ⇄ iPad) ${V40.syncState && V40.syncState.auto ? '✅' : ''}</button>
+        <button id="v40CfgBackups">🗄 Backups na nuvem (1 por dia, guarda 7)</button>
+        <button id="v40CfgVersions">🕰 Histórico de versões (voltar a um dia anterior)</button>
         <button id="v40CfgProfile">👥 Perfil pra amigos (e ver o de um amigo)</button>
-        <button id="v40CfgLock">🔒 Senha / biometria ${V40.lockCfg && V40.lockCfg() ? '✅' : ''}</button>
-        <button id="v40CfgRem">⏰ Lembretes no calendário do celular</button>
-        <button id="v40CfgApk">📲 App Android (APK)</button>
-        <button id="v40CfgUni">📚 Universo: trilhas, vilões, glossário, quiz, pós-créditos</button>
-        <button id="v40CfgExt">🌐 Dados de fora: capas, episódios, sinopses (TMDB/TVmaze) ${V40.settings.tmdbKey ? '🔑' : '<span class="v40-badge">sem chave</span>'}</button>
+        <button id="v40CfgShortcuts">📲 Atalhos na tela inicial (iPhone/iPad)</button>
+        <button id="v40CfgApk">🤖 App Android (APK)${/UCMWatchlistApp\//.test(navigator.userAgent) ? ' · 🔔 notificações' : ''}</button>
+      </div></details>
+      <details class="v40-cfg-group"><summary>🎨 Aparência e sensações</summary><div class="config-list">
         <button id="v40CfgAppearance">🎨 Aparência: tema, letra, fundo por herói, contraste</button>
         <button id="v40CfgLayout">🧩 Layout do início</button>
-        <button id="v40CfgNick">🏷 Apelidos dos heróis</button>
-        <button id="v40CfgCols">🗂 Coleções</button>
         <label class="v40-switch"><input type="checkbox" id="v40CfgSounds" ${s.sounds ? 'checked' : ''}><span>🔊 Efeitos sonoros</span></label>
         <label class="v40-switch"><input type="checkbox" id="v40CfgConfetti" ${s.confetti ? 'checked' : ''}><span>🎉 Confete ao concluir</span></label>
-        <label class="v40-switch"><input type="checkbox" id="v40CfgSwipe" ${s.swipe ? 'checked' : ''}><span>👉 Deslizar pra marcar</span></label>
         <label class="v40-switch"><input type="checkbox" id="v40CfgBattery" ${s.battery ? 'checked' : ''}><span>🔋 Modo bateria (sem animações)</span></label>
+      </div></details>
+      <details class="v40-cfg-group"><summary>🌐 Conteúdo e lembretes</summary><div class="config-list">
+        <button id="v40CfgExt">🌐 Dados de fora: capas, sinopses (TMDB/TVmaze) ${V40.settings.tmdbKey ? '🔑' : '<span class="v40-badge">sem chave</span>'}</button>
+        <button id="v40CfgUni">📚 Universo: trilhas, vilões, glossário, quiz, pós-créditos</button>
+        <button id="v40CfgTimeline">🗺 Linha do tempo interativa</button>
+        <button id="v40CfgRem">⏰ Lembretes no calendário do celular</button>
+        <button id="v40CfgNotif">🔔 Notificações do app (Android)</button>
+      </div></details>
+      <details class="v40-cfg-group"><summary>🔒 Segurança e manutenção ${errs ? `<span class="v40-badge">${errs}</span>` : ''}</summary><div class="config-list">
+        <button id="v40CfgLock">🔒 Senha / biometria ${V40.lockCfg && V40.lockCfg() ? '✅' : ''}</button>
         <label class="v40-switch"><input type="checkbox" id="v40CfgRO" ${s.readOnly ? 'checked' : ''}><span>👁 Modo só leitura (pra mostrar pra alguém)</span></label>
-        <button id="v40CfgVersions">🕰 Histórico de versões (voltar a um dia anterior)</button>
         <button id="v40CfgHealth">🩺 Verificação de erros ${errs ? `<span class="v40-badge">${errs}</span>` : '✅'}</button>
         <button id="v40CfgActivity">📜 Registro de atividades</button>
-        <button id="v40CfgCSV">📊 Exportar planilha (CSV)</button>
         ${MODE === 'beta' ? '<button id="v40CfgReset" class="v40-danger-btn">🧹 Apagar a beta e começar de novo</button>' : ''}
-      </div>
-      <h3 class="v40-cfg-h">Do app de sempre</h3>`;
+      </div></details>`;
     const on = (id, fn) => { const e = document.getElementById(id); if (e) e.addEventListener('click', fn); };
     on('v40CfgCopy', () => {
       if (!confirm('Copiar de novo o progresso do app atual pra beta? O que você mudou SÓ na beta (lista e notas) será substituído. Coleções, liga e registro da v40 ficam.')) return;
@@ -374,6 +385,9 @@
     on('v40CfgHealth', V40.openHealth);
     on('v40CfgActivity', V40.openActivity);
     on('v40CfgCSV', V40.exportCSV);
+    on('v40CfgShortcuts', V40.openShortcuts);
+    on('v40CfgNotif', V40.openNotifSettings);
+    on('v40CfgTimeline', () => V40.openTimeline());
     on('v40CfgReset', () => {
       if (!confirm('Apagar TUDO da beta (lista, liga, coleções, registro) e copiar de novo do app atual? O app de verdade não é afetado.')) return;
       window.__v40real.keys().filter(k => k && k.indexOf('v40b:') === 0).forEach(k => window.__v40real.removeRaw(k));
@@ -387,6 +401,23 @@
     sw('v40CfgConfetti', 'confetti', () => V40.confetti(false));
     sw('v40CfgSwipe', 'swipe');
     sw('v40CfgBattery', 'battery', V40.applyAppearance);
+    sw('v40CfgCompact', 'compact', () => { V40.applyAppearance(); try { render(); } catch (e) {} });
+    // v40.6: as ferramentas do app antigo (tema/paleta, exportar/importar, lixeira, sincronização
+    // antiga) ficam guardadas num grupo fechado no fim da Config
+    if (!document.getElementById('v40OldTools')) {
+      const det = document.createElement('details');
+      det.id = 'v40OldTools';
+      det.className = 'v40-cfg-group';
+      det.innerHTML = '<summary>🧰 Ferramentas do app antigo (tema, exportar/importar, lixeira, sincronização antiga)</summary>';
+      const inner = document.createElement('div');
+      det.appendChild(inner);
+      const pageEl = document.getElementById('tabConfig');
+      Array.from(pageEl.children).forEach(ch => {
+        if (ch === box || ch.id === 'v40OldTools' || ch.classList.contains('tab-reload-btn') || ch.tagName === 'INPUT') return;
+        inner.appendChild(ch);
+      });
+      pageEl.appendChild(det);
+    }
     const ro = document.getElementById('v40CfgRO');
     if (ro) ro.addEventListener('change', () => V40.setReadOnly(ro.checked));
     // botão antigo da lixeira → lixeira nova (com prazo de 30 dias)
