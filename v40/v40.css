@@ -524,3 +524,41 @@ body { overflow-x: clip; }
 .v40-l4-team .nm { font-weight: 800; font-size: 0.78rem; line-height: 1.15; text-align: center; }
 .v40-l4-draw { width: 52px; height: 52px; border-radius: 50%; border: 2px solid var(--gold); background: var(--ink); color: var(--gold); font-size: 1.6rem; font-weight: 800; cursor: pointer; font-family: 'JetBrains Mono', monospace; }
 .v40-l4-draw:active { transform: scale(0.94); }
+
+/* v40.4.3 — ⚡ clássicos: arte por franquia (só cores, padrões e emoji) */
+.v40-classic {
+  --c1: #5a189a; --c2: #d9a441;
+  position: relative; overflow: hidden; display: flex; align-items: center; justify-content: center; gap: 10px;
+  margin: 2px 0 12px; padding: 14px 12px; border-radius: 12px; text-align: center; color: #fff;
+  background: linear-gradient(120deg, var(--c1), var(--c2));
+  box-shadow: 0 0 0 2px rgba(255,255,255,0.18) inset, 4px 4px 0 rgba(0,0,0,0.35);
+  animation: v40ClassicIn 0.5s ease-out;
+}
+.v40-classic::before { content: ''; position: absolute; inset: 0; opacity: 0.35; pointer-events: none; }
+.v40-classic::after { content: ''; position: absolute; inset: -40%; background: linear-gradient(100deg, transparent 40%, rgba(255,255,255,0.28) 50%, transparent 60%); animation: v40ClassicShine 3.2s ease-in-out infinite; pointer-events: none; }
+.v40-classic-txt { position: relative; z-index: 1; display: flex; flex-direction: column; line-height: 1.05; text-shadow: 0 2px 6px rgba(0,0,0,0.55); }
+.v40-classic-txt small { font-family: 'JetBrains Mono', monospace; font-size: 0.62rem; letter-spacing: 0.28em; font-weight: 800; opacity: 0.95; }
+.v40-classic-txt b { font-family: 'Bangers', cursive; font-size: 1.55rem; letter-spacing: 1px; margin-top: 4px; }
+.v40-classic-emo { position: relative; z-index: 1; font-size: 2rem; filter: drop-shadow(0 2px 4px rgba(0,0,0,0.5)); transform: rotate(-12deg); }
+.v40-classic-emo.r { transform: rotate(12deg) scaleX(-1); }
+@keyframes v40ClassicIn { from { transform: scale(0.92); opacity: 0; } to { transform: none; opacity: 1; } }
+@keyframes v40ClassicShine { 0% { transform: translateX(-60%); } 60%, 100% { transform: translateX(60%); } }
+/* padrões */
+.v40-classic[data-pat="web"]::before { background: repeating-conic-gradient(from 0deg at 50% 120%, rgba(255,255,255,0.55) 0 1deg, transparent 1deg 15deg), repeating-radial-gradient(circle at 50% 120%, transparent 0 22px, rgba(255,255,255,0.5) 22px 23px); }
+.v40-classic[data-pat="glitch"]::before { background: repeating-linear-gradient(0deg, rgba(255,255,255,0.35) 0 2px, transparent 2px 7px), linear-gradient(90deg, rgba(255,230,0,0.5) 0 8%, transparent 8% 92%, rgba(0,255,200,0.5) 92%); }
+.v40-classic[data-pat="goo"]::before { background: radial-gradient(circle at 20% 30%, rgba(255,255,255,0.45) 0 12%, transparent 13%), radial-gradient(circle at 75% 70%, rgba(255,255,255,0.35) 0 16%, transparent 17%), radial-gradient(circle at 55% 15%, rgba(255,255,255,0.3) 0 7%, transparent 8%); }
+.v40-classic[data-pat="claw"]::before { background: repeating-linear-gradient(115deg, transparent 0 34px, rgba(255,255,255,0.65) 34px 38px, transparent 38px 46px, rgba(255,255,255,0.65) 46px 50px, transparent 50px 58px, rgba(255,255,255,0.65) 58px 62px, transparent 62px 140px); }
+.v40-classic[data-pat="x"]::before { background: linear-gradient(45deg, transparent 46%, rgba(255,255,255,0.6) 46% 54%, transparent 54%), linear-gradient(-45deg, transparent 46%, rgba(255,255,255,0.6) 46% 54%, transparent 54%); }
+.v40-classic[data-pat="bolt"]::before { background: repeating-linear-gradient(135deg, rgba(255,255,255,0.4) 0 6px, transparent 6px 22px); }
+.v40-classic[data-pat="grid"]::before { background: linear-gradient(rgba(255,255,255,0.4) 1px, transparent 1px) 0 0 / 16px 16px, linear-gradient(90deg, rgba(255,255,255,0.4) 1px, transparent 1px) 0 0 / 16px 16px; }
+.v40-classic[data-pat="stars"]::before { background: radial-gradient(circle, rgba(255,255,255,0.9) 0 2px, transparent 3px) 0 0 / 22px 22px, radial-gradient(circle, rgba(255,255,255,0.6) 0 1.5px, transparent 2.5px) 11px 11px / 22px 22px; }
+.v40-classic[data-pat="cosmic"]::before { background: radial-gradient(circle at 15% 30%, rgba(255,255,255,0.9) 0 1px, transparent 2px), radial-gradient(circle at 80% 20%, rgba(255,255,255,0.9) 0 1.5px, transparent 2.5px), radial-gradient(circle at 60% 80%, rgba(255,255,255,0.8) 0 1px, transparent 2px), radial-gradient(ellipse at 30% 60%, rgba(255,120,220,0.5), transparent 45%), radial-gradient(ellipse at 75% 40%, rgba(120,220,255,0.5), transparent 45%); opacity: 0.6; }
+.v40-classic[data-pat="hex"]::before { background: radial-gradient(circle at 50% 50%, transparent 0 9px, rgba(255,255,255,0.45) 9px 10px, transparent 11px) 0 0 / 22px 19px, radial-gradient(circle at 50% 50%, transparent 0 9px, rgba(255,255,255,0.45) 9px 10px, transparent 11px) 11px 9.5px / 22px 19px; }
+.v40-classic[data-pat="rings"]::before { background: repeating-radial-gradient(circle at 50% 50%, transparent 0 14px, rgba(255,255,255,0.5) 14px 16px); }
+.v40-classic[data-pat="city"]::before { background: linear-gradient(to top, rgba(0,0,0,0.55) 0 30%, transparent 30%) 0 100% / 28px 100% no-repeat, repeating-linear-gradient(90deg, rgba(0,0,0,0.55) 0 18px, transparent 18px 24px, rgba(0,0,0,0.55) 24px 30px, transparent 30px 44px); mask: linear-gradient(to top, #000 0 55%, transparent 55%); -webkit-mask: linear-gradient(to top, #000 0 55%, transparent 55%); opacity: 0.6; }
+.v40-classic[data-pat="tv"]::before { background: repeating-linear-gradient(0deg, rgba(0,0,0,0.35) 0 2px, transparent 2px 4px), radial-gradient(ellipse at center, transparent 50%, rgba(0,0,0,0.6)); }
+.v40-classic[data-pat="clock"]::before { background: repeating-conic-gradient(from 0deg at 50% 50%, rgba(255,255,255,0.55) 0 1.5deg, transparent 1.5deg 30deg), radial-gradient(circle at 50% 50%, transparent 0 40px, rgba(255,255,255,0.4) 40px 42px, transparent 43px); }
+.v40-classic[data-pat="plain"]::before { background: repeating-linear-gradient(45deg, rgba(255,255,255,0.18) 0 2px, transparent 2px 12px); }
+.v40-l4-match.classic .v40-l4-team { border-color: var(--c2); box-shadow: 0 0 0 2px var(--c1) inset; }
+.v40-l4-match.classic .v40-l4-draw { border-color: var(--c2); color: var(--c2); }
+.v40-classic-tag { display: inline-block; padding: 1px 6px; border-radius: 6px; color: #fff; font-weight: 800; font-size: 0.6rem; background: linear-gradient(90deg, var(--c1), var(--c2)); }

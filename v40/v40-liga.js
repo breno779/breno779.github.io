@@ -202,28 +202,112 @@
   function teamBase(name) {
     return String(name).replace(/\s+T\d.*$/, '').replace(/\s+\(\d+ eps\)$/, '').replace(/\s*⏳\s*$/, '').trim();
   }
+  // tamanho de cada temporada nos itens que juntam várias temporadas num item só
+  const EXTRA_SEASON_SIZES = { k19: [13, 13, 19, 17, 14] };
+  function seasonSizesOf(it) {
+    if (EXTRA_SEASON_SIZES[it.key]) return EXTRA_SEASON_SIZES[it.key];
+    for (const cfg of (typeof TRIOS !== 'undefined' ? TRIOS : [])) {
+      const k = cfg.keys.indexOf(it.key);
+      if (k >= 0) return cfg.seasonSizes[k];
+    }
+    return null;
+  }
+  // v40.4.3: cada TEMPORADA é um time (partes da mesma temporada juntam; ex.: Agents of SHIELD T1
+  // em 3 partes vira "T1"). Filme é sempre independente. Só entra o que você CONCLUIU (temporada
+  // inteira vista / filme visto) — o que não lançou ou você não terminou fica de fora até terminar.
   V40.ligaTeams = function () {
     const map = new Map();
-    V40.participants().forEach(p => {
-      // só série junta (todas as temporadas viram 1 time); filme é sempre independente
-      const base = p.kind === 'serie' ? teamBase(p.name) : p.name;
-      const key = p.kind === 'serie' ? 'T:serie:' + base : 'T:' + p.pid;
-      if (!map.has(key)) map.set(key, { pid: key, name: base, icon: p.icon, kind: p.kind, members: [], order: p.order });
+    const seriesSeasons = {};
+    const add = (key, base, season, icon, kind, unit, order) => {
+      if (!map.has(key)) map.set(key, { pid: key, base, season, icon, kind, units: [], order });
       const t = map.get(key);
-      t.members.push(p);
-      t.order = Math.min(t.order, p.order);
-    });
-    // entra quem você já concluiu ou começou (o que não lançou ainda não tem como ter começado)
-    const started = m => m.done || m.inProgress || m.items.some(it => Array.isArray(it.epDone) && it.epDone.some(Boolean));
-    return [...map.values()].filter(t => t.members.some(started)).map(t => {
-      t.items = [].concat.apply([], t.members.map(m => m.items));
-      t.done = t.members.every(m => m.done);
-      t.inProgress = !t.done;
+      t.units.push(unit);
+      t.order = Math.min(t.order, order);
+    };
+    V40.participants().forEach(p => p.items.forEach(it => {
+      const order = p.order;
+      if (p.kind !== 'serie') {
+        add('T:i' + it.id, V40.shortName(it), null, p.icon, 'filme', { it, from: 0, to: null }, order);
+        return;
+      }
+      const base = teamBase(V40.shortName(it));
+      const c = V40.catOf(it);
+      let seasons = c && c.x && c.x.s != null ? c.x.s : null;
+      if (seasons == null) { const m = /\bT(\d+)\b/.exec(it.text); seasons = m ? +m[1] : 1; }
+      const list = Array.isArray(seasons) ? seasons : [seasons];
+      seriesSeasons[base] = seriesSeasons[base] || new Set();
+      list.forEach(s => seriesSeasons[base].add(s));
+      const sizes = list.length > 1 ? seasonSizesOf(it) : null;
+      if (list.length > 1 && sizes && sizes.length === list.length) {
+        let from = 0;
+        list.forEach((s, k) => { add('T:s:' + base + '|' + s, base, s, p.icon, 'serie', { it, from, to: from + sizes[k] }, order); from += sizes[k]; });
+      } else if (list.length > 1) {
+        add('T:s:' + base + '|' + list.join('-'), base, 'T' + list[0] + '–T' + list[list.length - 1], p.icon, 'serie', { it, from: 0, to: null }, order);
+      } else {
+        add('T:s:' + base + '|' + list[0], base, list[0], p.icon, 'serie', { it, from: 0, to: null }, order);
+      }
+    }));
+    const unitDone = u => {
+      if (u.it.done) return true;
+      if (u.to == null) return false;
+      const d = Array.isArray(u.it.epDone) ? u.it.epDone : [];
+      for (let i = u.from; i < u.to; i++) if (!d[i]) return false;
+      return true;
+    };
+    return [...map.values()].filter(t => t.units.every(unitDone)).map(t => {
+      const multi = t.kind === 'serie' && seriesSeasons[t.base] && seriesSeasons[t.base].size > 1;
+      t.name = t.kind === 'serie' && multi ? `${t.base} ${typeof t.season === 'number' ? 'T' + t.season : t.season}` : t.base;
+      t.items = t.units.map(u => u.it);
+      t.done = true; t.inProgress = false;
       t.poster = null;
       for (const it of t.items) { const u = V40.posterUrl && V40.posterUrl(it, 'w185'); if (u) { t.poster = u; break; } }
+      t.franchise = franchiseOf(t);
       return t;
     }).sort((a, b) => a.order - b.order);
   };
+  // ---------- ⚡ clássicos: mesma franquia / mesma série ----------
+  const FRANCHISES = [
+    { id: 'aranha-holland', re: /^Spider-Man: (Homecoming|Far From Home|No Way Home|Brand New Day)/, name: 'Clássico do Aranha de Holland', emoji: '🕷️', c: ['#c8102e', '#0b3d91'], pat: 'web' },
+    { id: 'aranhaverso', re: /Spider-Verse/, name: 'Clássico do Aranhaverso', emoji: '🌀', c: ['#ff2e88', '#00b3ff'], pat: 'glitch' },
+    { id: 'aranha-garfield', re: /Amazing Spider-Man/, name: 'Clássico do Espetacular', emoji: '🕸️', c: ['#d7263d', '#1b1f3b'], pat: 'web' },
+    { id: 'aranha-raimi', re: /^Spider-Man( 2| 3)?$/, name: 'Clássico do Aranha de Raimi', emoji: '🕸️', c: ['#8e0e1a', '#1c2d6b'], pat: 'web' },
+    { id: 'aranha-animado', re: /^(Ultimate Spider-Man|Marvel's Spider-Man|Your Friendly Neighborhood Spider-Man)/, name: 'Clássico do Aranha Animado', emoji: '🕸️', c: ['#e63946', '#1d3557'], pat: 'web' },
+    { id: 'venom', re: /Venom/, name: 'Clássico Simbionte', emoji: '🖤', c: ['#050505', '#7d7d7d'], pat: 'goo' },
+    { id: 'wolverine', re: /Wolverine|Logan|Deadpool/, name: 'Clássico das Garras', emoji: '🗡️', c: ['#e8b511', '#1d3c78'], pat: 'claw' },
+    { id: 'xmen', re: /X-Men/, name: 'Clássico dos Mutantes', emoji: '🧬', c: ['#141428', '#f2c94c'], pat: 'x' },
+    { id: 'vingadores', re: /^(The )?Avengers|^Marvel's Avengers/, name: 'Clássico dos Vingadores', emoji: '🛡️', c: ['#1d3557', '#c1121f'], pat: 'bolt' },
+    { id: 'ferro', re: /^Iron Man/, name: 'Clássico do Homem de Ferro', emoji: '🔧', c: ['#a4161a', '#e0a100'], pat: 'grid' },
+    { id: 'thor', re: /^Thor/, name: 'Clássico do Trovão', emoji: '⚡', c: ['#1b263b', '#7fb7e6'], pat: 'bolt' },
+    { id: 'capitao', re: /^Captain America/, name: 'Clássico do Capitão', emoji: '⭐', c: ['#0a3161', '#b31942'], pat: 'stars' },
+    { id: 'guardioes', re: /Guardians of the Galaxy|I Am Groot/, name: 'Clássico dos Guardiões', emoji: '🚀', c: ['#f77f00', '#3a0ca3'], pat: 'cosmic' },
+    { id: 'formiga', re: /Ant-Man/, name: 'Clássico Quântico', emoji: '🐜', c: ['#9d0208', '#14213d'], pat: 'hex' },
+    { id: 'wakanda', re: /Black Panther|Wakanda/, name: 'Clássico de Wakanda', emoji: '🐾', c: ['#3c1361', '#9a9ab0'], pat: 'hex' },
+    { id: 'estranho', re: /Doctor Strange/, name: 'Clássico Místico', emoji: '🔮', c: ['#3d1a5b', '#ff9f1c'], pat: 'rings' },
+    { id: 'quarteto', re: /Fantastic Four/, name: 'Clássico Fantástico', emoji: '🔵', c: ['#1f4e9c', '#dfe7f5'], pat: 'rings' },
+    { id: 'hulk', re: /Hulk/, name: 'Clássico Esmaga', emoji: '💚', c: ['#1b5e20', '#6a1b9a'], pat: 'grid' },
+    { id: 'demolidor', re: /Daredevil/, name: "Clássico de Hell's Kitchen", emoji: '😈', c: ['#6a040f', '#111111'], pat: 'city' },
+    { id: 'ruas', re: /Jessica Jones|Luke Cage|Iron Fist|Defenders|Punisher/, name: 'Clássico das Ruas', emoji: '🏙️', c: ['#2b2d42', '#ef233c'], pat: 'city' },
+    { id: 'westview', re: /WandaVision|Agatha|VisionQuest/, name: 'Clássico de Westview', emoji: '📺', c: ['#ad1457', '#ffca28'], pat: 'tv' },
+    { id: 'loki', re: /^Loki/, name: 'Clássico da TVA', emoji: '🐍', c: ['#14532d', '#d4af37'], pat: 'clock' },
+    { id: 'whatif', re: /What If/, name: 'Clássico do Multiverso', emoji: '👁️', c: ['#240046', '#7b2cbf'], pat: 'cosmic' },
+    { id: 'shield', re: /S\.H\.I\.E\.L\.D|Agent Carter/, name: 'Clássico da S.H.I.E.L.D.', emoji: '🦅', c: ['#0d1b2a', '#8d99ae'], pat: 'grid' }
+  ];
+  function franchiseOf(t) {
+    for (const it of t.items) {
+      const c = V40.catOf(it);
+      const names = [c && c.en, V40.shortName(it)].filter(Boolean);
+      const f = FRANCHISES.find(f => names.some(n => f.re.test(n)));
+      if (f) return f;
+    }
+    if (t.kind === 'serie') return { id: 'serie:' + t.base, name: 'Clássico de ' + t.base, emoji: '🔥', c: ['#5a189a', '#d9a441'], pat: 'plain' };
+    return null;
+  }
+  V40.isClassic = (a, b) => !!(a && b && a.franchise && b.franchise && a.franchise.id === b.franchise.id);
+  const classicBanner = f => `<div class="v40-classic" data-pat="${f.pat}" style="--c1:${f.c[0]};--c2:${f.c[1]}">
+      <span class="v40-classic-emo">${f.emoji}</span>
+      <div class="v40-classic-txt"><small>⚡ CLÁSSICO ⚡</small><b>${V40.esc(f.name)}</b></div>
+      <span class="v40-classic-emo r">${f.emoji}</span>
+    </div>`;
   const l4 = () => { const s = V40.get(L4_KEY, null); return s && s.res ? migrateL4(s) : { res: {}, log: [] }; };
   // v40.4 → v40.4.1: filmes passaram a ter id próprio (antes 'T:filme:Nome')
   function migrateL4(st) {
@@ -342,7 +426,7 @@
     return hist;
   }
   function l4TableHtml(table, prog, hist) {
-    if (!table.length) return '<div class="stat-card"><p>Ninguém em campo ainda. Conclua ou comece um título e ele entra no campeonato.</p></div>';
+    if (!table.length) return '<div class="stat-card"><p>Ninguém em campo ainda. Conclua um filme ou uma temporada e ele entra no campeonato.</p></div>';
     const prev = prevSnapshot(hist);
     const leader = table[0];
     const rows = table.map(t => `<div class="v40-l4row ${t.zone === 'liberta' ? 'lib' : ''}">
@@ -364,7 +448,7 @@
         <div class="v40-l4row head"><span class="lpos">#</span><span class="lname">TIME</span><span>J</span><span>V</span><span>E</span><span>D</span><span class="lpts">P</span></div>
         ${rows}
         <div class="v40-legend"><span><i class="zc"></i>1º ao 8º: Libertadores</span></div>
-        <p class="v40-muted" style="margin:6px 0 0;">Vitória 3 · empate 1 · derrota 0. Desempate: vitórias ▸ aproveitamento. Séries contam como 1 time (todas as temporadas juntas). ▲▼ = desde a rodada anterior.</p>
+        <p class="v40-muted" style="margin:6px 0 0;">Vitória 3 · empate 1 · derrota 0. Desempate: vitórias ▸ aproveitamento. Cada temporada é um time; só entra o que você concluiu. ⚡ Clássico = mesma franquia ou mesma série. ▲▼ = desde a rodada anterior.</p>
       </div>
       <button class="big-action v40-share-btn" id="v40ShareLiga">📤 Compartilhar a tabela como imagem</button>`;
   }
@@ -379,13 +463,13 @@
       if (!A || !B) return '';
       const r = st.res[k];
       const res = r === 'd' ? 'empate' : (r === 'a' ? 'venceu ' + V40.esc(A.name) : 'venceu ' + V40.esc(B.name));
-      return `<div class="v40-row"><span style="flex:1">${A.icon} ${V40.esc(A.name)} <b>×</b> ${B.icon} ${V40.esc(B.name)}<br><small class="v40-muted">${res}</small></span></div>`;
+      return `<div class="v40-row"><span style="flex:1">${V40.isClassic(A, B) ? `<small class="v40-classic-tag" style="--c1:${A.franchise.c[0]};--c2:${A.franchise.c[1]}">${A.franchise.emoji} clássico</small> ` : ''}${A.icon} ${V40.esc(A.name)} <b>×</b> ${B.icon} ${V40.esc(B.name)}<br><small class="v40-muted">${res}</small></span></div>`;
     }).join('');
     return `
       <div class="stat-card">
         <h4>⚽ Jogo ${Math.min(prog.played + 1, prog.total)} de ${prog.total}</h4>
-        ${m ? `<p class="v40-muted" style="margin-top:-4px;">Toque no vencedor, ou no = pra empate.</p>
-        <div class="v40-l4-match">
+        ${m ? `${V40.isClassic(m[0], m[1]) ? classicBanner(m[0].franchise) : ''}<p class="v40-muted" style="margin-top:-4px;">Toque no vencedor, ou no = pra empate.</p>
+        <div class="v40-l4-match${V40.isClassic(m[0], m[1]) ? ' classic' : ''}" ${V40.isClassic(m[0], m[1]) ? `style="--c1:${m[0].franchise.c[0]};--c2:${m[0].franchise.c[1]}"` : ''}>
           ${teamCard(m[0], `data-l4="a" data-ta="${V40.esc(m[0].pid)}" data-tb="${V40.esc(m[1].pid)}"`)}
           <button class="v40-l4-draw" data-l4="d" data-ta="${V40.esc(m[0].pid)}" data-tb="${V40.esc(m[1].pid)}">=</button>
           ${teamCard(m[1], `data-l4="b" data-ta="${V40.esc(m[0].pid)}" data-tb="${V40.esc(m[1].pid)}"`)}
@@ -395,7 +479,7 @@
           <button id="v40L4Undo" ${st.log.length ? '' : 'disabled'}>↺ Desfazer último</button>
         </div>` : (teams.length < 2 ? '<p>Precisa de pelo menos 2 times em campo.</p>' : `<p>🎉 Todos os jogos foram disputados! Hora da <button class="v40-link" data-goto="mata">🏆 Libertadores ›</button></p><button id="v40L4Undo" ${st.log.length ? '' : 'disabled'}>↺ Desfazer último</button>`)}
         <div class="v40-l4-bar" style="margin-top:10px;"><i style="width:${prog.played / Math.max(1, prog.total) * 100}%"></i></div>
-        <p class="v40-muted">Rodada ${prog.rodada} · ${prog.n} times · cada time enfrenta todos os outros uma vez. Quem jogou menos entra em campo primeiro. Time novo (título que você começar) entra com 0 pontos e os jogos dele vão aparecendo.</p>
+        <p class="v40-muted">Rodada ${prog.rodada} · ${prog.n} times · cada time enfrenta todos os outros uma vez. Quem jogou menos entra em campo primeiro. Time novo (temporada ou filme que você concluir) entra com 0 pontos e os jogos dele vão aparecendo.</p>
       </div>
       ${last ? `<div class="stat-card"><h4>🗒 Últimos resultados</h4>${last}</div>` : ''}`;
   }
@@ -435,7 +519,7 @@
     const rules = `<details class="v40-help"><summary>📜 Regulamento</summary><ol style="margin:6px 0 0 18px;padding:0;font-size:0.8rem;">
         <li>Pontos corridos, todos contra todos (1 jogo cada). Você escolhe o vencedor de cada jogo ou dá empate.</li>
         <li>Vitória 3 · empate 1 · derrota 0. Desempate: vitórias ▸ aproveitamento.</li>
-        <li>Séries viram 1 time (todas as temporadas e partes juntas). Entram concluídos e em andamento.</li>
+        <li>Cada temporada é um time (partes da mesma temporada juntam). Filme é sempre independente. Só entra o que você concluiu (temporada inteira / filme visto).</li><li>⚡ Clássico: jogo entre títulos da mesma franquia ou temporadas da mesma série.</li>
         <li>Os 8 primeiros jogam a Libertadores: 1×8, 4×5, 2×7, 3×6 nas quartas, depois semi e final. No mata-mata não tem empate.</li>
       </ol></details>`;
     if (!ed) {
@@ -457,7 +541,7 @@
     if (ed.champion) {
       stage = `<div class="stat-card v40-ko-champ"><div class="v40-champ-crown">👑</div><div class="v40-muted">CAMPEÃO DA LIBERTADORES · EDIÇÃO ${ed.n}</div><div class="v40-big">${nm(ed.champion)}</div><div class="v40-muted">${V40.fmtBR((ed.finishedAt || V40.today()).slice(0, 10), true)}</div></div>`;
     } else if (cur) {
-      stage = `<div class="stat-card"><h4>⚔️ ${cur.def.label}</h4><p class="v40-muted" style="margin-top:-4px;">Mata-mata não tem empate: toque no vencedor.</p>
+      stage = `<div class="stat-card"><h4>⚔️ ${cur.def.label}</h4>${V40.isClassic(by[cur.a], by[cur.b]) ? classicBanner(by[cur.a].franchise) : ''}<p class="v40-muted" style="margin-top:-4px;">Mata-mata não tem empate: toque no vencedor.</p>
         <div class="v40-l4-match two">${teamCard(by[cur.a] || { name: '(saiu)', icon: '❔' }, `data-lib="${cur.i}" data-side="a"`)}<div class="v40-vs">VS</div>${teamCard(by[cur.b] || { name: '(saiu)', icon: '❔' }, `data-lib="${cur.i}" data-side="b"`)}</div></div>`;
     }
     const seedTag = pid => { const k = ed.seeds.indexOf(pid); return k >= 0 ? `<small class="v40-muted">${k + 1}º</small> ` : ''; };
