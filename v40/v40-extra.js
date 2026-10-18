@@ -275,15 +275,19 @@
       rb.addEventListener('click', () => reloadAppNoCache('tabInicio'));
       page.insertBefore(rb, page.firstChild);
     }
-    if (!page || document.getElementById('v40HomeMore')) return;
-    const olds = Array.from(page.querySelectorAll('.dash-actions:not(.v40-actions)'));
-    if (!olds.length) return;
-    const det = document.createElement('details');
-    det.id = 'v40HomeMore';
-    det.className = 'v40-cfg-group';
-    det.innerHTML = '<summary>⋯ Mais ferramentas</summary>';
-    olds[0].parentNode.insertBefore(det, olds[0]);
-    olds.forEach(o => det.appendChild(o));
+    if (!page) return;
+    // v40.6.4: sem o grupo "Mais ferramentas". Os botões antigos que repetem os novos somem
+    // (Ajustar ritmo = Episódios por dia; Recarregar = botão do topo) e os que só existem lá
+    // (Modo maratona, O que cabe no meu tempo?, Compartilhar progresso) ficam logo abaixo dos novos.
+    ['btnPace', 'btnReloadHome'].forEach(id => { const b = document.getElementById(id); if (b) b.style.display = 'none'; });
+    const old = page.querySelector('.dash-actions:not(.v40-actions)');
+    const box = document.getElementById('v40Home');
+    if (old && box && box.nextSibling !== old) {
+      old.classList.add('v40-old-actions');
+      box.parentNode.insertBefore(old, box.nextSibling);
+    }
+    const det = document.getElementById('v40HomeMore');
+    if (det) det.remove();
   };
   // na lista compacta, tocar no título abre/fecha as ações da linha
   const origDecor = window.v40DecorateRow;

@@ -675,3 +675,4 @@ body.v40-compact .item .watch-date { font-size: 0.62rem; }
 .v40-up-emo { position: relative; z-index: 1; font-size: 2.2rem; filter: drop-shadow(0 2px 4px rgba(0,0,0,0.6)); }
 .v40-up-art small { position: relative; z-index: 1; font-family: 'JetBrains Mono', monospace; font-size: 0.55rem; letter-spacing: 0.2em; font-weight: 800; color: #fff; text-shadow: 0 1px 3px #000; }
 .v40-up .ph.v40-up-art.v40-classic { background: linear-gradient(150deg, var(--c1), var(--c2)); }
+.v40-old-actions { margin-top: -4px !important; }
