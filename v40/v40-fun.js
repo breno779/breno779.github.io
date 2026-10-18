@@ -71,6 +71,22 @@
       test: (d, t, list) => { const l = list.filter(x => x.phase === ph); return l.length > 0 && l.every(x => x.done); }
     }));
     ACHIEVEMENTS.push({ cat: '🥇 Liga (v40)', id: 'v40-ko', icon: '👑', name: 'O verdadeiro 10', hint: 'terminar uma edição da Copa do Infinito', test: () => { const k = V40.get('knockout', null); return !!(k && k.champion) || V40.get('liga-campeoes', []).length > 0 || V40.get('liga4-campeoes', []).length > 0; } });
+    // v40.5 — troféus da Liga do Multiverso e da Copa do Infinito
+    const l4log = () => { const st = V40.get('liga4', null); return st && st.log ? st.log.filter(k => st.res && st.res[k]) : []; };
+    [[1, '⚽', 'Pontapé inicial', 'jogar a 1ª partida da Liga do Multiverso'], [100, '🥅', '100 jogos', 'disputar 100 jogos na Liga'], [500, '🏟️', '500 jogos', 'disputar 500 jogos na Liga'], [1000, '🌍', '1.000 jogos', 'disputar 1.000 jogos na Liga']].forEach(([n, ic, nm, h]) => ACHIEVEMENTS.push({
+      cat: '🥇 Liga (v40.5)', id: 'v405-games' + n, icon: ic, name: nm, hint: h, test: () => l4log().length >= n
+    }));
+    ACHIEVEMENTS.push({ cat: '🥇 Liga (v40.5)', id: 'v405-classico', icon: '⚡', name: 'Primeiro clássico', hint: 'jogar um clássico (mesma franquia ou série)', test: () => V40.ligaStats && V40.ligaStats().classics > 0 });
+    ACHIEVEMENTS.push({ cat: '🥇 Liga (v40.5)', id: 'v405-rodada', icon: '📅', name: 'Rodada completa', hint: 'jogar a rodada inteira de um dia', test: () => (V40.get('liga4-rodadas-cheias', 0) || 0) >= 1 });
+    ACHIEVEMENTS.push({ cat: '🥇 Liga (v40.5)', id: 'v405-rodada30', icon: '🗓️', name: '30 rodadas', hint: 'completar 30 rodadas do dia', test: () => (V40.get('liga4-rodadas-cheias', 0) || 0) >= 30 });
+    ACHIEVEMENTS.push({ cat: '🥇 Liga (v40.5)', id: 'v405-invicto', icon: '🛡️', name: 'Invicto', hint: 'um time com 10+ jogos e nenhuma derrota', test: () => V40.ligaStandings && V40.ligaStandings().some(t => t.J >= 10 && t.D === 0) });
+    ACHIEVEMENTS.push({ cat: '🥇 Liga (v40.5)', id: 'v405-liga-fim', icon: '🏆', name: 'Campeonato completo', hint: 'disputar todos os jogos da Liga do Multiverso', test: () => { if (!V40.ligaProgress) return false; const p = V40.ligaProgress(); return p.total > 0 && p.played >= p.total; } });
+    ACHIEVEMENTS.push({ cat: '🥇 Liga (v40.5)', id: 'v405-manopla3', icon: '🧤', name: 'Três Manoplas', hint: 'terminar 3 edições da Copa do Infinito', test: () => V40.get('liga4-campeoes', []).length >= 3 });
+    ACHIEVEMENTS.push({ cat: '🥇 Liga (v40.5)', id: 'v405-zebra', icon: '🦓', name: 'Zebra campeã', hint: 'a Copa do Infinito ganha por um time da metade de baixo dos classificados', test: () => {
+      const ed = V40.get('liga4-liberta', null);
+      if (!ed || !ed.champion) return false;
+      return ed.seeds.indexOf(ed.champion) >= ed.seeds.length / 2;
+    } });
     ACHIEVEMENTS.push({ cat: '🥇 Liga (v40)', id: 'v40-rated50', icon: '📝', name: '50 títulos com nota', test: () => V40.participants().filter(p => p.rating > 0).length >= 50 });
     ACHIEVEMENTS.push({ cat: '🥇 Liga (v40)', id: 'v40-rated100', icon: '🗳️', name: '100 títulos com nota', test: () => V40.participants().filter(p => p.rating > 0).length >= 100 });
     [[3, '🎖️'], [5, '🏵️'], [8, '💎'], [10, '🌌']].forEach(([n, ic]) => ACHIEVEMENTS.push({
@@ -173,6 +189,11 @@
   V40.onChange(ch => {
     // título concluído: confete pequeno + som
     if (ch.titlesDone.length) { V40.sound('done'); V40.confetti(false); }
+    // 🎞 v40.5: lembrete das cenas nos créditos ao concluir um filme
+    if (ch.titlesDone.length === 1 && ch.titlesDone[0] && V40.CREDITS && V40.showBanner) {
+      const it = ch.titlesDone[0], cr = V40.CREDITS[it.key];
+      if (cr) setTimeout(() => V40.showBanner(cr[0] ? `🎞 ${V40.shortName(it)}: ${cr[0]} cena${cr[0] > 1 ? 's' : ''} nos créditos (${cr[1]}). Viu?` : `🎞 ${V40.shortName(it)}: ${cr[1]}.`, '📇 Ficha', () => V40.openInfo && V40.openInfo(it)), 1200);
+    }
     // fase concluída / maratona concluída
     ch.titlesDone.forEach(it => { if (it) checkPhaseDone(it.phase); });
     if (ch.titlesDone.length && items.length && items.every(i => i.done)) setTimeout(V40.finalScreen, 800);
@@ -255,6 +276,8 @@
     ['badges', '🏷 Início / término / Guerras Secretas'],
     ['counters', '⏰ Atraso, sequência e horas restantes'],
     ['countdowns', '🚀 Contagens regressivas'],
+    ['liga', '⚽ Rodada do dia da Liga'],
+    ['estreias', '🎬 Próximas estreias (com pôster)'],
     ['actions', '🔘 Botões antigos (maratona, ritmo…)']
   ];
   V40.HOME_BLOCKS = HOME_BLOCKS;
@@ -326,7 +349,31 @@
           <div class="v40-muted" style="font-size:0.62rem;">+150 XP · até ${V40.fmtBR(wc.ends)}</div></div>
       </div>`;
     }
+    if (h.liga !== false && V40.ligaTeams) {
+      try {
+        const teams = V40.ligaTeams();
+        if (teams.length >= 2) {
+          const d = V40.ligaDaily(teams), prog = V40.ligaProgress(teams);
+          const fin = prog.played >= prog.total;
+          html += `<button class="v40-liga-home ${d.left ? '' : 'ok'}" id="v40HomeLiga">
+            <span class="ic">⚽</span>
+            <span class="mid"><b>${fin ? 'Liga do Multiverso completa!' : d.left ? 'Rodada do dia da Liga' : 'Rodada do dia completa ✓'}</b>
+              <span class="v40-xpbar"><span style="width:${fin ? 100 : 100 * d.done / d.size}%"></span></span>
+              <small>${fin ? 'Hora da ♾️ Copa do Infinito' : `${d.done}/${d.size} jogos hoje · ${prog.played}/${prog.total} no campeonato`}</small></span>
+            <span class="st">${fin ? '♾️' : d.left ? '›' : '✅'}</span>
+          </button>`;
+        }
+      } catch (e) { console.error(e); }
+    }
+    if (h.estreias !== false) {
+      const up = V40.upcomingReleases(4);
+      if (up.length) html += `<div class="stat-card v40-upcoming"><h4>🎬 Próximas estreias</h4><div class="v40-up-list">${up.map(x => `
+        <button class="v40-up" data-upinfo="${x.it.id}">${x.poster ? `<img src="${x.poster}" alt="" onerror="this.remove()">` : `<span class="ph">${V40.kindIcon(x.it)}</span>`}
+          <b>${V40.esc(V40.shortName(x.it))}</b><small>${V40.fmtBR(x.date, true)}</small><span class="v40-up-days">${x.days === 0 ? 'HOJE!' : x.days === 1 ? 'amanhã' : 'faltam ' + x.days + ' dias'}</span></button>`).join('')}</div></div>`;
+    }
     html += `<div class="dash-actions v40-actions">
+        <button id="v40HomeWeekend">🍿 Maratona do fim de semana</button>
+        <button id="v40HomeRecap">🗓 Retrospectiva do mês</button>
         <button id="v40HomeRate">⏱ Episódios por dia</button>
         <button id="v40HomeTravel">✈️ Modo viagem</button>
         <button id="v40HomeSim">🔮 Simulador</button>
@@ -348,8 +395,124 @@
     on('v40HomeCal', () => V40.openMonthCalendar());
     on('v40HomeUni', () => V40.openUniverse());
     on('v40HomeRem', () => V40.openReminders && V40.openReminders());
+    on('v40HomeLiga', () => { const fin = V40.ligaProgress().played >= V40.ligaProgress().total; V40.ligaTab = fin ? 'mata' : 'jogos'; V40.set('liga-tab', V40.ligaTab); switchTab('tabLiga'); });
+    on('v40HomeWeekend', () => V40.openWeekendMarathon());
+    on('v40HomeRecap', () => V40.openMonthRecap());
+    box.querySelectorAll('[data-upinfo]').forEach(b => b.addEventListener('click', () => { const it = items.find(i => i.id === +b.dataset.upinfo); if (it && V40.openInfo) V40.openInfo(it); }));
     applyHomeBlocks();
     V40.applyHeroBg();
+  };
+
+  // ---------- 🎬 próximas estreias (só data oficial conhecida) ----------
+  V40.upcomingReleases = function (n) {
+    const t = V40.today();
+    const out = [];
+    items.forEach(it => {
+      if (it.done || !V40.catOf) return;
+      const c = V40.catOf(it);
+      const info = V40.extInfo ? V40.extInfo(it) : null;
+      const date = (info && (info.relTmdb || info.relTv)) || (c && c.x && c.x.rel) || null;
+      if (!date || date < t) return;
+      out.push({ it, date, days: V40.daysBetween(t, date), poster: V40.posterUrl ? V40.posterUrl(it, 'w185') : null });
+    });
+    return out.sort((a, b) => a.date < b.date ? -1 : 1).slice(0, n || 4);
+  };
+  // ---------- 🍿 maratona do fim de semana ----------
+  function itemMinutesLeft(it) {
+    const k = simpleKind(it);
+    if (k === 'jogo') return 0;
+    if (k === 'serie') {
+      const eps = extractEpsCount(it.text) || 1;
+      const done = Array.isArray(it.epDone) ? it.epDone.slice(0, eps).filter(Boolean).length : 0;
+      return Math.max(0, eps - done) * perEpisodeMinutes(it);
+    }
+    return isShortItem(it.text) ? 20 : 130;
+  }
+  V40.openWeekendMarathon = function (hours) {
+    hours = hours || V40.get('weekend-hours', 8);
+    const pending = sortItems(items.filter(i => !i.done && simpleKind(i) !== 'jogo'));
+    const t = V40.today();
+    const pick = [];
+    let total = 0;
+    for (const it of pending) {
+      const c = V40.catOf ? V40.catOf(it) : null;
+      const rel = c && c.x && c.x.rel;
+      if (rel && rel > t) break;              // não lançou ainda: a maratona para aqui
+      const m = itemMinutesLeft(it);
+      if (!m) continue;
+      if (total + m > hours * 60 && pick.length) {
+        // série grande: pega só os episódios que cabem
+        if (simpleKind(it) === 'serie') {
+          const per = perEpisodeMinutes(it);
+          const fit = Math.floor((hours * 60 - total) / per);
+          if (fit > 0) { pick.push({ it, mins: fit * per, eps: fit }); total += fit * per; }
+        }
+        break;
+      }
+      pick.push({ it, mins: m, eps: simpleKind(it) === 'serie' ? Math.round(m / perEpisodeMinutes(it)) : null });
+      total += m;
+    }
+    const fmt = m => `${Math.floor(m / 60)}h${String(Math.round(m % 60)).padStart(2, '0')}`;
+    V40.modal(`<h3>🍿 Maratona do fim de semana</h3>
+      <div class="v40-seg">${[4, 8, 12, 16].map(h => `<button data-wh="${h}" class="${h === hours ? 'on' : ''}">${h}h</button>`).join('')}</div>
+      <p class="v40-muted">Seguindo a ordem da lista, isto cabe em <b>${hours}h</b> (sábado + domingo):</p>
+      ${pick.length ? pick.map((x, k) => `<div class="v40-row"><span style="flex:1">${k + 1}. ${V40.kindIcon(x.it)} ${V40.esc(V40.shortName(x.it))}${x.eps ? ` <small class="v40-muted">· ${x.eps} ep.</small>` : ''}</span><span class="v40-muted">${fmt(x.mins)}</span></div>`).join('') : '<p>Nada pendente que já tenha lançado. 🎉</p>'}
+      ${pick.length ? `<p style="margin-top:8px;"><b>Total: ${fmt(total)}</b> · ${pick.length} título(s)</p><p class="v40-muted">Dá uns ${fmt(total / 2)} por dia. Tempo aproximado (filme ~2h10, curta ~20min, episódio pelo tipo da série).</p>` : ''}`);
+    document.querySelectorAll('[data-wh]').forEach(b => b.addEventListener('click', () => { V40.set('weekend-hours', +b.dataset.wh); V40.openWeekendMarathon(+b.dataset.wh); }));
+  };
+  // ---------- 🗓 retrospectiva do mês ----------
+  const MONTHS = ['janeiro', 'fevereiro', 'março', 'abril', 'maio', 'junho', 'julho', 'agosto', 'setembro', 'outubro', 'novembro', 'dezembro'];
+  V40.monthRecapData = function (ym) {
+    const done = items.filter(i => i.done && i.completedAt && i.completedAt.slice(0, 7) === ym && simpleKind(i) !== 'jogo');
+    const acts = (V40.activity || []).filter(e => e.d && e.d.slice(0, 7) === ym);
+    const eps = acts.filter(e => e.type === 'ep').reduce((s, e) => s + (e.n || 1), 0) - acts.filter(e => e.type === 'unep').reduce((s, e) => s + (e.n || 1), 0);
+    const mins = done.filter(i => simpleKind(i) !== 'serie').reduce((s, i) => s + (isShortItem(i.text) ? 20 : 130), 0) + Math.max(0, eps) * 25;
+    const rated = done.filter(i => i.rating > 0).sort((a, b) => b.rating - a.rating);
+    const days = new Set(acts.filter(e => ['ep', 'title'].includes(e.type)).map(e => e.d)).size;
+    const st = V40.get('liga4', null);
+    const games = st && st.months ? (st.months[ym] || 0) : 0;
+    const champ = V40.get('liga4-campeoes', []).filter(c => (c.at || '').slice(0, 7) === ym).pop() || null;
+    return { ym, done, eps: Math.max(0, eps), mins, best: rated[0] || null, worst: rated.length > 1 ? rated[rated.length - 1] : null, days, games, champ };
+  };
+  V40.openMonthRecap = function (ym) {
+    const now = V40.today().slice(0, 7);
+    ym = ym || now;
+    const d = V40.monthRecapData(ym);
+    const prev = (() => { const [y, m] = ym.split('-').map(Number); const dd = new Date(y, m - 2, 1); return dd.getFullYear() + '-' + String(dd.getMonth() + 1).padStart(2, '0'); })();
+    const next = (() => { const [y, m] = ym.split('-').map(Number); const dd = new Date(y, m, 1); return dd.getFullYear() + '-' + String(dd.getMonth() + 1).padStart(2, '0'); })();
+    const label = MONTHS[+ym.slice(5) - 1] + ' de ' + ym.slice(0, 4);
+    V40.modal(`<div class="v40-wrapped">
+      <div class="w-head">🗓 SEU MÊS NA MARVEL<br><span>${label}</span></div>
+      <div class="w-grid">
+        <div><b>${d.done.length}</b><small>títulos concluídos</small></div>
+        <div><b>${d.eps}</b><small>episódios marcados</small></div>
+        <div><b>${Math.round(d.mins / 60)}h</b><small>de Marvel (aprox.)</small></div>
+        <div><b>${d.days}</b><small>dias assistindo</small></div>
+        <div><b>${d.games}</b><small>jogos da Liga</small></div>
+        <div><b>${d.champ ? '🧤' : '—'}</b><small>${d.champ ? 'Manopla: ' + V40.esc(d.champ.name) : 'sem Copa no mês'}</small></div>
+      </div>
+      ${d.best ? `<p>⭐ Melhor do mês: <b>${V40.esc(V40.shortName(d.best))}</b> (${V40.fmt1(d.best.rating)})${d.worst ? `<br>📉 Menor nota: <b>${V40.esc(V40.shortName(d.worst))}</b> (${V40.fmt1(d.worst.rating)})` : ''}</p>` : ''}
+      ${d.done.length ? `<p class="v40-muted">${d.done.slice(0, 12).map(i => V40.esc(V40.shortName(i))).join(' · ')}${d.done.length > 12 ? ' …' : ''}</p>` : '<p class="v40-muted">Nenhum título concluído nesse mês.</p>'}
+      <div style="display:flex;gap:8px;justify-content:center;margin-top:8px;">
+        <button id="v40RecPrev">‹ ${MONTHS[+prev.slice(5) - 1]}</button>
+        ${next <= now ? `<button id="v40RecNext">${MONTHS[+next.slice(5) - 1]} ›</button>` : ''}
+      </div>
+    </div>`);
+    const p = document.getElementById('v40RecPrev'); if (p) p.addEventListener('click', () => V40.openMonthRecap(prev));
+    const n = document.getElementById('v40RecNext'); if (n) n.addEventListener('click', () => V40.openMonthRecap(next));
+  };
+  // no começo do mês, avisa que a retrospectiva do mês passado está pronta (1 vez)
+  V40.checkMonthRecapBanner = function () {
+    const t = V40.today();
+    if (+t.slice(8) > 7) return;
+    const [y, m] = t.split('-').map(Number);
+    const dd = new Date(y, m - 2, 1);
+    const prev = dd.getFullYear() + '-' + String(dd.getMonth() + 1).padStart(2, '0');
+    if (V40.get('recap-shown', '') === prev) return;
+    const d = V40.monthRecapData(prev);
+    if (!d.done.length && !d.eps) return;
+    V40.set('recap-shown', prev);
+    setTimeout(() => V40.showBanner && V40.showBanner(`🗓 Sua retrospectiva de ${MONTHS[dd.getMonth()]} está pronta!`, 'Ver', () => V40.openMonthRecap(prev)), 2500);
   };
 
   V40.openLevelInfo = function () {

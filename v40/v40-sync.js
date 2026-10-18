@@ -100,6 +100,105 @@
     };
   }
 
+  // lista "de verdade": a principal tem 100+ itens; as do Doomsday são menores (Essenciais ~16)
+  V40.minListSize = function () {
+    const n = typeof DEFAULT_ITEMS !== 'undefined' && Array.isArray(DEFAULT_ITEMS) ? DEFAULT_ITEMS.length : 120;
+    return Math.max(5, Math.min(100, Math.floor(n * 0.6)));
+  };
+
+  // =================== 🤝 JUNTAR SOZINHO (3 vias) ===================
+  // guarda como a lista estava na última vez que os dois lados ficaram iguais (base). Na hora de
+  // juntar: o que só mudou na nuvem vem pra cá; o que você mudou aqui fica; desmarcar também vale.
+  function baseOf(list) {
+    const m = {};
+    list.forEach(i => {
+      m[i.key || ('id' + i.id)] = {
+        d: !!i.done, ep: (i.epDone || []).map(Boolean), r: i.rating || 0,
+        er: (i.epRatings || []).map(v => typeof v === 'number' ? v : null), f: !!i.favorite, ws: i.watchStart || null, we: i.watchEnd || null
+      };
+    });
+    return m;
+  }
+  V40.saveSyncBase = function (list) { try { localStorage.setItem('v40-sync-base', JSON.stringify(baseOf(list || items))); } catch (e) {} };
+  const same = (a, b) => JSON.stringify(a) === JSON.stringify(b);
+  function threeWay(local, remote, base) {
+    const byKey = {};
+    remote.forEach(r => { byKey[r.key || ('id' + r.id)] = r; });
+    let changes = 0;
+    const out = local.map(l => {
+      const k = l.key || ('id' + l.id);
+      const r = byKey[k], b = base[k];
+      if (!r) return l;
+      const L = baseOf([l])[k], R = baseOf([r])[k];
+      if (same(L, R)) return l;
+      if (!b) return l;                                   // sem base pra esse item: não mexe
+      if (same(L, b)) { changes++; return JSON.parse(JSON.stringify(r)); }   // só a nuvem mudou: vem inteiro
+      if (same(R, b)) return l;                           // só aqui mudou: fica
+      // os dois mudaram: junta campo a campo (o deste aparelho ganha quando os dois mexeram no mesmo)
+      const m = JSON.parse(JSON.stringify(l));
+      let ch = false;
+      if (L.d === b.d && R.d !== b.d) { m.done = r.done; if (r.done) { m.completedAt = r.completedAt; delete m.watchStart; delete m.watchEnd; delete m.watchKind; delete m.epDates; } ch = true; }
+      const n = Math.max(L.ep.length, R.ep.length);
+      if (n) {
+        const ep = Array.from({ length: n }, (_, i) => {
+          const lv = !!L.ep[i], rv = !!R.ep[i], bv = !!b.ep[i];
+          if (lv === bv && rv !== bv) { ch = true; return rv; }
+          return lv;
+        });
+        m.epDone = ep;
+      }
+      if (L.r === b.r && R.r !== b.r) { m.rating = r.rating; m.ratingAuto = r.ratingAuto; ch = true; }
+      const ne = Math.max(L.er.length, R.er.length);
+      if (ne) {
+        m.epRatings = Array.from({ length: ne }, (_, i) => {
+          const lv = L.er[i] ?? null, rv = R.er[i] ?? null, bv = b.er[i] ?? null;
+          if (lv === bv && rv !== bv) { ch = true; return rv; }
+          return lv;
+        });
+      }
+      if (L.f === b.f && R.f !== b.f) { m.favorite = r.favorite; ch = true; }
+      if (ch) changes++;
+      return m;
+    });
+    return { list: out, changes };
+  }
+  V40.autoMergeFromCloud = async function (remote) {
+    let base = null;
+    try { base = JSON.parse(localStorage.getItem('v40-sync-base') || 'null'); } catch (e) {}
+    if (!base || !remote || !Array.isArray(remote.items) || remote.items.length < V40.minListSize()) return false;
+    const { list, changes } = threeWay(items, remote.items, base);
+    V40.syncState.lastSeenCloudAt = remote.clientAt; saveState();
+    // jogos da Liga: junta os resultados dos dois aparelhos (o daqui vale se os dois jogaram o mesmo)
+    try {
+      const rv = remote.v40 ? JSON.parse(remote.v40) : null;
+      const rl = rv && rv.liga4;
+      if (rl && rl.res) {
+        const ll = V40.get('liga4', null) || { res: {}, log: [] };
+        let added = 0;
+        (rl.log || Object.keys(rl.res)).forEach(k => { if (rl.res[k] && !ll.res[k]) { ll.res[k] = rl.res[k]; ll.log.push(k); added++; } });
+        if (added) { V40.set('liga4', ll); V40.toast(`⚽ ${added} jogo(s) da Liga vieram do ${remote.deviceName || 'outro aparelho'}`); }
+      }
+    } catch (e) {}
+    if (!changes) { V40.saveSyncBase(remote.items); return true; }
+    try { localStorage.setItem('v40-snap-before-sync', JSON.stringify({ at: new Date().toISOString(), items, trash })); } catch (e) {}
+    items = withOrder(list);
+    nextId = items.reduce((m, i) => Math.max(m, i.id), 0) + 1;
+    try { enforceTrioAnchor(); } catch (e) {}
+    V40._state = null;
+    save(); render();
+    V40.saveSyncBase(items);
+    V40.logEvent('plan', { name: '🤝 Juntou sozinho com ' + (remote.deviceName || 'outro aparelho') });
+    V40.toast(`🔄 Juntei ${changes} mudança(s) do ${remote.deviceName || 'outro aparelho'}`, () => {
+      let prev = null;
+      try { prev = JSON.parse(localStorage.getItem('v40-snap-before-sync') || 'null'); } catch (e) {}
+      if (!prev) return;
+      items = withOrder(prev.items); trash = prev.trash || []; V40._state = null; save(); render();
+      V40.toast('↺ Desfeito');
+    });
+    await V40.syncPush(true);
+    return true;
+  };
+
   // =================== ENVIAR / VERIFICAR ===================
   V40.syncState = V40.get('sync-state', { lastPushAt: null, lastPullAt: null, lastSeenCloudAt: null, auto: false });
   function saveState() { V40.set('sync-state', V40.syncState); }
@@ -107,7 +206,7 @@
 
   V40.syncPush = async function (silent) {
     if (window.__v40BlockPush) { setStatus('⚠️ Aparelho novo: primeiro traga seu progresso (ou escolha começar do zero)'); if (!silent) V40.openFreshDevice(); return false; }
-    if (!items || items.length < 100) { setStatus('⚠️ Lista local parece incompleta — não enviei'); return false; }
+    if (!items || items.length < V40.minListSize()) { setStatus('⚠️ Lista local parece incompleta — não enviei'); return false; }
     try {
       setStatus('⬆️ Enviando…');
       const db = await V40.firestore();
@@ -118,6 +217,8 @@
       V40.syncState.lastSeenCloudAt = p.clientAt;
       V40.syncState.dirty = false;
       saveState();
+      V40.saveSyncBase(p.items);
+      try { V40.shareCovers && V40.shareCovers(db); } catch (e) {}
       setStatus('✅ Enviado ' + V40.nowHM());
       if (!silent) V40.toast('☁️ Enviado pra nuvem');
       await maybeCloudBackup(db);
@@ -218,6 +319,7 @@
       V40.syncState.lastPullAt = new Date().toISOString();
       V40.syncState.lastSeenCloudAt = remote.clientAt;
       saveState();
+      V40.saveSyncBase(items);
       V40.logEvent('plan', { name: label });
       V40.toast(label, () => {
         let prev = null;
@@ -235,7 +337,7 @@
     });
     const r = document.getElementById('v40SyncUseRemote');
     if (r) r.addEventListener('click', () => {
-      if (!(remote.items && remote.items.length >= 100)) { alert('A lista da nuvem parece incompleta — não vou aplicar.'); return; }
+      if (!(remote.items && remote.items.length >= V40.minListSize())) { alert('A lista da nuvem parece incompleta — não vou aplicar.'); return; }
       if (!confirm('Trocar a lista DESTE aparelho pela da nuvem?')) return;
       applyRemoteItems(remote.items, '⬇️ Lista da nuvem aplicada');
       if (remote.v40) {
@@ -332,7 +434,8 @@
       if (!remote || remote.device === V40.deviceId()) return;
       if ((remote.clientAt || '') <= (V40.syncState.lastSeenCloudAt || '')) return;
       const diffs = diffLists(items, remote.items || []);
-      if (!diffs.length) { V40.syncState.lastSeenCloudAt = remote.clientAt; saveState(); return; }
+      if (!diffs.length) { V40.syncState.lastSeenCloudAt = remote.clientAt; saveState(); V40.saveSyncBase(remote.items); return; }
+      if (V40.syncState.autoMerge && await V40.autoMergeFromCloud(remote)) return;
       showBanner(`☁️ O ${remote.deviceName || 'outro aparelho'} tem ${diffs.length} mudança(s) mais nova(s)`, 'Ver', V40.openSyncCompare);
     } catch (e) { /* sem internet ou nuvem fora: tudo bem */ }
   };
@@ -391,6 +494,7 @@
       </div>
       <p class="v40-muted">Use o MESMO código no celular e no iPad.</p>
       <label class="v40-check-row"><input type="checkbox" id="v40SyncAuto" ${st.auto ? 'checked' : ''}><span>🔄 Automática: envia sozinha depois de mudar, e AVISA quando o outro aparelho tem algo mais novo</span></label>
+      <label class="v40-check-row"><input type="checkbox" id="v40SyncMergeAuto" ${st.autoMerge ? 'checked' : ''}><span>🤝 Juntar sozinho: em vez de só avisar, já traz o que mudou no outro aparelho (marcar, desmarcar, notas). O que você mudou aqui nunca é apagado, e dá pra desfazer. Precisa da automática ligada nos dois.</span></label>
       <div class="v40-sim" id="v40SyncStatus">${V40.syncMsg || (st.lastPushAt ? 'Último envio: ' + new Date(st.lastPushAt).toLocaleString('pt-BR') : 'Ainda não enviou nada')}</div>
       <div style="display:flex;gap:8px;flex-wrap:wrap;margin-top:10px;">
         <button id="v40SyncPushBtn">⬆️ Enviar agora</button>
@@ -405,6 +509,12 @@
     });
     document.getElementById('v40DevName').addEventListener('change', e => { V40.set('device-name', e.target.value.trim() || V40.deviceName()); });
     document.getElementById('v40SyncAuto').addEventListener('change', e => { st.auto = e.target.checked; saveState(); if (st.auto) V40.syncPush(true); });
+    document.getElementById('v40SyncMergeAuto').addEventListener('change', e => {
+      st.autoMerge = e.target.checked;
+      if (st.autoMerge && !st.auto) { st.auto = true; document.getElementById('v40SyncAuto').checked = true; }
+      saveState();
+      if (st.autoMerge) V40.openSyncCompare();   // primeira vez: deixa os dois lados iguais (vira a base)
+    });
     document.getElementById('v40SyncPushBtn').addEventListener('click', () => V40.syncPush());
     document.getElementById('v40SyncCmpBtn').addEventListener('click', V40.openSyncCompare);
     document.getElementById('v40SyncBkBtn').addEventListener('click', V40.openCloudBackups);

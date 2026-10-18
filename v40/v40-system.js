@@ -12,7 +12,7 @@
   V40.BUILD = BUILD;
   const MODE = window.V40_MODE || 'beta';
   V40.MODE = MODE;
-  V40.VERSION_LABEL = MODE === 'beta' ? 'v40.4.7 beta' : 'v40.4.7';
+  V40.VERSION_LABEL = MODE === 'beta' ? 'v40.5 beta' : 'v40.5';
 
   // =================== APARÊNCIA ===================
   let mql = null;
@@ -213,6 +213,10 @@
 
   // =================== AJUDA E NOVIDADES ===================
   const NEWS = [
+    ['🌌', 'v40.5 — Liga do Multiverso', 'Todos contra todos (você escolhe cada jogo, 3/1/0), cada temporada é um time, clássicos com arte, 1 rodada por dia, narração dos jogos, confronto direto e jogo extra pelo título, aba 📊 Números.'],
+    ['♾️', 'v40.5 — Copa do Infinito', 'Vagas crescem com a Liga (8 até 51 times, +1 por time, até 32 com fase de grupos), galeria das Manoplas e troféus novos da Liga.'],
+    ['🏠', 'v40.5 — Início e lista', 'Rodada do dia, próximas estreias com pôster, maratona do fim de semana, retrospectiva do mês, onde assistir na linha, aviso das cenas pós-créditos.'],
+    ['☁️', 'v40.5 — Nuvem', 'Capas chegam pela sincronização (sem precisar da chave em todo aparelho) e a opção 🤝 Juntar sozinho. Listas do Doomsday com a v40 completa.'],
     ['🥇', 'Aba Liga', 'Pontos corridos por título (158 participantes; What If T1 e T2 valem 1 cada), campeonato de heróis em 3 tabelas, mata-mata dos 10, por fase, duelo, histórico, artilheiro e melhor defesa, imagem pra compartilhar.'],
     ['🏠', 'Início', 'Card de hoje com barra da meta, atrasos com botão "resolver", nível/XP, sequência e recorde, meta do mês, desafio da semana, modo cinema, sorteio, folga, viagem, simulador e calendário do mês.'],
     ['🗓', 'Planejamento', 'Episódios por dia escolhidos na tela (vale a partir de amanhã), "hoje não vou assistir", modo viagem, recomeçar de hoje ou diluir o atraso, simulador e previsão pelo seu ritmo real.'],
@@ -549,6 +553,7 @@
         else V40.checkBetaMigration();
       } catch (e) { console.error(e); }
     }, 900);
+    try { V40.checkMonthRecapBanner && V40.checkMonthRecapBanner(); } catch (e) {}
     if (!V40.get('tour-done', false)) setTimeout(() => { if (!V40.get('tour-done', false)) V40.openTour(0); }, window.__v40JustCopied ? 1800 : 700);
   }
   // o botão 🔄 da aba Liga lembra a aba

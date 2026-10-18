@@ -590,6 +590,15 @@
       img.addEventListener('error', () => img.remove());
       row.insertBefore(img, mainCol);
     }
+    // 📺 v40.5: onde assistir direto na linha (do TMDB, Brasil)
+    const pinfo = V40.extInfo(it);
+    const prov = pinfo && pinfo.providers && pinfo.providers.stream && pinfo.providers.stream[0];
+    if (prov && !it.done && txt) {
+      const tag = document.createElement('span');
+      tag.className = 'v40-prov';
+      tag.textContent = '📺 ' + prov.n.replace(/ Standard with Ads| Amazon Channel/i, '');
+      txt.after(tag);
+    }
     const extra = mainCol.querySelector('.v40-row-extra');
     if (extra && V40.catOf(it)) {
       const b = document.createElement('button');
@@ -597,6 +606,52 @@
       b.addEventListener('click', ev => { ev.stopPropagation(); V40.openInfo(it); });
       extra.insertBefore(b, extra.firstChild);
     }
+  };
+
+  // ---------- 🖼 capas pela nuvem (v40.5) ----------
+  // o aparelho que tem as capas (com a chave do TMDB) manda só os endereços das capas pra nuvem;
+  // os outros aparelhos com o mesmo código pegam de lá — sem precisar da chave.
+  const COVER_FIELDS = ['poster', 'posterTv', 'posterTvS', 'still', 'providers'];
+  const coverDoc = () => 'v40capas-' + (V40.syncCode ? V40.syncCode() : 'x');
+  V40.shareCovers = async function (db) {
+    try {
+      if (V40.get('covers-pushed', '') === V40.today()) return;
+      const map = {};
+      Object.keys(V40.ext).forEach(k => {
+        const info = V40.ext[k];
+        if (!k.startsWith('item:') || !info) return;
+        const o = {};
+        COVER_FIELDS.forEach(f => { if (info[f]) o[f] = f === 'providers' ? { stream: (info.providers.stream || []).slice(0, 3) } : info[f]; });
+        if (Object.keys(o).length) map[info.key || k.slice(5)] = o;
+      });
+      if (Object.keys(map).length < 10) return;
+      db = db || await V40.firestore();
+      await db.collection('syncs').doc(coverDoc()).set({ covers: JSON.stringify(map), at: new Date().toISOString(), n: Object.keys(map).length });
+      V40.set('covers-pushed', V40.today());
+    } catch (e) { /* tudo bem: tenta de novo outro dia */ }
+  };
+  V40.pullCovers = async function () {
+    try {
+      if (V40.get('covers-pulled', '') === V40.today() || !navigator.onLine || !V40.firestore) return;
+      const missing = items.filter(it => it.key && !V40.posterUrl(it) && V40.catOf(it) && V40.catOf(it).type !== 'g').length;
+      if (missing < 3) return;
+      const db = await V40.firestore();
+      const snap = await db.collection('syncs').doc(coverDoc()).get();
+      V40.set('covers-pulled', V40.today());
+      if (!snap.exists) return;
+      const map = JSON.parse(snap.data().covers || '{}');
+      let n = 0;
+      for (const key of Object.keys(map)) {
+        const k = 'item:' + key;
+        const cur = V40.ext[k] || { key, at: 0 };
+        if (V40.posterUrl({ key }) && cur.providers) continue;
+        const merged = Object.assign({}, map[key], cur);   // o que este aparelho já tem continua valendo
+        V40.ext[k] = merged;
+        try { await idbSet(k, merged); } catch (e) {}
+        n++;
+      }
+      if (n) { try { render(); } catch (e) {} V40.refreshLigaIfOpen(); V40.toast(`🖼 ${n} capa(s) vieram da nuvem`); }
+    } catch (e) { /* sem nuvem/sem internet: tudo bem */ }
   };
 
   // ---------- init ----------
@@ -608,6 +663,7 @@
     V40.extReady = true;
     V40.applyExt();
     try { render(); } catch (e) {} V40.refreshLigaIfOpen();
+    setTimeout(() => { V40.pullCovers(); }, 5000);
     // primeira vez ou vencido: busca sozinho em segundo plano (só com internet)
     if (navigator.onLine && V40.settings.autoExt !== false) {
       setTimeout(() => { V40.refreshExt({}); }, 2500);

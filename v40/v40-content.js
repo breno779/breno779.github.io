@@ -26,6 +26,7 @@
     k18: [0, 'nenhuma cena']
   };
 
+  V40.CREDITS = CREDITS;
   // ---------- 🔗 o que ver antes (as conexões mais importantes) ----------
   const BEFORE = {
     k51: ['k41', 'k43', 'k47', 'k45', 'k7'],

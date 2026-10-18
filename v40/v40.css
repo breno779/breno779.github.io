@@ -571,3 +571,39 @@ body { overflow-x: clip; }
 .v40-lib-grow b { color: var(--gold); text-align: center; }
 .v40-lib-grow span:first-child, .v40-lib-grow span:nth-child(3) { font-family: 'JetBrains Mono', monospace; color: var(--muted); text-align: center; }
 .v40-lib-grow .n { overflow-wrap: anywhere; }
+
+/* v40.5 — Liga: narração, rodada do dia, números, galeria */
+.v40-narr { margin: -2px 0 10px; padding: 8px 10px; border-left: 3px solid var(--gold); background: rgba(217,164,65,0.08); border-radius: 6px; font-size: 0.8rem; }
+.v40-daily { margin: 0 0 10px; font-size: 0.75rem; }
+.v40-daily .v40-l4-bar { margin: 4px 0 0; }
+.v40-daydone { text-align: center; padding: 18px 10px; border: 1px dashed var(--gold); border-radius: 10px; margin-bottom: 10px; }
+.v40-l4-many { display: grid; grid-template-columns: repeat(auto-fill, minmax(120px, 1fr)); gap: 10px; }
+.v40-nums { display: grid; grid-template-columns: repeat(auto-fill, minmax(200px, 1fr)); gap: 8px; }
+.v40-num { display: flex; gap: 8px; align-items: center; border: 1px solid var(--line); border-radius: 8px; padding: 8px; }
+.v40-num .ic { font-size: 1.5rem; }
+.v40-num div { display: flex; flex-direction: column; min-width: 0; }
+.v40-num small { font-size: 0.62rem; color: var(--muted); }
+.v40-num b { font-size: 0.82rem; overflow-wrap: anywhere; }
+.v40-gallery { display: grid; grid-template-columns: repeat(auto-fill, minmax(110px, 1fr)); gap: 10px; }
+.v40-gal { display: flex; flex-direction: column; align-items: center; text-align: center; gap: 4px; padding: 8px; border: 1px solid var(--gold); border-radius: 10px; background: linear-gradient(180deg, rgba(217,164,65,0.12), transparent); }
+.v40-gal img, .v40-gal .ph { width: 100%; aspect-ratio: 2 / 3; object-fit: cover; border-radius: 6px; display: flex; align-items: center; justify-content: center; font-size: 2.4rem; background: rgba(255,255,255,0.05); }
+.v40-gal b { font-size: 0.75rem; }
+.v40-gal small { font-size: 0.6rem; color: var(--muted); }
+
+/* v40.5 — Início: rodada do dia, estreias; maratona; onde assistir */
+.v40-liga-home { display: flex; align-items: center; gap: 10px; width: 100%; text-align: left; margin: 10px 0; padding: 10px 12px; border-radius: 12px; border: 2px solid var(--gold); background: linear-gradient(90deg, rgba(76,140,90,0.18), rgba(217,164,65,0.08)); color: var(--paper); cursor: pointer; font-family: 'Baloo 2', sans-serif; }
+.v40-liga-home.ok { border-color: #4c8c5a; }
+.v40-liga-home .ic { font-size: 1.7rem; }
+.v40-liga-home .mid { flex: 1; display: flex; flex-direction: column; gap: 3px; }
+.v40-liga-home small { font-size: 0.65rem; color: var(--muted); }
+.v40-liga-home .st { font-size: 1.3rem; color: var(--gold); }
+.v40-up-list { display: grid; grid-template-columns: repeat(auto-fill, minmax(100px, 1fr)); gap: 8px; }
+.v40-up { display: flex; flex-direction: column; align-items: center; gap: 3px; text-align: center; background: var(--ink); border: 1px solid var(--line); border-radius: 10px; padding: 6px; color: var(--paper); cursor: pointer; font-family: 'Baloo 2', sans-serif; }
+.v40-up img, .v40-up .ph { width: 100%; aspect-ratio: 2 / 3; object-fit: cover; border-radius: 6px; display: flex; align-items: center; justify-content: center; font-size: 2rem; background: rgba(255,255,255,0.05); }
+.v40-up b { font-size: 0.7rem; line-height: 1.1; }
+.v40-up small { font-size: 0.6rem; color: var(--muted); }
+.v40-up-days { font-size: 0.62rem; font-weight: 800; color: var(--gold); }
+.v40-seg { display: flex; gap: 6px; margin: 4px 0 8px; }
+.v40-seg button { flex: 1; }
+.v40-seg button.on { background: var(--gold) !important; color: var(--ink) !important; }
+.v40-prov { display: inline-block; margin: 2px 0 0; padding: 1px 6px; border-radius: 6px; font-size: 0.58rem; background: rgba(255,255,255,0.07); color: var(--muted); }
