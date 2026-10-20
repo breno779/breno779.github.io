@@ -12,7 +12,7 @@
   V40.BUILD = BUILD;
   const MODE = window.V40_MODE || 'beta';
   V40.MODE = MODE;
-  V40.VERSION_LABEL = MODE === 'beta' ? 'v40.6.8 beta' : 'v40.6.8';
+  V40.VERSION_LABEL = MODE === 'beta' ? 'v40.7 beta' : 'v40.7';
 
   // =================== APARÊNCIA ===================
   let mql = null;
@@ -172,7 +172,7 @@
   window.downloadBackup = function (filename) {
     const v40 = {};
     try {
-      ['settings', 'collections', 'activity', 'knockout', 'liga-edicao', 'liga-campeoes', 'liga-tb', 'liga4', 'liga4-liberta', 'liga4-campeoes', 'liga4-history', 'liga-history', 'rate-history', 'extra-pauses', 'month-goals', 'challenges-done', 'watch-time', 'day-status', 'best-streak'].forEach(k => { v40[k] = V40.get(k, null); });
+      ['settings', 'collections', 'activity', 'knockout', 'liga-edicao', 'liga-campeoes', 'liga-tb', 'liga4', 'liga4-liberta', 'liga4-campeoes', 'liga4-history', 'eps-log', 'eps-res', 'eps-copa', 'liga-history', 'rate-history', 'extra-pauses', 'month-goals', 'challenges-done', 'watch-time', 'day-status', 'best-streak'].forEach(k => { v40[k] = V40.get(k, null); });
     } catch (e) {}
     const blob = new Blob([JSON.stringify({ version: LIST_VERSION, items, trash, v40 }, null, 2)], { type: 'application/json' });
     const a = document.createElement('a');

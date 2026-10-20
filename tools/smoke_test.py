@@ -17,7 +17,7 @@ from playwright.sync_api import sync_playwright
 ROOT = Path(__file__).resolve().parent.parent
 PAGES = ['principal.html', 'doomsday.html', 'doomsday-essenciais.html', 'amigo/index.html', 'beta/index.html']
 TABS = ['tabInicio', 'tabLista', 'tabEstatisticas', 'tabConquistas', 'tabLiga', 'tabPedidos', 'tabConfig']
-LIGA = ['titulos', 'jogos', 'mata', 'numeros', 'herois', 'fases', 'duelo', 'historico']
+LIGA = ['titulos', 'jogos', 'mata', 'eps', 'numeros', 'herois', 'fases', 'duelo', 'historico']
 
 
 class QuietHandler(http.server.SimpleHTTPRequestHandler):

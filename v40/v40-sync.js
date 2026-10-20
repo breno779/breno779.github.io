@@ -76,7 +76,7 @@
   };
 
   // =================== ESTADO PRA NUVEM ===================
-  const V40_KEYS = ['collections', 'activity', 'knockout', 'liga-edicao', 'liga-campeoes', 'liga-tb', 'liga4', 'liga4-liberta', 'liga4-campeoes', 'liga4-history', 'liga-history', 'rate-history', 'extra-pauses', 'month-goals', 'challenges-done', 'watch-time', 'day-status', 'best-streak', 'quiz-best'];
+  const V40_KEYS = ['collections', 'activity', 'knockout', 'liga-edicao', 'liga-campeoes', 'liga-tb', 'liga4', 'liga4-liberta', 'liga4-campeoes', 'liga4-history', 'eps-log', 'eps-res', 'eps-copa', 'liga-history', 'rate-history', 'extra-pauses', 'month-goals', 'challenges-done', 'watch-time', 'day-status', 'best-streak', 'quiz-best'];
   function summary(list) {
     const L = list || items;
     return {

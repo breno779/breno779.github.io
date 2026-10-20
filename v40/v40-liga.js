@@ -222,6 +222,8 @@
     { key: 'k165', name: 'Vingadores: Doomsday', from: '2026-12-17', tag: '🎟️ visto no cinema' }
   ];
   V40.LIGA_SPECIALS = SPECIAL_TEAMS;
+  V40.teamBase = teamBase;
+  V40.seasonSizesOf = seasonSizesOf;
   V40.ligaTeams = function (projectAll) {
     const today = V40.today();
     const activeSpecial = SPECIAL_TEAMS.filter(x => projectAll || today >= x.from);
@@ -927,13 +929,14 @@
     const heroRows = V40.heroLeague();
     const hist = recordHistory(V40.leagueTable(all), heroRows);
     const hist4 = recordL4History(table, prog.rodada);
-    const tabs = [['titulos', '📋 Tabela'], ['jogos', '⚽ Jogos'], ['mata', '♾️ Copa do Infinito'], ['numeros', '📊 Números'], ['herois', '🦸 Heróis'], ['fases', '🗂 Por fase'], ['duelo', '🥊 Duelo'], ['historico', '📈 Histórico']];
+    const tabs = [['titulos', '📋 Tabela'], ['jogos', '⚽ Jogos'], ['mata', '♾️ Copa do Infinito'], ['eps', '📺 Episódios'], ['numeros', '📊 Números'], ['herois', '🦸 Heróis'], ['fases', '🗂 Por fase'], ['duelo', '🥊 Duelo'], ['historico', '📈 Histórico']];
     let body = '';
     if (V40.ligaTab === 'titulos') body = l4TableHtml(table, prog, hist4);
     else if (V40.ligaTab === 'jogos') body = l4GamesHtml(teams, prog);
     else if (V40.ligaTab === 'herois') body = heroesHtml(heroRows, hist);
     else if (V40.ligaTab === 'mata') body = libHtml(teams, table, prog);
     else if (V40.ligaTab === 'numeros') body = numbersHtml(teams, table, prog);
+    else if (V40.ligaTab === 'eps') body = V40.epsLeagueHtml ? V40.epsLeagueHtml() : '';
     else if (V40.ligaTab === 'fases') body = phasesHtml(all);
     else if (V40.ligaTab === 'duelo') body = duelHtml(all);
     else body = historyHtml(heroRows, hist);
@@ -947,6 +950,7 @@
     }));
     wireLiga(el, all, table, heroRows);
     wireL4(el);
+    if (V40.ligaTab === 'eps' && V40.wireEps) V40.wireEps(el);
     ensureTabReloadBtn('tabLiga');
   };
 
