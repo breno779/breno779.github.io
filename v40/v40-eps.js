@@ -205,8 +205,20 @@
   // ---------- tela ----------
   const card = (t, attrs) => `<button class="v40-l4-team" ${attrs}>
       ${t.poster ? `<img src="${t.poster}" alt="" onerror="this.outerHTML='<span class=&quot;ph&quot;>${t.icon}</span>'">` : `<span class="ph">${t.icon}</span>`}
-      <span class="nm">${V40.esc(t.name)}</span><small class="v40-muted">visto ${V40.fmtBR(t.d, true)}</small>
+      <span class="nm">${V40.esc(t.name)}</span>${epExtra(t)}
     </button>`;
+  // nota que você deu + título e resumo do episódio (TVmaze)
+  function epExtra(t) {
+    const it = t.it;
+    const r = it && Array.isArray(it.epRatings) ? it.epRatings[t.e] : null;
+    const nota = typeof r === 'number' ? `<span class="v40-ep-nota">⭐ ${String(r).replace(".", ",")}</span>` : '<span class="v40-ep-nota sem">sem nota</span>';
+    let info = null;
+    try { info = it && V40.extInfo ? V40.extInfo(it) : null; } catch (e) {}
+    const ok = info && info.epCheck === 'ok' && Array.isArray(info.epNames);
+    const nm = ok ? info.epNames[t.e] : null;
+    const sum = ok && info.epSums ? info.epSums[t.e] : null;
+    return `<div class="v40-ep-extra">${nota}${nm ? `<b class="v40-ep-tit">${V40.esc(nm)}</b>` : ''}${sum ? `<small class="v40-ep-sum">${V40.esc(sum)}</small>` : ''}</div>`;
+  }
   const fmtW = w => { const end = V40.addDays(w, 6); return `${V40.fmtBR(w, true).slice(0, 5)} a ${V40.fmtBR(end, true).slice(0, 5)}`; };
   V40.epsLeagueHtml = function () {
     try { track(); } catch (e) {}
