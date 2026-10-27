@@ -1,0 +1,17 @@
+{
+  "type": "minecraft:crafting_shaped",
+  "category": "misc",
+  "pattern": [
+    "I I",
+    "ILI",
+    "III"
+  ],
+  "key": {
+    "I": "minecraft:iron_ingot",
+    "L": "minecraft:lava_bucket"
+  },
+  "result": {
+    "id": "ownercar:gas_can",
+    "count": 1
+  }
+}

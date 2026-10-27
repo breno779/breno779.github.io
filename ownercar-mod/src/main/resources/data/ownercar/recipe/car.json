@@ -1,0 +1,19 @@
+{
+  "type": "minecraft:crafting_shaped",
+  "category": "misc",
+  "pattern": [
+    "GGG",
+    "IMI",
+    "W W"
+  ],
+  "key": {
+    "G": "minecraft:glass",
+    "I": "minecraft:iron_block",
+    "M": "minecraft:minecart",
+    "W": "minecraft:black_wool"
+  },
+  "result": {
+    "id": "ownercar:car",
+    "count": 1
+  }
+}

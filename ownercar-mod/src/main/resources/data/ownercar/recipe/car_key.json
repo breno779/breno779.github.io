@@ -1,0 +1,17 @@
+{
+  "type": "minecraft:crafting_shaped",
+  "category": "misc",
+  "pattern": [
+    " N ",
+    " I ",
+    " I "
+  ],
+  "key": {
+    "N": "minecraft:gold_nugget",
+    "I": "minecraft:iron_ingot"
+  },
+  "result": {
+    "id": "ownercar:car_key",
+    "count": 1
+  }
+}

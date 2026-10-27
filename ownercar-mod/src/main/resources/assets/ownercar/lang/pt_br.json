@@ -1,0 +1,27 @@
+{
+  "itemGroup.ownercar": "Owner Car",
+
+  "item.ownercar.car": "Carro",
+  "item.ownercar.car_key": "Chave do Carro",
+  "item.ownercar.gas_can": "Lata de Gasolina",
+
+  "entity.ownercar.car": "Carro",
+
+  "tooltip.ownercar.car_help": "Use no chão para estacionar o carro. Você vira o dono.",
+  "tooltip.ownercar.key_owner": "Chave de: %s",
+  "tooltip.ownercar.key_blank": "Chave nova (ainda sem dono)",
+  "tooltip.ownercar.key_help": "Clique no carro: liga/desliga. Shift+clique: tranca/destranca.",
+  "tooltip.ownercar.gas_help": "Clique no carro para abastecer.",
+
+  "message.ownercar.owner_set": "Você agora é o dono deste carro.",
+  "message.ownercar.not_owner": "Este carro é de %s. Você não tem a chave!",
+  "message.ownercar.locked": "O carro está trancado.",
+  "message.ownercar.lock_on": "Carro trancado 🔒",
+  "message.ownercar.lock_off": "Carro destrancado 🔓",
+  "message.ownercar.engine_on": "Motor ligado ✔",
+  "message.ownercar.engine_off": "Motor desligado",
+  "message.ownercar.no_fuel": "Sem gasolina! Abasteça com a Lata de Gasolina.",
+  "message.ownercar.refuel": "Abasteceu: %s/%s de gasolina",
+  "message.ownercar.fuel_full": "Tanque cheio.",
+  "message.ownercar.hud": "⛽ Gasolina: %s%%   |   Velocidade: %s km/h"
+}

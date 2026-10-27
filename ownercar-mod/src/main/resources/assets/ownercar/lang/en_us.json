@@ -1,0 +1,27 @@
+{
+  "itemGroup.ownercar": "Owner Car",
+
+  "item.ownercar.car": "Car",
+  "item.ownercar.car_key": "Car Key",
+  "item.ownercar.gas_can": "Gas Can",
+
+  "entity.ownercar.car": "Car",
+
+  "tooltip.ownercar.car_help": "Use on the ground to park the car. You become the owner.",
+  "tooltip.ownercar.key_owner": "Key of: %s",
+  "tooltip.ownercar.key_blank": "New key (no owner yet)",
+  "tooltip.ownercar.key_help": "Click the car: engine on/off. Shift+click: lock/unlock.",
+  "tooltip.ownercar.gas_help": "Click the car to refuel.",
+
+  "message.ownercar.owner_set": "You are now the owner of this car.",
+  "message.ownercar.not_owner": "This car belongs to %s. You don't have the key!",
+  "message.ownercar.locked": "The car is locked.",
+  "message.ownercar.lock_on": "Car locked 🔒",
+  "message.ownercar.lock_off": "Car unlocked 🔓",
+  "message.ownercar.engine_on": "Engine on ✔",
+  "message.ownercar.engine_off": "Engine off",
+  "message.ownercar.no_fuel": "Out of gas! Refuel with the Gas Can.",
+  "message.ownercar.refuel": "Refueled: %s/%s fuel",
+  "message.ownercar.fuel_full": "Tank is full.",
+  "message.ownercar.hud": "⛽ Fuel: %s%%   |   Speed: %s km/h"
+}
