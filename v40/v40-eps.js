@@ -202,6 +202,38 @@
     return { games, champion };
   }
 
+  // ---------- tradução pro português (quando o TMDB não tem o texto em pt) ----------
+  const TRK = 'v40tr-cache';
+  let trCache = null, trQueue = [], trBusy = false, trFail = false;
+  function trLoad() { if (!trCache) { try { trCache = JSON.parse(localStorage.getItem(TRK) || '{}') || {}; } catch (e) { trCache = {}; } } return trCache; }
+  function trSave() { try { const k = Object.keys(trCache); if (k.length > 1500) k.slice(0, k.length - 1500).forEach(x => delete trCache[x]); localStorage.setItem(TRK, JSON.stringify(trCache)); } catch (e) {} }
+  async function trRun() {
+    if (trBusy) return; trBusy = true;
+    let got = 0;
+    while (trQueue.length) {
+      const en = trQueue.shift();
+      if (trLoad()[en]) continue;
+      try {
+        const r = await fetch('https://translate.googleapis.com/translate_a/single?client=gtx&sl=en&tl=pt&dt=t&q=' + encodeURIComponent(en));
+        const j = await r.json();
+        const pt = (j && j[0] || []).map(x => x[0]).join('').trim();
+        if (pt) { trCache[en] = pt; got++; }
+      } catch (e) { trQueue = []; trFail = true; got = got || 1; break; }
+    }
+    if (got) { trSave(); if (V40.ligaTab === 'eps' && V40.renderLiga) { try { V40.renderLiga(); } catch (e) {} } }
+    trBusy = false;
+  }
+  // devolve o texto em português se já traduzido; senão agenda a tradução e devolve null
+  V40.ptText = function (en) {
+    if (!en) return null;
+    const c = trLoad()[en];
+    if (c) return c;
+    if (!navigator.onLine || trFail) return en;
+    if (!trQueue.includes(en)) trQueue.push(en);
+    setTimeout(trRun, 50);
+    return null;
+  };
+
   // ---------- tela ----------
   const card = (t, attrs) => `<button class="v40-l4-team" ${attrs}>
       ${t.poster ? `<img src="${t.poster}" alt="" onerror="this.outerHTML='<span class=&quot;ph&quot;>${t.icon}</span>'">` : `<span class="ph">${t.icon}</span>`}
@@ -215,8 +247,13 @@
     let info = null;
     try { info = it && V40.extInfo ? V40.extInfo(it) : null; } catch (e) {}
     const ok = info && info.epCheck === 'ok' && Array.isArray(info.epNames);
-    const nm = ok ? info.epNames[t.e] : null;
-    const sum = ok && info.epSums ? info.epSums[t.e] : null;
+    const nmEn = ok ? info.epNames[t.e] : null;
+    const sumEn = ok && info.epSums ? info.epSums[t.e] : null;
+    const nmPt = ok && info.epNamesPtSel ? info.epNamesPtSel[t.e] : null;
+    const sumPt = ok && info.epSumsPt ? info.epSumsPt[t.e] : null;
+    const nm = nmPt || V40.ptText(nmEn);
+    let sum = sumPt || V40.ptText(sumEn);
+    if (sumEn && !sum) sum = 'traduzindo…';
     return `<div class="v40-ep-extra">${nota}${nm ? `<b class="v40-ep-tit">${V40.esc(nm)}</b>` : ''}${sum ? `<small class="v40-ep-sum">${V40.esc(sum)}</small>` : ''}</div>`;
   }
   const fmtW = w => { const end = V40.addDays(w, 6); return `${V40.fmtBR(w, true).slice(0, 5)} a ${V40.fmtBR(end, true).slice(0, 5)}`; };

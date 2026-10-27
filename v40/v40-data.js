@@ -200,6 +200,7 @@
               info.epCodes = sel.map(e => `T${e.s}E${e.n}`);
               info.epSums = sel.map(e => e.sum);
               info.epImgs = sel.map(e => e.img);
+              info.epSeasons = sel.map(e => e.s); info.epNums = sel.map(e => e.n);
               if (sel[0] && sel[0].air) info.relTv = sel[0].air;
             } else if (!eps) {
               info.epCheck = 'none';
@@ -253,6 +254,13 @@
                 if (se.air_date) info.relTmdb = se.air_date;
                 info.seasonName = se.name;
                 if (Array.isArray(se.episodes)) info.epNamesPt = se.episodes.map(e => e.name);
+                // título e resumo em português de cada episódio (alinhados com os da lista)
+                if (Array.isArray(se.episodes) && Array.isArray(info.epNums)) {
+                  const by = {}; se.episodes.forEach(e => { by[e.episode_number] = e; });
+                  const pick = (i, f) => info.epSeasons[i] === c.x.s && by[info.epNums[i]] && by[info.epNums[i]][f] ? by[info.epNums[i]][f] : null;
+                  info.epNamesPtSel = info.epNums.map((n, i) => pick(i, 'name'));
+                  info.epSumsPt = info.epNums.map((n, i) => pick(i, 'overview'));
+                }
               }
             }
             if (kind === 'tv' && c.type === 'ep') {
