@@ -73,21 +73,39 @@
   };
 
   // ---------- nome do episódio: "Série T2E05" ----------
-  function epCode(it, e) {
+  function epSN(it, e) {
     const c = V40.catOf ? V40.catOf(it) : null;
     const x = (c && c.x) || {};
-    const pad = n => String(n).padStart(2, '0');
-    if (c && c.type === 'ep' && x.s && x.e) return `T${x.s}E${pad(x.e)}`;
+    if (c && c.type === 'ep' && x.s && x.e) return { s: +x.s, n: +x.e };
     const seasons = Array.isArray(x.s) ? x.s : (x.s != null ? [x.s] : null);
     const sizes = V40.seasonSizesOf ? V40.seasonSizesOf(it) : null;
     if (seasons && seasons.length > 1 && sizes && sizes.length === seasons.length) {
       let si = 0, rem = e;
       while (si < sizes.length - 1 && rem >= sizes[si]) { rem -= sizes[si]; si++; }
-      return `T${seasons[si]}E${pad(rem + 1)}`;
+      return { s: +seasons[si], n: rem + 1 };
     }
     const m = /\bT(\d+)\b/.exec(it.text);
-    const s = seasons ? seasons[0] : (m ? +m[1] : 1);
-    return `T${s}E${pad((x.from || 1) + e)}`;
+    return { s: seasons ? +seasons[0] : (m ? +m[1] : 1), n: (x.from || 1) + e };
+  }
+  function epCode(it, e) { const r = epSN(it, e); return `T${r.s}E${String(r.n).padStart(2, '0')}`; }
+
+  // episódio que não veio junto da série (ex.: contagem diferente no TVmaze): busca ele sozinho
+  const EPK = 'v40ep-cache';
+  let epCache = null; const epPending = {};
+  function epLoad() { if (!epCache) { try { epCache = JSON.parse(localStorage.getItem(EPK) || '{}') || {}; } catch (e) { epCache = {}; } } return epCache; }
+  function epFetch(it, e) {
+    const sn = epSN(it, e), id = it.key + '|' + sn.s + '|' + sn.n;
+    const c = epLoad()[id];
+    if (c !== undefined) return c;
+    if (!epPending[id] && navigator.onLine && V40.epDetails) {
+      epPending[id] = true;
+      V40.epDetails(it, sn.s, sn.n).then(r => {
+        epLoad()[id] = r || { none: 1 };
+        try { localStorage.setItem(EPK, JSON.stringify(epCache)); } catch (er) {}
+        if (r && V40.ligaTab === 'eps' && V40.renderLiga) { try { V40.renderLiga(); } catch (er) {} }
+      }).catch(() => {});
+    }
+    return null;
   }
   function epTeam(entry) {
     const it = items.find(i => i.key === entry.k);
@@ -247,10 +265,13 @@
     let info = null;
     try { info = it && V40.extInfo ? V40.extInfo(it) : null; } catch (e) {}
     const ok = info && info.epCheck === 'ok' && Array.isArray(info.epNames);
-    const nmEn = ok ? info.epNames[t.e] : null;
-    const sumEn = ok && info.epSums ? info.epSums[t.e] : null;
-    const nmPt = ok && info.epNamesPtSel ? info.epNamesPtSel[t.e] : null;
-    const sumPt = ok && info.epSumsPt ? info.epSumsPt[t.e] : null;
+    let nmEn = ok ? info.epNames[t.e] : null;
+    let sumEn = ok && info.epSums ? info.epSums[t.e] : null;
+    let nmPt = ok && info.epNamesPtSel ? info.epNamesPtSel[t.e] : null;
+    let sumPt = ok && info.epSumsPt ? info.epSumsPt[t.e] : null;
+    let fb = null;
+    if (!nmPt && !sumPt && !nmEn && !sumEn && it) fb = epFetch(it, t.e);
+    if (fb && !fb.none) { nmPt = fb.namePt; sumPt = fb.sumPt; nmEn = fb.name; sumEn = fb.sum; }
     const nm = nmPt || V40.ptText(nmEn);
     let sum = sumPt || V40.ptText(sumEn);
     if (sumEn && !sum) sum = 'traduzindo…';

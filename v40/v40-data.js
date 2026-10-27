@@ -134,6 +134,29 @@
     return list;
   }
 
+  // ---------- um episódio específico (Liga dos Episódios): título + resumo, pt-BR se der ----------
+  V40.epDetails = async function (it, sNum, nNum) {
+    const c = V40.catOf ? V40.catOf(it) : null;
+    if (!c) return null;
+    const info = V40.extInfo(it) || {};
+    const out = { name: null, sum: null, namePt: null, sumPt: null };
+    try {
+      const show = await tvmazeFindShow([c.en].concat((c.x && c.x.q) || []), c.year);
+      if (show) {
+        const all = await tvmazeEpisodes(show.id);
+        const e = all.find(x => x.s === sNum && x.n === nNum);
+        if (e) { out.name = e.name; out.sum = e.sum; }
+      }
+    } catch (e) {}
+    if (tmdbKey() && info.tmdbId) {
+      try {
+        const ep = await getJSON(tmdbUrl(`/tv/${info.tmdbId}/season/${sNum}/episode/${nNum}`, { language: 'pt-BR' }), 'tmdb');
+        if (ep) { out.namePt = ep.name || null; out.sumPt = ep.overview || null; }
+      } catch (e) {}
+    }
+    return (out.name || out.sum || out.sumPt) ? out : null;
+  };
+
   // ---------- TMDB ----------
   function tmdbKey() { return (V40.settings.tmdbKey || '').trim(); }
   function tmdbUrl(path, params) {
