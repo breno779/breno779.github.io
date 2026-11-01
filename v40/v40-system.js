@@ -12,7 +12,7 @@
   V40.BUILD = BUILD;
   const MODE = window.V40_MODE || 'beta';
   V40.MODE = MODE;
-  V40.VERSION_LABEL = MODE === 'beta' ? 'v40.7.3 beta' : 'v40.7.3';
+  V40.VERSION_LABEL = MODE === 'beta' ? 'v40.7.4 beta' : 'v40.7.4';
 
   // =================== APARÊNCIA ===================
   let mql = null;
@@ -75,7 +75,8 @@
     }).join('');
     V40.modal(`<h3>🕰 Histórico de versões</h3>
       <p class="v40-muted">O app guarda sozinho uma cópia por dia (a primeira de cada dia), das últimas ${V40.SNAP_KEEP}. Se algo der errado, volte pra uma delas — antes de voltar, a versão de agora também é guardada.</p>
-      ${rows || '<p class="v40-muted">Ainda sem cópias.</p>'}`);
+      ${rows || '<p class="v40-muted">Ainda sem cópias.</p>'}<div id="v40GuardBox"></div>`);
+    if (V40.guardHtml) V40.guardHtml().then(h => { const bx = document.getElementById('v40GuardBox'); if (bx) { bx.innerHTML = h; V40.wireGuard(bx); } });
     document.querySelectorAll('[data-snap]').forEach(b => b.addEventListener('click', () => {
       if (!V40.guard()) return;
       const d = b.dataset.snap;

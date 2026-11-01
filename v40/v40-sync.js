@@ -180,12 +180,20 @@
       }
     } catch (e) {}
     if (!changes) { V40.saveSyncBase(remote.items); return true; }
+    // proteção: se juntar sozinho fosse TIRAR episódios ou notas daqui, não junta — pede pra você decidir
+    if (V40.guardCounts) {
+      const a0 = V40.guardCounts(items), b0 = V40.guardCounts(list);
+      if (a0.eps - b0.eps >= 2 || a0.rates - b0.rates >= 1 || a0.done - b0.done >= 1) {
+        V40.toast(`⚠️ A nuvem tiraria ${Math.max(0, a0.eps - b0.eps)} episódio(s) e ${Math.max(0, a0.rates - b0.rates)} nota(s) daqui — não juntei sozinho. Abra Config ▸ Nuvem ▸ Comparar.`);
+        return false;
+      }
+    }
     try { localStorage.setItem('v40-snap-before-sync', JSON.stringify({ at: new Date().toISOString(), items, trash })); } catch (e) {}
     items = withOrder(list);
     nextId = items.reduce((m, i) => Math.max(m, i.id), 0) + 1;
     try { enforceTrioAnchor(); } catch (e) {}
     V40._state = null;
-    save(); render();
+    V40.saveSrc = 'juntou sozinho (nuvem)'; save(); V40.saveSrc = null; render();
     V40.saveSyncBase(items);
     V40.logEvent('plan', { name: '🤝 Juntou sozinho com ' + (remote.deviceName || 'outro aparelho') });
     V40.toast(`🔄 Juntei ${changes} mudança(s) do ${remote.deviceName || 'outro aparelho'}`, () => {
@@ -315,7 +323,7 @@
       nextId = items.reduce((m, i) => Math.max(m, i.id), 0) + 1;
       try { enforceTrioAnchor(); } catch (e) {}
       V40._state = null;
-      save(); render();
+      V40.saveSrc = V40.saveSrc || label; save(); V40.saveSrc = null; render();
       V40.syncState.lastPullAt = new Date().toISOString();
       V40.syncState.lastSeenCloudAt = remote.clientAt;
       saveState();
@@ -338,7 +346,10 @@
     const r = document.getElementById('v40SyncUseRemote');
     if (r) r.addEventListener('click', () => {
       if (!(remote.items && remote.items.length >= V40.minListSize())) { alert('A lista da nuvem parece incompleta — não vou aplicar.'); return; }
-      if (!confirm('Trocar a lista DESTE aparelho pela da nuvem?')) return;
+      const g0 = V40.guardCounts ? V40.guardCounts(items) : null, g1 = V40.guardCounts ? V40.guardCounts(remote.items) : null;
+      const lossTxt = g0 && g1 && (g0.eps > g1.eps || g0.rates > g1.rates) ? `\n\n⚠️ ATENÇÃO: este aparelho vai PERDER ${Math.max(0, g0.eps - g1.eps)} episódio(s) marcado(s) e ${Math.max(0, g0.rates - g1.rates)} nota(s). Se não tem certeza, use "Juntar os dois".` : '';
+      if (!confirm('Trocar a lista DESTE aparelho pela da nuvem?' + lossTxt)) return;
+      V40.saveSrc = 'usou o da nuvem';
       applyRemoteItems(remote.items, '⬇️ Lista da nuvem aplicada');
       if (remote.v40) {
         try { const v = JSON.parse(remote.v40); Object.keys(v).forEach(k => { if (v[k] !== null) V40.set(k, v[k]); }); V40.activity = V40.get('activity', []); V40.collections = V40.get('collections', V40.collections); } catch (e) {}
@@ -364,7 +375,7 @@
     if (remote.streak) { try { localStorage.setItem('ucm-streak-days', remote.streak); } catch (e) {} }
     try { enforceTrioAnchor(); trimStaleEpisodes(); repairMissingDates(); } catch (e) {}
     V40._state = null;
-    save(); render();
+    V40.saveSrc = label || 'trouxe da nuvem'; save(); V40.saveSrc = null; render();
     V40.syncState.lastPullAt = new Date().toISOString();
     V40.syncState.lastSeenCloudAt = remote.clientAt || null;
     saveState();
