@@ -59,7 +59,7 @@ window.V40_APK_VERSION = '40.6';
       var d = new Date();
       var iso = d.getFullYear() + '-' + String(d.getMonth() + 1).padStart(2, '0') + '-' + String(d.getDate()).padStart(2, '0');
       localStorage.setItem('amigo-start', iso);
-      ["ucm-expand-phases-v1", "ucm-fix-2109", "ucm-fix-completedat-v1", "ucm-fix-doomsday-rename-v1", "ucm-fix-doomsday-undo-v1", "ucm-fix-epdone-v2", "ucm-fix-extras-v1", "ucm-fix-full-v5", "ucm-fix-guardioes-trio2-v1", "ucm-fix-k53-text-v1", "ucm-fix-order-v1", "ucm-fix-pace-v3", "ucm-fix-qf2015-order-v1", "ucm-fix-seuamigao-punho-v1", "ucm-fix-slowgta-v1", "ucm-fix-trio1-phases-v1", "ucm-rate3-v1", "ucm-trio1-rate-pos43-v1"].forEach(function (f) { localStorage.setItem(f, '1'); });
+      ["ucm-expand-phases-v1", "ucm-fix-2109", "ucm-fix-completedat-v1", "ucm-fix-doomsday-rename-v1", "ucm-fix-doomsday-undo-v1", "ucm-fix-epdone-v2", "ucm-fix-extras-v1", "ucm-fix-full-v5", "ucm-fix-guardioes-trio2-v1", "ucm-fix-k53-text-v1", "ucm-fix-order-v1", "ucm-fix-pace-v3", "ucm-fix-qf2015-order-v1", "ucm-fix-seuamigao-punho-v1", "ucm-fix-slowgta-v1", "ucm-fix-trio1-phases-v1", "ucm-pause-1031-v1", "ucm-rate3-v1", "ucm-trio1-rate-pos43-v1"].forEach(function (f) { localStorage.setItem(f, '1'); });
       localStorage.setItem('ucm-last-auto-backup', new Date().toISOString());
       window.__amigoFirstRun = true;
     }
@@ -917,7 +917,7 @@ if ('serviceWorker' in navigator) {
     .progress-fill { transition: none; }
   }
 </style>
-<link rel="stylesheet" href="../v40/v40.css?b=202611010012">
+<link rel="stylesheet" href="../v40/v40.css?b=202611010038">
 </head>
 <body>
 <div class="sticky-progress" id="stickyProgress">
@@ -1847,10 +1847,12 @@ function enforceTrioAnchor() {
   // ritmo voltou pra 3 eps/dia: recalcula uma vez por aparelho com o ritmo novo
   let rate3 = false;
   try { rate3 = localStorage.getItem('ucm-rate3-v1') === '1'; } catch(e) {}
-  const needRate = !rate3;
+  let pause1031 = false;
+  try { pause1031 = localStorage.getItem('ucm-pause-1031-v1') === '1'; } catch(e) {}
+  const needRate = !rate3 || !pause1031;
   if (false) {
     recomputeSchedule(usm.id, AMIGO_START);
-    try { localStorage.setItem('ucm-rate3-v1', '1'); } catch(e) {}
+    try { localStorage.setItem('ucm-rate3-v1', '1'); localStorage.setItem('ucm-pause-1031-v1', '1'); } catch(e) {}
     return true;
   }
   return removed || corrected || rated || cleaned;
@@ -4143,7 +4145,7 @@ document.getElementById('tabLista').classList.add('tab-visible');
 
 // versão do app (acompanha o CACHE_NAME do sw.js): aparece entre parênteses nos botões de
 // recarregar de todas as abas
-const APP_VERSION = 'v40.7.4';
+const APP_VERSION = 'v40.7.5';
 (function () {
   const home = document.getElementById('btnReloadHome');
   if (home) home.textContent = '🔄 Recarregar (' + APP_VERSION + ')';
@@ -4991,18 +4993,18 @@ initCloudSync();
 </script>
 <div class="toast-container" id="toastContainer"></div>
 <div class="marathon-screen" id="marathonScreen"></div>
-<script src="../v40/v40-catalog.js?b=202611010012"></script>
-<script src="../v40/v40-core.js?b=202611010012"></script>
-<script src="../v40/v40-liga.js?b=202611010012"></script>
-<script src="../v40/v40-stats.js?b=202611010012"></script>
-<script src="../v40/v40-fun.js?b=202611010012"></script>
-<script src="../v40/v40-data.js?b=202611010012"></script>
-<script src="../v40/v40-content.js?b=202611010012"></script>
-<script src="../v40/v40-sync.js?b=202611010012"></script>
-<script src="../v40/v40-pedidos.js?b=202611010012"></script>
-<script src="../v40/v40-eps.js?b=202611010012"></script>
-<script src="../v40/v40-guard.js?b=202611010012"></script>
-<script src="../v40/v40-extra.js?b=202611010012"></script>
-<script src="../v40/v40-system.js?b=202611010012"></script>
+<script src="../v40/v40-catalog.js?b=202611010038"></script>
+<script src="../v40/v40-core.js?b=202611010038"></script>
+<script src="../v40/v40-liga.js?b=202611010038"></script>
+<script src="../v40/v40-stats.js?b=202611010038"></script>
+<script src="../v40/v40-fun.js?b=202611010038"></script>
+<script src="../v40/v40-data.js?b=202611010038"></script>
+<script src="../v40/v40-content.js?b=202611010038"></script>
+<script src="../v40/v40-sync.js?b=202611010038"></script>
+<script src="../v40/v40-pedidos.js?b=202611010038"></script>
+<script src="../v40/v40-eps.js?b=202611010038"></script>
+<script src="../v40/v40-guard.js?b=202611010038"></script>
+<script src="../v40/v40-extra.js?b=202611010038"></script>
+<script src="../v40/v40-system.js?b=202611010038"></script>
 </body>
 </html>
