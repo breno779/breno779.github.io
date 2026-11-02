@@ -917,7 +917,7 @@ if ('serviceWorker' in navigator) {
     .progress-fill { transition: none; }
   }
 </style>
-<link rel="stylesheet" href="../v40/v40.css?b=202611021633">
+<link rel="stylesheet" href="../v40/v40.css?b=202611021636">
 </head>
 <body>
 <div class="sticky-progress" id="stickyProgress">
@@ -1164,10 +1164,11 @@ const TRIOS = [
   },
   {
     // Guardiões T3 fica aqui pelo crossover "Guerra dos Simbiontes" com o Homem-Aranha (2017)
-    keys: ['k54', 'k170', 'k171'],
-    seasonSizes: [[26,26,6], [26], [23]],
-    seasonStart: [1, 3, 5],
-    labels: ['Homem-Aranha (2017)', 'Guardiões da Galáxia (animado)', 'Vingadores Unidos'],
+    // (Vingadores Unidos T5 — k171 — saiu da lista a pedido: agora é uma dupla)
+    keys: ['k54', 'k170'],
+    seasonSizes: [[26,26,6], [26]],
+    seasonStart: [1, 3],
+    labels: ['Homem-Aranha (2017)', 'Guardiões da Galáxia (animado)'],
     forceAnchor: null,
   },
 ];
@@ -1180,7 +1181,7 @@ const FIXED_DATES = {
   k172: ['2026-12-01', '2026-12-16'],
 };
 // itens que o usuário tirou da lista de vez (somem de qualquer aparelho/sincronização).
-const REMOVED_KEYS = ['k168']; // Hulk e os Agentes de S.M.A.S.H.
+const REMOVED_KEYS = ['k168', 'k171']; // Hulk e os Agentes de S.M.A.S.H.; Vingadores Unidos T5 (tirada a pedido em 02/11/2026)
 
 function seasonEpLabel(flatIdx, seasonSizes, firstSeason) {
   let s = 0, remaining = flatIdx;
@@ -4195,7 +4196,7 @@ document.getElementById('tabLista').classList.add('tab-visible');
 
 // versão do app (acompanha o CACHE_NAME do sw.js): aparece entre parênteses nos botões de
 // recarregar de todas as abas
-const APP_VERSION = 'v40.7.8';
+const APP_VERSION = 'v40.7.9';
 (function () {
   const home = document.getElementById('btnReloadHome');
   if (home) home.textContent = '🔄 Recarregar (' + APP_VERSION + ')';
@@ -5060,18 +5061,18 @@ initCloudSync();
 </script>
 <div class="toast-container" id="toastContainer"></div>
 <div class="marathon-screen" id="marathonScreen"></div>
-<script src="../v40/v40-catalog.js?b=202611021633"></script>
-<script src="../v40/v40-core.js?b=202611021633"></script>
-<script src="../v40/v40-liga.js?b=202611021633"></script>
-<script src="../v40/v40-stats.js?b=202611021633"></script>
-<script src="../v40/v40-fun.js?b=202611021633"></script>
-<script src="../v40/v40-data.js?b=202611021633"></script>
-<script src="../v40/v40-content.js?b=202611021633"></script>
-<script src="../v40/v40-sync.js?b=202611021633"></script>
-<script src="../v40/v40-pedidos.js?b=202611021633"></script>
-<script src="../v40/v40-eps.js?b=202611021633"></script>
-<script src="../v40/v40-guard.js?b=202611021633"></script>
-<script src="../v40/v40-extra.js?b=202611021633"></script>
-<script src="../v40/v40-system.js?b=202611021633"></script>
+<script src="../v40/v40-catalog.js?b=202611021636"></script>
+<script src="../v40/v40-core.js?b=202611021636"></script>
+<script src="../v40/v40-liga.js?b=202611021636"></script>
+<script src="../v40/v40-stats.js?b=202611021636"></script>
+<script src="../v40/v40-fun.js?b=202611021636"></script>
+<script src="../v40/v40-data.js?b=202611021636"></script>
+<script src="../v40/v40-content.js?b=202611021636"></script>
+<script src="../v40/v40-sync.js?b=202611021636"></script>
+<script src="../v40/v40-pedidos.js?b=202611021636"></script>
+<script src="../v40/v40-eps.js?b=202611021636"></script>
+<script src="../v40/v40-guard.js?b=202611021636"></script>
+<script src="../v40/v40-extra.js?b=202611021636"></script>
+<script src="../v40/v40-system.js?b=202611021636"></script>
 </body>
 </html>
