@@ -310,7 +310,7 @@
   // Séries animadas da dupla/trio: a base pública numera pela ordem de exibição na TV, que não
   // bate com a ordem que você assiste (Disney+). Até conferir com você, os nomes delas ficam
   // escondidos (o resto continua mostrando).
-  V40.ORDER_UNCONFIRMED = ['k52', 'k53', 'k171', 'k54', 'k170'];
+  V40.ORDER_UNCONFIRMED = ['k52', 'k53', 'k173', 'k171', 'k54', 'k170'];
   // nomes de episódio desligados de vez (a pedido): a ordem das bases não bate com a do Disney+
   V40.namesHidden = function () { return true; };
   V40.applyExt = function () {
