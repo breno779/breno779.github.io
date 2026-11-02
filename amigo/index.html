@@ -59,7 +59,7 @@ window.V40_APK_VERSION = '40.6';
       var d = new Date();
       var iso = d.getFullYear() + '-' + String(d.getMonth() + 1).padStart(2, '0') + '-' + String(d.getDate()).padStart(2, '0');
       localStorage.setItem('amigo-start', iso);
-      ["ucm-expand-phases-v1", "ucm-fix-2109", "ucm-fix-completedat-v1", "ucm-fix-doomsday-rename-v1", "ucm-fix-doomsday-undo-v1", "ucm-fix-epdone-v2", "ucm-fix-extras-v1", "ucm-fix-full-v5", "ucm-fix-guardioes-trio2-v1", "ucm-fix-k53-text-v1", "ucm-fix-order-v1", "ucm-fix-pace-v3", "ucm-fix-qf2015-order-v1", "ucm-fix-seuamigao-punho-v1", "ucm-fix-slowgta-v1", "ucm-fix-trio1-phases-v1", "ucm-gotg-split-v1", "ucm-pause-1031-v1", "ucm-rate3-v1", "ucm-trio1-rate-pos43-v1"].forEach(function (f) { localStorage.setItem(f, '1'); });
+      ["ucm-expand-phases-v1", "ucm-fix-2109", "ucm-fix-completedat-v1", "ucm-fix-doomsday-rename-v1", "ucm-fix-doomsday-undo-v1", "ucm-fix-epdone-v2", "ucm-fix-extras-v1", "ucm-fix-full-v5", "ucm-fix-guardioes-trio2-v1", "ucm-fix-k53-text-v1", "ucm-fix-order-v1", "ucm-fix-pace-v3", "ucm-fix-qf2015-order-v1", "ucm-fix-seuamigao-punho-v1", "ucm-fix-slowgta-v1", "ucm-fix-trio1-phases-v1", "ucm-gotg-removed-v1", "ucm-pause-1031-v1", "ucm-rate3-v1", "ucm-trio1-rate-pos43-v1"].forEach(function (f) { localStorage.setItem(f, '1'); });
       localStorage.setItem('ucm-last-auto-backup', new Date().toISOString());
       window.__amigoFirstRun = true;
     }
@@ -917,7 +917,7 @@ if ('serviceWorker' in navigator) {
     .progress-fill { transition: none; }
   }
 </style>
-<link rel="stylesheet" href="../v40/v40.css?b=202611021636">
+<link rel="stylesheet" href="../v40/v40.css?b=202611021643">
 </head>
 <body>
 <div class="sticky-progress" id="stickyProgress">
@@ -1149,28 +1149,16 @@ const TRIOS = [
     // 2 séries. As fases abaixo continuam com 3 colunas de propósito: a 3ª (Hulk) é descartada em
     // computeTrioOrder, o que mantém EXATAMENTE a mesma ordem relativa entre Ultimate e Vingadores
     // que já vinha sendo seguida — e que os episódios já marcados refletem.)
-    // Guardiões da Galáxia T1–T2 (k173) entra pelos CROSSOVERS (Nova/Tropa Nova e Colecionador/
-    // Grão-Mestre de Ultimate; Thor, Thanos e Ordem Negra de Vingadores Unidos), no ponto do
-    // lançamento: depois de Ultimate T3 inteira e Vingadores Unidos T2 inteira (lateJoin). A ordem
-    // de Ultimate × Vingadores antes disso continua EXATAMENTE a mesma de sempre.
-    keys: ['k52', 'k53', 'k173'],
-    seasonSizes: [[26,26,26,26], [26,26,26,26], [26,26]],
-    labels: ['Ultimate Spider-Man', 'Avengers Assemble (T1–T4)', 'Guardians of the Galaxy'],
-    lateJoin: { show: 2, after: [78, 52] },
+    keys: ['k52', 'k53'],
+    seasonSizes: [[26,26,26,26], [26,26,26,26]],
+    labels: ['Ultimate Spider-Man', 'Avengers Assemble (T1–T4)'],
     forceAnchor: null,
     // 36 episódios seguidos de Ultimate Homem-Aranha primeiro (T1 completa + 10 da T2), depois
     // os 3 entram juntos na intercalação (proporcional ao que sobra de cada um).
     phases: [[36, 0, 0], [68, 104, 52]],
   },
-  {
-    // Guardiões T3 fica aqui pelo crossover "Guerra dos Simbiontes" com o Homem-Aranha (2017)
-    // (Vingadores Unidos T5 — k171 — saiu da lista a pedido: agora é uma dupla)
-    keys: ['k54', 'k170'],
-    seasonSizes: [[26,26,6], [26]],
-    seasonStart: [1, 3],
-    labels: ['Homem-Aranha (2017)', 'Guardiões da Galáxia (animado)'],
-    forceAnchor: null,
-  },
+  // (2º grupo — Homem-Aranha 2017 + Guardiões T3 + Vingadores Unidos T5 — desfeito: Guardiões e
+  // Vingadores T5 saíram da lista; o Homem-Aranha (2017) segue sozinho, como série normal)
 ];
 
 // itens com data fixa no calendário (marcos): o recálculo do cronograma nunca move nem faz
@@ -1181,7 +1169,7 @@ const FIXED_DATES = {
   k172: ['2026-12-01', '2026-12-16'],
 };
 // itens que o usuário tirou da lista de vez (somem de qualquer aparelho/sincronização).
-const REMOVED_KEYS = ['k168', 'k171']; // Hulk e os Agentes de S.M.A.S.H.; Vingadores Unidos T5 (tirada a pedido em 02/11/2026)
+const REMOVED_KEYS = ['k168', 'k171', 'k170', 'k173']; // Hulk e os Agentes de S.M.A.S.H.; Vingadores Unidos T5 e Guardiões da Galáxia animado (T1–T2 = k173, T3 = k170) — tirados a pedido em 02/11/2026
 
 function seasonEpLabel(flatIdx, seasonSizes, firstSeason) {
   let s = 0, remaining = flatIdx;
@@ -1710,7 +1698,7 @@ function load() {
   // Unidos, T3 (k170) fica com Homem-Aranha (2017) + Vingadores Unidos T5. Roda em todo load (não
   // só 1 vez), porque um aparelho ainda não atualizado pode trazer o item antigo pela nuvem.
   // Progresso/notas de T1–T2 do item antigo (78 eps) passam pro novo; nada se perde.
-  if (ensureGuardiansSplit()) { try { localStorage.removeItem('ucm-gotg-split-v1'); } catch(e) {} }
+  ensureGuardiansSplit();
 
   // correção definitiva #3: garante que o trio intercalado sempre comece em 21/09/2026 de
   // verdade. Roda em TODO load (não só uma vez), porque dados vindos de outro aparelho pela
@@ -1851,6 +1839,7 @@ function repairMissingDates() {
 }
 
 function ensureGuardiansSplit() {
+  return false; // Guardiões da Galáxia saiu da lista (REMOVED_KEYS)
   const g = items.find(i => i.key === 'k170');
   const k53 = items.find(i => i.key === 'k53');
   if (!g || !k53) return false;
@@ -1898,12 +1887,12 @@ function enforceTrioAnchor() {
   // outro aparelho / de uma cópia antiga depois do recálculo), recalcula de novo — sempre, não só 1 vez
   const stale1031 = items.some(i => !i.done && ((Array.isArray(i.epDates) && i.epDates.some((d, e) => d === '2026-10-31' && !(i.epDone || [])[e])) || (!i.epDates && i.watchStart === '2026-10-31')));
   let gotgSplit = false;
-  try { gotgSplit = localStorage.getItem('ucm-gotg-split-v1') === '1'; } catch(e) {}
+  try { gotgSplit = localStorage.getItem('ucm-gotg-removed-v1') === '1'; } catch(e) {}
   const splitNow = ensureGuardiansSplit();
   const needRate = !rate3 || !pause1031 || stale1031 || !gotgSplit || splitNow;
   if (false) {
     recomputeSchedule(usm.id, AMIGO_START);
-    try { localStorage.setItem('ucm-rate3-v1', '1'); localStorage.setItem('ucm-pause-1031-v1', '1'); localStorage.setItem('ucm-gotg-split-v1', '1'); } catch(e) {}
+    try { localStorage.setItem('ucm-rate3-v1', '1'); localStorage.setItem('ucm-pause-1031-v1', '1'); localStorage.setItem('ucm-gotg-removed-v1', '1'); } catch(e) {}
     return true;
   }
   return removed || corrected || rated || cleaned;
@@ -4196,7 +4185,7 @@ document.getElementById('tabLista').classList.add('tab-visible');
 
 // versão do app (acompanha o CACHE_NAME do sw.js): aparece entre parênteses nos botões de
 // recarregar de todas as abas
-const APP_VERSION = 'v40.7.9';
+const APP_VERSION = 'v40.7.10';
 (function () {
   const home = document.getElementById('btnReloadHome');
   if (home) home.textContent = '🔄 Recarregar (' + APP_VERSION + ')';
@@ -5061,18 +5050,18 @@ initCloudSync();
 </script>
 <div class="toast-container" id="toastContainer"></div>
 <div class="marathon-screen" id="marathonScreen"></div>
-<script src="../v40/v40-catalog.js?b=202611021636"></script>
-<script src="../v40/v40-core.js?b=202611021636"></script>
-<script src="../v40/v40-liga.js?b=202611021636"></script>
-<script src="../v40/v40-stats.js?b=202611021636"></script>
-<script src="../v40/v40-fun.js?b=202611021636"></script>
-<script src="../v40/v40-data.js?b=202611021636"></script>
-<script src="../v40/v40-content.js?b=202611021636"></script>
-<script src="../v40/v40-sync.js?b=202611021636"></script>
-<script src="../v40/v40-pedidos.js?b=202611021636"></script>
-<script src="../v40/v40-eps.js?b=202611021636"></script>
-<script src="../v40/v40-guard.js?b=202611021636"></script>
-<script src="../v40/v40-extra.js?b=202611021636"></script>
-<script src="../v40/v40-system.js?b=202611021636"></script>
+<script src="../v40/v40-catalog.js?b=202611021643"></script>
+<script src="../v40/v40-core.js?b=202611021643"></script>
+<script src="../v40/v40-liga.js?b=202611021643"></script>
+<script src="../v40/v40-stats.js?b=202611021643"></script>
+<script src="../v40/v40-fun.js?b=202611021643"></script>
+<script src="../v40/v40-data.js?b=202611021643"></script>
+<script src="../v40/v40-content.js?b=202611021643"></script>
+<script src="../v40/v40-sync.js?b=202611021643"></script>
+<script src="../v40/v40-pedidos.js?b=202611021643"></script>
+<script src="../v40/v40-eps.js?b=202611021643"></script>
+<script src="../v40/v40-guard.js?b=202611021643"></script>
+<script src="../v40/v40-extra.js?b=202611021643"></script>
+<script src="../v40/v40-system.js?b=202611021643"></script>
 </body>
 </html>

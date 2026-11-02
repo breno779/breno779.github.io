@@ -203,7 +203,7 @@
     return String(name).replace(/\s+T\d.*$/, '').replace(/\s+\(\d+ eps\)$/, '').replace(/\s*⏳\s*$/, '').trim();
   }
   // tamanho de cada temporada nos itens que juntam várias temporadas num item só
-  const EXTRA_SEASON_SIZES = { k19: [13, 13, 19, 17, 14] };
+  const EXTRA_SEASON_SIZES = { k19: [13, 13, 19, 17, 14], k54: [26, 26, 6] };
   function seasonSizesOf(it) {
     if (EXTRA_SEASON_SIZES[it.key]) return EXTRA_SEASON_SIZES[it.key];
     for (const cfg of (typeof TRIOS !== 'undefined' ? TRIOS : [])) {
