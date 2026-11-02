@@ -278,6 +278,31 @@
     return `<div class="v40-ep-extra">${nota}${nm ? `<b class="v40-ep-tit">${V40.esc(nm)}</b>` : ''}${sum ? `<small class="v40-ep-sum">${V40.esc(sum)}</small>` : ''}</div>`;
   }
   const fmtW = w => { const end = V40.addDays(w, 6); return `${V40.fmtBR(w, true).slice(0, 5)} a ${V40.fmtBR(end, true).slice(0, 5)}`; };
+  function tableRows(s) {
+    return `<div class="v40-l4row head"><span class="lpos">#</span><span class="lname">EPISÓDIO</span><span>J</span><span>V</span><span>E</span><span>D</span><span class="lpts">P</span></div>
+      ${s.list.map(t => `<div class="v40-l4row ${t.pos === 1 ? 'lib' : ''}"><span class="lpos">${t.pos}º</span><span class="lname">${t.pos === 1 && t.J ? '👑 ' : ''}${t.icon} ${V40.esc(t.name)}</span><span>${t.J}</span><span>${t.V}</span><span>${t.E}</span><span>${t.D}</span><span class="lpts">${t.P}</span></div>`).join('')}
+      <p class="v40-muted" style="margin:6px 0 0;">${s.played}/${s.total} jogos · ${s.list.length} episódios nesta semana</p>`;
+  }
+  // 🗓 tabela + jogos de uma semana que já passou
+  V40.openEpsWeek = function (w) {
+    const wk = V40.epsWeeks().find(x => x.w === w);
+    if (!wk) return;
+    const s = V40.epsStandings(wk);
+    const by = {}; wk.teams.forEach(t => { by[t.pid] = t; });
+    const st = wres(w);
+    const nota = t => { const r = t.it && Array.isArray(t.it.epRatings) ? t.it.epRatings[t.e] : null; return typeof r === 'number' ? ` <small class="v40-muted">⭐${String(r).replace('.', ',')}</small>` : ''; };
+    const games = (st.log || []).filter((k, i, a) => a.indexOf(k) === i && st.res[k]).map((k, i) => {
+      const [a, b] = k.split('§'), A = by[a], B = by[b], v = st.res[k];
+      if (!A || !B) return '';
+      const cls = x => v === 'd' ? '' : ((v === 'a') === (x === 'a') ? 'style="font-weight:800;color:var(--gold,#e8b84a)"' : 'style="opacity:.6"');
+      return `<div class="v40-row" style="font-size:.8rem;"><span style="width:2.2em" class="v40-muted">${i + 1}.</span><span style="flex:1" ${cls('a')}>${V40.esc(A.name)}${nota(A)}</span><b style="margin:0 6px">${v === 'd' ? '=' : (v === 'a' ? '✓ ×' : '× ✓')}</b><span style="flex:1;text-align:right" ${cls('b')}>${V40.esc(B.name)}${nota(B)}</span></div>`;
+    }).join('');
+    V40.modal(`<h3>🗓 Semana ${fmtW(w)}</h3>
+      ${s.champion ? `<p>👑 Campeão: <b>${s.champion.icon} ${V40.esc(s.champion.name)}</b> · ${s.champion.P} pts</p>` : `<p class="v40-muted">${s.closed ? 'Semana encerrada.' : 'Semana ainda com jogos pendentes.'}</p>`}
+      <div class="stat-card">${tableRows(s)}</div>
+      <details class="v40-help"><summary>⚽ Jogos da semana (${s.played})</summary>${games || '<p class="v40-muted">Nenhum jogo.</p>'}</details>`);
+  };
+
   V40.epsLeagueHtml = function () {
     try { track(); } catch (e) {}
     const weeks = V40.epsWeeks();
@@ -299,12 +324,9 @@
           ${card(m[1], `data-ep="b" data-ta="${m[0].pid}" data-tb="${m[1].pid}" data-w="${wk.w}"`)}</div>
         <div style="display:flex;gap:8px;margin-top:10px;"><button id="v40EpUndo" data-w="${wk.w}" ${st.log.length ? '' : 'disabled'}>↺ Desfazer último</button></div>
       </div>` : `<div class="stat-card"><h4>⚽ Semana ${fmtW(wk.w)}</h4><p>${s.total ? '✅ Todos os jogos desta semana foram disputados.' : 'Só 1 episódio nesta semana até agora — os jogos aparecem quando tiver 2 ou mais.'}${!s.closed && s.total ? ' O campeão sai quando a semana acabar (domingo).' : ''}</p></div>`;
-    const table = `<div class="stat-card"><h4>📋 Tabela da semana ${fmtW(wk.w)} ${s.closed ? '· encerrada' : ''}</h4>
-      <div class="v40-l4row head"><span class="lpos">#</span><span class="lname">EPISÓDIO</span><span>J</span><span>V</span><span>E</span><span>D</span><span class="lpts">P</span></div>
-      ${s.list.map(t => `<div class="v40-l4row ${t.pos === 1 ? 'lib' : ''}"><span class="lpos">${t.pos}º</span><span class="lname">${t.pos === 1 && t.J ? '👑 ' : ''}${t.icon} ${V40.esc(t.name)}</span><span>${t.J}</span><span>${t.V}</span><span>${t.E}</span><span>${t.D}</span><span class="lpts">${t.P}</span></div>`).join('')}
-      <p class="v40-muted" style="margin:6px 0 0;">${s.played}/${s.total} jogos · ${s.list.length} episódios nesta semana</p></div>`;
+    const table = `<div class="stat-card"><h4>📋 Tabela da semana ${fmtW(wk.w)} ${s.closed ? '· encerrada' : ''}</h4>${tableRows(s)}</div>`;
     const ch = champions(weeks);
-    const past = ch.length ? `<div class="stat-card"><h4>🏅 Campeões das semanas</h4>${ch.slice().reverse().map(c => `<div class="v40-row"><span style="flex:1">${c.icon} <b>${V40.esc(c.name)}</b><br><small class="v40-muted">semana ${fmtW(c.week)} · ${c.pts} pts</small></span></div>`).join('')}</div>` : '';
+    const past = ch.length ? `<div class="stat-card"><h4>🏅 Campeões das semanas</h4>${ch.slice().reverse().map(c => `<button class="v40-row" data-epweek="${c.week}" style="width:100%;text-align:left;background:none;border:0;color:inherit;cursor:pointer;"><span style="flex:1">${c.icon} <b>${V40.esc(c.name)}</b><br><small class="v40-muted">semana ${fmtW(c.week)} · ${c.pts} pts</small></span><span class="v40-muted">tabela ›</span></button>`).join('')}</div>` : '';
     // Copa dos Campeões
     const ed = V40.get(COPA, null);
     let copa = '';
@@ -323,10 +345,11 @@
         <div style="display:flex;gap:8px;margin-top:8px;"><button id="v40EpCopaUndo" ${ed.log.length ? '' : 'disabled'}>↺ Desfazer</button><button id="v40EpCopaReset" class="v40-danger">🔄 Recomeçar</button></div></div>`;
     }
     const otherWeeks = weeks.filter(x => x.w !== wk.w).reverse().slice(0, 8);
-    const hist = otherWeeks.length ? `<details class="v40-cfg-group"><summary>🗓 Outras semanas</summary><div>${otherWeeks.map(x => { const ss = V40.epsStandings(x); return `<div class="v40-row"><span style="flex:1">${fmtW(x.w)} · ${x.teams.length} episódios<br><small class="v40-muted">${ss.played}/${ss.total} jogos${ss.champion ? ' · 👑 ' + V40.esc(ss.champion.name) : ''}</small></span></div>`; }).join('')}</div></details>` : '';
+    const hist = otherWeeks.length ? `<details class="v40-cfg-group" open><summary>🗓 Outras semanas</summary><div>${otherWeeks.map(x => { const ss = V40.epsStandings(x); return `<button class="v40-row v40-epweek" data-epweek="${x.w}" style="width:100%;text-align:left;background:none;border:0;color:inherit;cursor:pointer;"><span style="flex:1">${fmtW(x.w)} · ${x.teams.length} episódios<br><small class="v40-muted">${ss.played}/${ss.total} jogos${ss.champion ? ' · 👑 ' + V40.esc(ss.champion.name) : ''}</small></span><span class="v40-muted">ver tabela ›</span></button>`; }).join('')}</div></details>` : '';
     return `<div class="stat-card"><h4>📺 Liga dos Episódios</h4><p class="v40-muted" style="margin:0;">Os episódios que você vê na semana se enfrentam. O campeão de cada semana vai pra Copa dos Campeões.</p>${rules}</div>${game}${table}${past}${copa}${hist}`;
   };
   V40.wireEps = function (el) {
+    el.querySelectorAll('[data-epweek]').forEach(b => b.addEventListener('click', () => V40.openEpsWeek(b.dataset.epweek)));
     el.querySelectorAll('[data-ep]').forEach(b => b.addEventListener('click', () => {
       if (!V40.guard()) return;
       const w = b.dataset.w, a = b.dataset.ta, c = b.dataset.tb, r = b.dataset.ep;
