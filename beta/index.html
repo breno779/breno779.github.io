@@ -922,7 +922,7 @@ window.V40_APK_VERSION = '40.6';
     .progress-fill { transition: none; }
   }
 </style>
-<link rel="stylesheet" href="../v40/v40.css?b=202611022159">
+<link rel="stylesheet" href="../v40/v40.css?b=202611022205">
 </head>
 <body>
 <div class="v40-beta-ribbon" id="v40BetaRibbon">🧪 BETA — área de testes: o seu app de verdade não é afetado</div>
@@ -1925,7 +1925,21 @@ function enforceTrioAnchor() {
   const skipNow = applySkippedEps();
   let skipFlag = false;
   try { skipFlag = localStorage.getItem('ucm-skip-aa-t2e19-v1') === '1'; } catch(e) {}
-  const needRate = !rate3 || !pause1031 || stale1031 || !gotgSplit || splitNow || skipNow || !skipFlag;
+  // conferência geral: as datas guardadas do grupo intercalado batem com o cronograma de agora
+  // (âncora + pausas + episódios pulados + ritmo)? Se não (ex.: vieram de outro aparelho pela
+  // nuvem, ou uma regra nova não recalculou), recalcula — em todo load, sem depender de flag.
+  let trioStale = false;
+  try {
+    const cfg0 = TRIOS[0];
+    if (usm && !usm.done && cfg0 && cfg0.forceAnchor && cfg0.keys.includes(usm.key)) {
+      const shows0 = cfg0.keys.map(k => items.find(i => i.key === k));
+      if (shows0.every(Boolean)) {
+        const exp = trioDatesFrom(cfg0, new Date(cfg0.forceAnchor + 'T12:00:00')).epDatesPerShow;
+        trioStale = shows0.some((sh, si) => !sh.done && JSON.stringify(sh.epDates || []) !== JSON.stringify(exp[si]));
+      }
+    }
+  } catch(e) {}
+  const needRate = !rate3 || !pause1031 || stale1031 || !gotgSplit || splitNow || skipNow || !skipFlag || trioStale;
   if (usm && !usm.done && (removed || corrected || needRate || usm.watchStart !== '2026-09-21')) {
     recomputeSchedule(usm.id, '2026-09-21');
     try { localStorage.setItem('ucm-rate3-v1', '1'); localStorage.setItem('ucm-pause-1031-v1', '1'); localStorage.setItem('ucm-gotg-removed-v1', '1'); localStorage.setItem('ucm-skip-aa-t2e19-v1', '1'); } catch(e) {}
@@ -4226,7 +4240,7 @@ document.getElementById('tabLista').classList.add('tab-visible');
 
 // versão do app (acompanha o CACHE_NAME do sw.js): aparece entre parênteses nos botões de
 // recarregar de todas as abas
-const APP_VERSION = 'v40.7.13 beta';
+const APP_VERSION = 'v40.7.14 beta';
 (function () {
   const home = document.getElementById('btnReloadHome');
   if (home) home.textContent = '🔄 Recarregar (' + APP_VERSION + ')';
@@ -4803,6 +4817,32 @@ function computeTrioOrder(cfg) {
 function findTrioConfig(pending, idx) {
   return TRIOS.find(cfg => cfg.keys.every((k, j) => pending[idx + j] && pending[idx + j].key === k)) || null;
 }
+// datas de cada episódio do grupo intercalado a partir de um dia de início (função pura — usada
+// no cronograma e na conferência de "datas desatualizadas" do enforceTrioAnchor)
+function trioDatesFrom(cfg, startCursor) {
+  const order = computeTrioOrder(cfg);
+  const totalEps = order.length;
+  const epDatesPerShow = cfg.keys.map(() => []);
+  let dayCursor = new Date(startCursor);
+  let i = 0;
+  while (i < totalEps) {
+    if (!isPauseDay(dayCursor)) {
+      const rate = trioRateFor(fmtDateISO(dayCursor));
+      let k = 0;
+      while (k < rate && i < totalEps) {
+        const sh = order[i];
+        // episódio pulado: fica com a data do dia, mas não ocupa vaga no ritmo
+        const skip = isSkippedEp(cfg.keys[sh], epDatesPerShow[sh].length);
+        epDatesPerShow[sh].push(fmtDateISO(dayCursor));
+        i++;
+        if (!skip) k++;
+      }
+    }
+    dayCursor.setDate(dayCursor.getDate() + 1);
+  }
+  return { epDatesPerShow, dayCursor };
+}
+
 function tryInterleaveTrio(pending, idx, current, RATE_ANIM, forceAnchor) {
   const cfg = findTrioConfig(pending, idx);
   if (!cfg) return null;
@@ -4831,26 +4871,7 @@ function tryInterleaveTrio(pending, idx, current, RATE_ANIM, forceAnchor) {
   // ordem de intercalação: computeTrioOrder() respeita cfg.phases quando existir (entrada
   // escalonada real, ex. trio 1) e usa cfg.seasonSizes (fonte estável, não o texto do item —
   // que pode ter sido preservado/editado pelo usuário) como fallback pro trio sem fases.
-  const order = computeTrioOrder(cfg);
-  const totalEps = order.length;
-  const epDatesPerShow = shows.map(() => []);
-  let dayCursor = new Date(startCursor);
-  let i = 0;
-  while (i < totalEps) {
-    if (!isPauseDay(dayCursor)) {
-      const rate = trioRateFor(fmtDateISO(dayCursor));
-      let k = 0;
-      while (k < rate && i < totalEps) {
-        const sh = order[i];
-        // episódio pulado: fica com a data do dia, mas não ocupa vaga no ritmo
-        const skip = isSkippedEp(cfg.keys[sh], epDatesPerShow[sh].length);
-        epDatesPerShow[sh].push(fmtDateISO(dayCursor));
-        i++;
-        if (!skip) k++;
-      }
-    }
-    dayCursor.setDate(dayCursor.getDate() + 1);
-  }
+  const { epDatesPerShow, dayCursor } = trioDatesFrom(cfg, startCursor);
   shows.forEach((it, s) => {
     it.epDates = epDatesPerShow[s];
     it.watchStart = epDatesPerShow[s][0];
@@ -5086,18 +5107,18 @@ if (shortcutAction === 'watchnow') {
 </script>
 <div class="toast-container" id="toastContainer"></div>
 <div class="marathon-screen" id="marathonScreen"></div>
-<script src="../v40/v40-catalog.js?b=202611022159"></script>
-<script src="../v40/v40-core.js?b=202611022159"></script>
-<script src="../v40/v40-liga.js?b=202611022159"></script>
-<script src="../v40/v40-stats.js?b=202611022159"></script>
-<script src="../v40/v40-fun.js?b=202611022159"></script>
-<script src="../v40/v40-data.js?b=202611022159"></script>
-<script src="../v40/v40-content.js?b=202611022159"></script>
-<script src="../v40/v40-sync.js?b=202611022159"></script>
-<script src="../v40/v40-pedidos.js?b=202611022159"></script>
-<script src="../v40/v40-eps.js?b=202611022159"></script>
-<script src="../v40/v40-guard.js?b=202611022159"></script>
-<script src="../v40/v40-extra.js?b=202611022159"></script>
-<script src="../v40/v40-system.js?b=202611022159"></script>
+<script src="../v40/v40-catalog.js?b=202611022205"></script>
+<script src="../v40/v40-core.js?b=202611022205"></script>
+<script src="../v40/v40-liga.js?b=202611022205"></script>
+<script src="../v40/v40-stats.js?b=202611022205"></script>
+<script src="../v40/v40-fun.js?b=202611022205"></script>
+<script src="../v40/v40-data.js?b=202611022205"></script>
+<script src="../v40/v40-content.js?b=202611022205"></script>
+<script src="../v40/v40-sync.js?b=202611022205"></script>
+<script src="../v40/v40-pedidos.js?b=202611022205"></script>
+<script src="../v40/v40-eps.js?b=202611022205"></script>
+<script src="../v40/v40-guard.js?b=202611022205"></script>
+<script src="../v40/v40-extra.js?b=202611022205"></script>
+<script src="../v40/v40-system.js?b=202611022205"></script>
 </body>
 </html>
