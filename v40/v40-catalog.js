@@ -199,7 +199,8 @@
     k1002: ['tv', "Marvel's Hit-Monkey", 2021, { s: 2, q: ['Hit-Monkey'], rel: '2024-07-15' }],
     k1003: ['tv', "Marvel's M.O.D.O.K.", 2021, { s: 1, q: ['M.O.D.O.K.', 'MODOK'], rel: '2021-05-21' }],
     k166: ['m', 'Avengers: Secret Wars', 2027, { rel: '2027-12-17' }],
-    k172: null
+    k172: null,
+    k174: null
   };
   window.V40 = window.V40 || {};
   window.V40.CATALOG = C;

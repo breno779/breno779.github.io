@@ -917,7 +917,7 @@ if ('serviceWorker' in navigator) {
     .progress-fill { transition: none; }
   }
 </style>
-<link rel="stylesheet" href="../v40/v40.css?b=202611031952">
+<link rel="stylesheet" href="../v40/v40.css?b=202611032009">
 </head>
 <body>
 <div class="sticky-progress" id="stickyProgress">
@@ -1170,6 +1170,7 @@ const TRIOS = [
 const FIXED_DATES = {
   k166: ['2027-12-17', '2027-12-17'],
   k172: ['2026-12-01', '2026-12-16'],
+  k174: ['2026-11-03', '2026-11-03'], // vídeo-resumo de Vingadores Unidos (no lugar do resto da série)
 };
 // itens que o usuário tirou da lista de vez (somem de qualquer aparelho/sincronização).
 // episódios PULADOS a pedido (índice 0-based dentro do item): contam como vistos (sem nota), não
@@ -1180,9 +1181,10 @@ const FIXED_DATES = {
 // Work, E8 Sneakers, E9 Why I Hate Halloween, E15 New Year's Resolution (índices 82–86 e 92).
 const SKIPPED_EPS = { k53: [44, 45, 46, 58, 59, 65, 69, 71, 72, 73, 82, 83, 84, 85, 86, 92] };
 // séries ABANDONADAS: daqui em diante, todo episódio sem nota conta como pulado (fica marcado,
-// sem data, fora da Liga). k53 = Vingadores Unidos, largada em 03/11/2026 a partir do T2E22
-// (índice 47, o episódio do dia) — o que já foi visto/avaliado antes continua valendo.
-const SKIP_REST_FROM = { k53: 47 };
+// sem data, fora da Liga). k53 = Vingadores Unidos, largada em 03/11/2026 a partir do T2E17
+// (índice 42) — o que já foi visto/avaliado antes continua valendo.
+const SKIP_REST_FROM = { k53: 42 };
+const DROP_SINCE = '2026-11-03';
 function isDroppedEp(key, e) {
   const f = SKIP_REST_FROM[key];
   if (f == null || e < f) return false;
@@ -1941,6 +1943,17 @@ function enforceTrioAnchor() {
   try { gotgSplit = localStorage.getItem('ucm-gotg-removed-v1') === '1'; } catch(e) {}
   const splitNow = ensureGuardiansSplit();
   const skipNow = applySkippedEps();
+  // vídeo-resumo de Vingadores Unidos (k174): entra logo depois da série, com data fixa
+  let videoNow = false;
+  {
+    const k53i = items.find(i => i.key === 'k53');
+    let v = items.find(i => i.key === 'k174');
+    if (k53i && !v && !trash.some(i => i.key === 'k174')) {
+      const def = DEFAULT_ITEMS.find(d => d.key === 'k174');
+      v = { id: items.concat(trash).reduce((m, i) => Math.max(m, i.id || 0), 0) + 1, key: 'k174', phase: k53i.phase, text: def.text, done: false, order: (k53i.order ?? 0) + 0.25, watchStart: '2026-11-03', watchEnd: '2026-11-03', watchKind: 'filme' };
+      items.push(v); videoNow = true;
+    }
+  }
   // datas por episódio só existem pra quem está num grupo intercalado; série que saiu do grupo
   // (ex.: Homem-Aranha 2017) ficava com as datas velhas do grupo antigo
   let strayNow = false;
@@ -1963,7 +1976,7 @@ function enforceTrioAnchor() {
   } catch(e) {}
   let pauseDec = false;
   try { pauseDec = localStorage.getItem('ucm-pause-dec-v1') === '1'; } catch(e) {}
-  const needRate = strayNow || !pauseDec || !rate3 || !pause1031 || stale1031 || !gotgSplit || splitNow || skipNow || !skipFlag || trioStale;
+  const needRate = videoNow || strayNow || !pauseDec || !rate3 || !pause1031 || stale1031 || !gotgSplit || splitNow || skipNow || !skipFlag || trioStale;
   if (false) {
     recomputeSchedule(usm.id, AMIGO_START);
     try { localStorage.setItem('ucm-rate3-v1', '1'); localStorage.setItem('ucm-pause-1031-v1', '1'); localStorage.setItem('ucm-gotg-removed-v1', '1'); localStorage.setItem('ucm-skip-aa-t2e19-v1', '1'); localStorage.setItem('ucm-pause-dec-v1', '1'); } catch(e) {}
@@ -4262,7 +4275,7 @@ document.getElementById('tabLista').classList.add('tab-visible');
 
 // versão do app (acompanha o CACHE_NAME do sw.js): aparece entre parênteses nos botões de
 // recarregar de todas as abas
-const APP_VERSION = 'v40.7.18';
+const APP_VERSION = 'v40.7.19';
 (function () {
   const home = document.getElementById('btnReloadHome');
   if (home) home.textContent = '🔄 Recarregar (' + APP_VERSION + ')';
@@ -4897,8 +4910,11 @@ function trioDatesFrom(cfg, startCursor) {
       while (k < rate && i < totalEps) {
         const sh = order[i];
         // episódio pulado: fica com a data do dia, mas não ocupa vaga no ritmo
-        const skip = isSkippedEp(cfg.keys[sh], epDatesPerShow[sh].length);
-        epDatesPerShow[sh].push(fmtDateISO(dayCursor));
+        const eIdx = epDatesPerShow[sh].length, dIso = fmtDateISO(dayCursor);
+        // abandonado: antes do dia do abandono o episódio ainda ocupava a vaga (o passado não muda)
+        const kk = cfg.keys[sh];
+        const skip = !!(SKIPPED_EPS[kk] && SKIPPED_EPS[kk].includes(eIdx)) || (isDroppedEp(kk, eIdx) && dIso >= DROP_SINCE);
+        epDatesPerShow[sh].push(dIso);
         i++;
         if (!skip) k++;
       }
@@ -5195,18 +5211,18 @@ initCloudSync();
 </script>
 <div class="toast-container" id="toastContainer"></div>
 <div class="marathon-screen" id="marathonScreen"></div>
-<script src="../v40/v40-catalog.js?b=202611031952"></script>
-<script src="../v40/v40-core.js?b=202611031952"></script>
-<script src="../v40/v40-liga.js?b=202611031952"></script>
-<script src="../v40/v40-stats.js?b=202611031952"></script>
-<script src="../v40/v40-fun.js?b=202611031952"></script>
-<script src="../v40/v40-data.js?b=202611031952"></script>
-<script src="../v40/v40-content.js?b=202611031952"></script>
-<script src="../v40/v40-sync.js?b=202611031952"></script>
-<script src="../v40/v40-pedidos.js?b=202611031952"></script>
-<script src="../v40/v40-eps.js?b=202611031952"></script>
-<script src="../v40/v40-guard.js?b=202611031952"></script>
-<script src="../v40/v40-extra.js?b=202611031952"></script>
-<script src="../v40/v40-system.js?b=202611031952"></script>
+<script src="../v40/v40-catalog.js?b=202611032009"></script>
+<script src="../v40/v40-core.js?b=202611032009"></script>
+<script src="../v40/v40-liga.js?b=202611032009"></script>
+<script src="../v40/v40-stats.js?b=202611032009"></script>
+<script src="../v40/v40-fun.js?b=202611032009"></script>
+<script src="../v40/v40-data.js?b=202611032009"></script>
+<script src="../v40/v40-content.js?b=202611032009"></script>
+<script src="../v40/v40-sync.js?b=202611032009"></script>
+<script src="../v40/v40-pedidos.js?b=202611032009"></script>
+<script src="../v40/v40-eps.js?b=202611032009"></script>
+<script src="../v40/v40-guard.js?b=202611032009"></script>
+<script src="../v40/v40-extra.js?b=202611032009"></script>
+<script src="../v40/v40-system.js?b=202611032009"></script>
 </body>
 </html>

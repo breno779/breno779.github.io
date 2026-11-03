@@ -237,7 +237,7 @@
       t.order = Math.min(t.order, order);
     };
     V40.participants().forEach(p => p.items.forEach(it => {
-      if (it.key === 'k172') return;   // "🍿 Iniciar Maratona Doomsday" é um marcador, não um título
+      if (it.key === 'k172' || it.key === 'k174') return;   // marcador da maratona / vídeo-resumo: não são títulos
       const order = p.order;
       if (p.kind !== 'serie') {
         if (specialKeys.has(it.key)) return;   // já está no campeonato como time especial
