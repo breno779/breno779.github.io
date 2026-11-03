@@ -922,7 +922,7 @@ window.V40_APK_VERSION = '40.6';
     .progress-fill { transition: none; }
   }
 </style>
-<link rel="stylesheet" href="../v40/v40.css?b=202611031917">
+<link rel="stylesheet" href="../v40/v40.css?b=202611031952">
 </head>
 <body>
 <div class="v40-beta-ribbon" id="v40BetaRibbon">🧪 BETA — área de testes: o seu app de verdade não é afetado</div>
@@ -1190,7 +1190,18 @@ const FIXED_DATES = {
 // T4 (26 eps contando "...Assemble" como E1): E5 Prison Break, E6 The Incredible Herc, E7 Show Your
 // Work, E8 Sneakers, E9 Why I Hate Halloween, E15 New Year's Resolution (índices 82–86 e 92).
 const SKIPPED_EPS = { k53: [44, 45, 46, 58, 59, 65, 69, 71, 72, 73, 82, 83, 84, 85, 86, 92] };
-function isSkippedEp(key, e) { return !!(SKIPPED_EPS[key] && SKIPPED_EPS[key].includes(e)); }
+// séries ABANDONADAS: daqui em diante, todo episódio sem nota conta como pulado (fica marcado,
+// sem data, fora da Liga). k53 = Vingadores Unidos, largada em 03/11/2026 a partir do T2E22
+// (índice 47, o episódio do dia) — o que já foi visto/avaliado antes continua valendo.
+const SKIP_REST_FROM = { k53: 47 };
+function isDroppedEp(key, e) {
+  const f = SKIP_REST_FROM[key];
+  if (f == null || e < f) return false;
+  const it = items.find(i => i.key === key);
+  const r = it && Array.isArray(it.epRatings) ? it.epRatings[e] : null;
+  return typeof r !== 'number';
+}
+function isSkippedEp(key, e) { return !!(SKIPPED_EPS[key] && SKIPPED_EPS[key].includes(e)) || isDroppedEp(key, e); }
 function applySkippedEps() {
   let changed = false;
   Object.keys(SKIPPED_EPS).forEach(k => {
@@ -1202,6 +1213,21 @@ function applySkippedEps() {
       if (!it.epDone[e]) { it.epDone[e] = true; changed = true; }
       if (Array.isArray(it.epRatings) && typeof it.epRatings[e] === 'number') { it.epRatings[e] = null; changed = true; }
     });
+  });
+  Object.keys(SKIP_REST_FROM).forEach(k => {
+    const it = items.find(i => i.key === k);
+    if (!it || it.done) return;
+    const n = extractEpsCount(it.text) || 0;
+    if (!Array.isArray(it.epDone)) it.epDone = new Array(n).fill(false);
+    for (let e = SKIP_REST_FROM[k]; e < n; e++) if (!it.epDone[e]) { it.epDone[e] = true; changed = true; }
+    // quando a outra série do grupo terminar, a abandonada fecha junto (sem ocupar o cronograma)
+    const cfg = TRIOS.find(c => c.keys.includes(k));
+    const others = cfg ? cfg.keys.filter(x => x !== k).map(x => items.find(i => i.key === x)) : [];
+    if (others.length && others.every(o => !o || o.done)) {
+      it.done = true; it.completedAt = it.completedAt || new Date().toISOString();
+      delete it.watchStart; delete it.watchEnd; delete it.watchKind; delete it.epDates;
+      changed = true;
+    }
   });
   return changed;
 }
@@ -4249,7 +4275,7 @@ document.getElementById('tabLista').classList.add('tab-visible');
 
 // versão do app (acompanha o CACHE_NAME do sw.js): aparece entre parênteses nos botões de
 // recarregar de todas as abas
-const APP_VERSION = 'v40.7.17 beta';
+const APP_VERSION = 'v40.7.18 beta';
 (function () {
   const home = document.getElementById('btnReloadHome');
   if (home) home.textContent = '🔄 Recarregar (' + APP_VERSION + ')';
@@ -5037,6 +5063,11 @@ function recomputeSchedule(anchorItemId, forceStartDate) {
     // item sem data porque ainda nem foi anunciado/lançado de verdade (ex.: uma temporada
     // renovada mas sem previsão) — fica de fora da maratona datada até ter informação real;
     // não consome nem empurra o cronograma dos itens depois dele.
+    // série abandonada fora do grupo intercalado: não ocupa nenhum dia
+    if (SKIP_REST_FROM[it.key] != null) {
+      delete it.watchStart; delete it.watchEnd; delete it.watchKind; delete it.epDates;
+      continue;
+    }
     if (it.noSchedule) {
       delete it.watchStart; delete it.watchEnd; delete it.watchKind; delete it.epDates;
       continue;
@@ -5167,18 +5198,18 @@ if (shortcutAction === 'watchnow') {
 </script>
 <div class="toast-container" id="toastContainer"></div>
 <div class="marathon-screen" id="marathonScreen"></div>
-<script src="../v40/v40-catalog.js?b=202611031917"></script>
-<script src="../v40/v40-core.js?b=202611031917"></script>
-<script src="../v40/v40-liga.js?b=202611031917"></script>
-<script src="../v40/v40-stats.js?b=202611031917"></script>
-<script src="../v40/v40-fun.js?b=202611031917"></script>
-<script src="../v40/v40-data.js?b=202611031917"></script>
-<script src="../v40/v40-content.js?b=202611031917"></script>
-<script src="../v40/v40-sync.js?b=202611031917"></script>
-<script src="../v40/v40-pedidos.js?b=202611031917"></script>
-<script src="../v40/v40-eps.js?b=202611031917"></script>
-<script src="../v40/v40-guard.js?b=202611031917"></script>
-<script src="../v40/v40-extra.js?b=202611031917"></script>
-<script src="../v40/v40-system.js?b=202611031917"></script>
+<script src="../v40/v40-catalog.js?b=202611031952"></script>
+<script src="../v40/v40-core.js?b=202611031952"></script>
+<script src="../v40/v40-liga.js?b=202611031952"></script>
+<script src="../v40/v40-stats.js?b=202611031952"></script>
+<script src="../v40/v40-fun.js?b=202611031952"></script>
+<script src="../v40/v40-data.js?b=202611031952"></script>
+<script src="../v40/v40-content.js?b=202611031952"></script>
+<script src="../v40/v40-sync.js?b=202611031952"></script>
+<script src="../v40/v40-pedidos.js?b=202611031952"></script>
+<script src="../v40/v40-eps.js?b=202611031952"></script>
+<script src="../v40/v40-guard.js?b=202611031952"></script>
+<script src="../v40/v40-extra.js?b=202611031952"></script>
+<script src="../v40/v40-system.js?b=202611031952"></script>
 </body>
 </html>

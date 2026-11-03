@@ -1118,7 +1118,18 @@ const FIXED_DATES = {
 // T4 (26 eps contando "...Assemble" como E1): E5 Prison Break, E6 The Incredible Herc, E7 Show Your
 // Work, E8 Sneakers, E9 Why I Hate Halloween, E15 New Year's Resolution (índices 82–86 e 92).
 const SKIPPED_EPS = { k53: [44, 45, 46, 58, 59, 65, 69, 71, 72, 73, 82, 83, 84, 85, 86, 92] };
-function isSkippedEp(key, e) { return !!(SKIPPED_EPS[key] && SKIPPED_EPS[key].includes(e)); }
+// séries ABANDONADAS: daqui em diante, todo episódio sem nota conta como pulado (fica marcado,
+// sem data, fora da Liga). k53 = Vingadores Unidos, largada em 03/11/2026 a partir do T2E22
+// (índice 47, o episódio do dia) — o que já foi visto/avaliado antes continua valendo.
+const SKIP_REST_FROM = { k53: 47 };
+function isDroppedEp(key, e) {
+  const f = SKIP_REST_FROM[key];
+  if (f == null || e < f) return false;
+  const it = items.find(i => i.key === key);
+  const r = it && Array.isArray(it.epRatings) ? it.epRatings[e] : null;
+  return typeof r !== 'number';
+}
+function isSkippedEp(key, e) { return !!(SKIPPED_EPS[key] && SKIPPED_EPS[key].includes(e)) || isDroppedEp(key, e); }
 function applySkippedEps() {
   let changed = false;
   Object.keys(SKIPPED_EPS).forEach(k => {
@@ -1130,6 +1141,21 @@ function applySkippedEps() {
       if (!it.epDone[e]) { it.epDone[e] = true; changed = true; }
       if (Array.isArray(it.epRatings) && typeof it.epRatings[e] === 'number') { it.epRatings[e] = null; changed = true; }
     });
+  });
+  Object.keys(SKIP_REST_FROM).forEach(k => {
+    const it = items.find(i => i.key === k);
+    if (!it || it.done) return;
+    const n = extractEpsCount(it.text) || 0;
+    if (!Array.isArray(it.epDone)) it.epDone = new Array(n).fill(false);
+    for (let e = SKIP_REST_FROM[k]; e < n; e++) if (!it.epDone[e]) { it.epDone[e] = true; changed = true; }
+    // quando a outra série do grupo terminar, a abandonada fecha junto (sem ocupar o cronograma)
+    const cfg = TRIOS.find(c => c.keys.includes(k));
+    const others = cfg ? cfg.keys.filter(x => x !== k).map(x => items.find(i => i.key === x)) : [];
+    if (others.length && others.every(o => !o || o.done)) {
+      it.done = true; it.completedAt = it.completedAt || new Date().toISOString();
+      delete it.watchStart; delete it.watchEnd; delete it.watchKind; delete it.epDates;
+      changed = true;
+    }
   });
   return changed;
 }
@@ -4967,6 +4993,11 @@ function recomputeSchedule(anchorItemId, forceStartDate) {
     // item sem data porque ainda nem foi anunciado/lançado de verdade (ex.: uma temporada
     // renovada mas sem previsão) — fica de fora da maratona datada até ter informação real;
     // não consome nem empurra o cronograma dos itens depois dele.
+    // série abandonada fora do grupo intercalado: não ocupa nenhum dia
+    if (SKIP_REST_FROM[it.key] != null) {
+      delete it.watchStart; delete it.watchEnd; delete it.watchKind; delete it.epDates;
+      continue;
+    }
     if (it.noSchedule) {
       delete it.watchStart; delete it.watchEnd; delete it.watchKind; delete it.epDates;
       continue;

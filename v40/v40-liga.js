@@ -262,6 +262,11 @@
       }
     }));
     const unitDone = u => {
+      // temporada de série abandonada (com episódios pulados por abandono) não conta como concluída
+      if (typeof isDroppedEp === 'function') {
+        const n0 = u.to != null ? u.to : (extractEpsCount(u.it.text) || 0);
+        for (let i = u.from; i < n0; i++) if (isDroppedEp(u.it.key, i)) return false;
+      }
       if (u.it.done) return true;
       if (u.to == null) return false;
       const d = Array.isArray(u.it.epDone) ? u.it.epDone : [];
