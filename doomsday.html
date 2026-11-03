@@ -908,7 +908,7 @@ if ('serviceWorker' in navigator) {
     .progress-fill { transition: none; }
   }
 </style>
-<link rel="stylesheet" href="v40/v40.css?b=202611022109">
+<link rel="stylesheet" href="v40/v40.css?b=202611022112">
 </head>
 <body>
 <div class="sticky-progress" id="stickyProgress">
@@ -1162,8 +1162,9 @@ const FIXED_DATES = {
 // itens que o usuário tirou da lista de vez (somem de qualquer aparelho/sincronização).
 // episódios PULADOS a pedido (índice 0-based dentro do item): contam como vistos (sem nota), não
 // ocupam lugar no cronograma, não entram na Liga dos Episódios e aparecem como "⏭️ pulado".
-// k53 = Vingadores Unidos: T2E19, T2E20, T2E21 (índices 44, 45, 46) — pulados em 02/11/2026.
-const SKIPPED_EPS = { k53: [44, 45, 46] };
+// k53 = Vingadores Unidos: T2E19, T2E20, T2E21 (índices 44, 45, 46) e T3E7, T3E8, T3E14, T3E18,
+// T3E20, T3E21, T3E22 (índices 58, 59, 65, 69, 71, 72, 73) — pulados a pedido em 02/11/2026.
+const SKIPPED_EPS = { k53: [44, 45, 46, 58, 59, 65, 69, 71, 72, 73] };
 function isSkippedEp(key, e) { return !!(SKIPPED_EPS[key] && SKIPPED_EPS[key].includes(e)); }
 function applySkippedEps() {
   let changed = false;
@@ -4200,7 +4201,7 @@ document.getElementById('tabLista').classList.add('tab-visible');
 
 // versão do app (acompanha o CACHE_NAME do sw.js): aparece entre parênteses nos botões de
 // recarregar de todas as abas
-const APP_VERSION = 'v40.7.11';
+const APP_VERSION = 'v40.7.12';
 (function () {
   const home = document.getElementById('btnReloadHome');
   if (home) home.textContent = '🔄 Recarregar (' + APP_VERSION + ')';
@@ -5062,18 +5063,18 @@ initCloudSync();
 </script>
 <div class="toast-container" id="toastContainer"></div>
 <div class="marathon-screen" id="marathonScreen"></div>
-<script src="v40/v40-catalog.js?b=202611022109"></script>
-<script src="v40/v40-core.js?b=202611022109"></script>
-<script src="v40/v40-liga.js?b=202611022109"></script>
-<script src="v40/v40-stats.js?b=202611022109"></script>
-<script src="v40/v40-fun.js?b=202611022109"></script>
-<script src="v40/v40-data.js?b=202611022109"></script>
-<script src="v40/v40-content.js?b=202611022109"></script>
-<script src="v40/v40-sync.js?b=202611022109"></script>
-<script src="v40/v40-pedidos.js?b=202611022109"></script>
-<script src="v40/v40-eps.js?b=202611022109"></script>
-<script src="v40/v40-guard.js?b=202611022109"></script>
-<script src="v40/v40-extra.js?b=202611022109"></script>
-<script src="v40/v40-system.js?b=202611022109"></script>
+<script src="v40/v40-catalog.js?b=202611022112"></script>
+<script src="v40/v40-core.js?b=202611022112"></script>
+<script src="v40/v40-liga.js?b=202611022112"></script>
+<script src="v40/v40-stats.js?b=202611022112"></script>
+<script src="v40/v40-fun.js?b=202611022112"></script>
+<script src="v40/v40-data.js?b=202611022112"></script>
+<script src="v40/v40-content.js?b=202611022112"></script>
+<script src="v40/v40-sync.js?b=202611022112"></script>
+<script src="v40/v40-pedidos.js?b=202611022112"></script>
+<script src="v40/v40-eps.js?b=202611022112"></script>
+<script src="v40/v40-guard.js?b=202611022112"></script>
+<script src="v40/v40-extra.js?b=202611022112"></script>
+<script src="v40/v40-system.js?b=202611022112"></script>
 </body>
 </html>

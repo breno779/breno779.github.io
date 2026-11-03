@@ -1110,8 +1110,9 @@ const FIXED_DATES = {
 // itens que o usuário tirou da lista de vez (somem de qualquer aparelho/sincronização).
 // episódios PULADOS a pedido (índice 0-based dentro do item): contam como vistos (sem nota), não
 // ocupam lugar no cronograma, não entram na Liga dos Episódios e aparecem como "⏭️ pulado".
-// k53 = Vingadores Unidos: T2E19, T2E20, T2E21 (índices 44, 45, 46) — pulados em 02/11/2026.
-const SKIPPED_EPS = { k53: [44, 45, 46] };
+// k53 = Vingadores Unidos: T2E19, T2E20, T2E21 (índices 44, 45, 46) e T3E7, T3E8, T3E14, T3E18,
+// T3E20, T3E21, T3E22 (índices 58, 59, 65, 69, 71, 72, 73) — pulados a pedido em 02/11/2026.
+const SKIPPED_EPS = { k53: [44, 45, 46, 58, 59, 65, 69, 71, 72, 73] };
 function isSkippedEp(key, e) { return !!(SKIPPED_EPS[key] && SKIPPED_EPS[key].includes(e)); }
 function applySkippedEps() {
   let changed = false;
