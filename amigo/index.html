@@ -59,7 +59,7 @@ window.V40_APK_VERSION = '40.6';
       var d = new Date();
       var iso = d.getFullYear() + '-' + String(d.getMonth() + 1).padStart(2, '0') + '-' + String(d.getDate()).padStart(2, '0');
       localStorage.setItem('amigo-start', iso);
-      ["ucm-expand-phases-v1", "ucm-fix-2109", "ucm-fix-completedat-v1", "ucm-fix-doomsday-rename-v1", "ucm-fix-doomsday-undo-v1", "ucm-fix-epdone-v2", "ucm-fix-extras-v1", "ucm-fix-full-v5", "ucm-fix-guardioes-trio2-v1", "ucm-fix-k53-text-v1", "ucm-fix-order-v1", "ucm-fix-pace-v3", "ucm-fix-qf2015-order-v1", "ucm-fix-seuamigao-punho-v1", "ucm-fix-slowgta-v1", "ucm-fix-trio1-phases-v1", "ucm-gotg-removed-v1", "ucm-pause-1031-v1", "ucm-rate3-v1", "ucm-skip-aa-t2e19-v1", "ucm-trio1-rate-pos43-v1"].forEach(function (f) { localStorage.setItem(f, '1'); });
+      ["ucm-expand-phases-v1", "ucm-fix-2109", "ucm-fix-completedat-v1", "ucm-fix-doomsday-rename-v1", "ucm-fix-doomsday-undo-v1", "ucm-fix-epdone-v2", "ucm-fix-extras-v1", "ucm-fix-full-v5", "ucm-fix-guardioes-trio2-v1", "ucm-fix-k53-text-v1", "ucm-fix-order-v1", "ucm-fix-pace-v3", "ucm-fix-qf2015-order-v1", "ucm-fix-seuamigao-punho-v1", "ucm-fix-slowgta-v1", "ucm-fix-trio1-phases-v1", "ucm-gotg-removed-v1", "ucm-pause-1031-v1", "ucm-pause-dec-v1", "ucm-rate3-v1", "ucm-skip-aa-t2e19-v1", "ucm-trio1-rate-pos43-v1"].forEach(function (f) { localStorage.setItem(f, '1'); });
       localStorage.setItem('ucm-last-auto-backup', new Date().toISOString());
       window.__amigoFirstRun = true;
     }
@@ -917,7 +917,7 @@ if ('serviceWorker' in navigator) {
     .progress-fill { transition: none; }
   }
 </style>
-<link rel="stylesheet" href="../v40/v40.css?b=202611022205">
+<link rel="stylesheet" href="../v40/v40.css?b=202611022213">
 </head>
 <body>
 <div class="sticky-progress" id="stickyProgress">
@@ -1912,6 +1912,10 @@ function enforceTrioAnchor() {
   try { gotgSplit = localStorage.getItem('ucm-gotg-removed-v1') === '1'; } catch(e) {}
   const splitNow = ensureGuardiansSplit();
   const skipNow = applySkippedEps();
+  // datas por episódio só existem pra quem está num grupo intercalado; série que saiu do grupo
+  // (ex.: Homem-Aranha 2017) ficava com as datas velhas do grupo antigo
+  let strayNow = false;
+  items.forEach(it => { if (it.epDates && !TRIOS.some(c => c.keys.includes(it.key))) { delete it.epDates; strayNow = true; } });
   let skipFlag = false;
   try { skipFlag = localStorage.getItem('ucm-skip-aa-t2e19-v1') === '1'; } catch(e) {}
   // conferência geral: as datas guardadas do grupo intercalado batem com o cronograma de agora
@@ -1928,10 +1932,12 @@ function enforceTrioAnchor() {
       }
     }
   } catch(e) {}
-  const needRate = !rate3 || !pause1031 || stale1031 || !gotgSplit || splitNow || skipNow || !skipFlag || trioStale;
+  let pauseDec = false;
+  try { pauseDec = localStorage.getItem('ucm-pause-dec-v1') === '1'; } catch(e) {}
+  const needRate = strayNow || !pauseDec || !rate3 || !pause1031 || stale1031 || !gotgSplit || splitNow || skipNow || !skipFlag || trioStale;
   if (false) {
     recomputeSchedule(usm.id, AMIGO_START);
-    try { localStorage.setItem('ucm-rate3-v1', '1'); localStorage.setItem('ucm-pause-1031-v1', '1'); localStorage.setItem('ucm-gotg-removed-v1', '1'); localStorage.setItem('ucm-skip-aa-t2e19-v1', '1'); } catch(e) {}
+    try { localStorage.setItem('ucm-rate3-v1', '1'); localStorage.setItem('ucm-pause-1031-v1', '1'); localStorage.setItem('ucm-gotg-removed-v1', '1'); localStorage.setItem('ucm-skip-aa-t2e19-v1', '1'); localStorage.setItem('ucm-pause-dec-v1', '1'); } catch(e) {}
     return true;
   }
   return removed || corrected || rated || cleaned;
@@ -4227,7 +4233,7 @@ document.getElementById('tabLista').classList.add('tab-visible');
 
 // versão do app (acompanha o CACHE_NAME do sw.js): aparece entre parênteses nos botões de
 // recarregar de todas as abas
-const APP_VERSION = 'v40.7.14';
+const APP_VERSION = 'v40.7.15';
 (function () {
   const home = document.getElementById('btnReloadHome');
   if (home) home.textContent = '🔄 Recarregar (' + APP_VERSION + ')';
@@ -4659,6 +4665,23 @@ function episodeDateFor(it, episodeIdx, totalEps) {
   if (!it.watchStart || !it.watchEnd) return null;
   const start = new Date(it.watchStart + 'T12:00:00');
   const end = new Date(it.watchEnd + 'T12:00:00');
+  // série normal: segue o mesmo ritmo do cronograma (pula dias de pausa, 1 ep/dia nos dias
+  // lentos) — antes espalhava por igual entre início e fim e caía episódio dentro de pausa
+  const kindE = it.watchKind || scheduleKind(it);
+  if ((kindE === 'anim' || kindE === 'live') && it.watchStart !== it.watchEnd) {
+    const rateE = kindE === 'anim' ? 3 : 2;
+    const dd = new Date(start);
+    let cnt = 0, guardE = 0;
+    while (dd <= end && guardE++ < 3660) {
+      if (!isPauseDay(dd)) {
+        const r = isSlowDay(dd) ? 1 : rateE;
+        if (episodeIdx < cnt + r) return fmtDateISO(dd);
+        cnt += r;
+      }
+      dd.setDate(dd.getDate() + 1);
+    }
+    return it.watchEnd;
+  }
   const totalDays = Math.round((end - start) / 86400000) + 1;
   const dayIdx = Math.min(totalDays - 1, Math.floor(episodeIdx * totalDays / totalEps));
   const d = new Date(start);
@@ -5105,18 +5128,18 @@ initCloudSync();
 </script>
 <div class="toast-container" id="toastContainer"></div>
 <div class="marathon-screen" id="marathonScreen"></div>
-<script src="../v40/v40-catalog.js?b=202611022205"></script>
-<script src="../v40/v40-core.js?b=202611022205"></script>
-<script src="../v40/v40-liga.js?b=202611022205"></script>
-<script src="../v40/v40-stats.js?b=202611022205"></script>
-<script src="../v40/v40-fun.js?b=202611022205"></script>
-<script src="../v40/v40-data.js?b=202611022205"></script>
-<script src="../v40/v40-content.js?b=202611022205"></script>
-<script src="../v40/v40-sync.js?b=202611022205"></script>
-<script src="../v40/v40-pedidos.js?b=202611022205"></script>
-<script src="../v40/v40-eps.js?b=202611022205"></script>
-<script src="../v40/v40-guard.js?b=202611022205"></script>
-<script src="../v40/v40-extra.js?b=202611022205"></script>
-<script src="../v40/v40-system.js?b=202611022205"></script>
+<script src="../v40/v40-catalog.js?b=202611022213"></script>
+<script src="../v40/v40-core.js?b=202611022213"></script>
+<script src="../v40/v40-liga.js?b=202611022213"></script>
+<script src="../v40/v40-stats.js?b=202611022213"></script>
+<script src="../v40/v40-fun.js?b=202611022213"></script>
+<script src="../v40/v40-data.js?b=202611022213"></script>
+<script src="../v40/v40-content.js?b=202611022213"></script>
+<script src="../v40/v40-sync.js?b=202611022213"></script>
+<script src="../v40/v40-pedidos.js?b=202611022213"></script>
+<script src="../v40/v40-eps.js?b=202611022213"></script>
+<script src="../v40/v40-guard.js?b=202611022213"></script>
+<script src="../v40/v40-extra.js?b=202611022213"></script>
+<script src="../v40/v40-system.js?b=202611022213"></script>
 </body>
 </html>

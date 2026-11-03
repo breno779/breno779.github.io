@@ -4269,6 +4269,23 @@ function episodeDateFor(it, episodeIdx, totalEps) {
   if (!it.watchStart || !it.watchEnd) return null;
   const start = new Date(it.watchStart + 'T12:00:00');
   const end = new Date(it.watchEnd + 'T12:00:00');
+  // série normal: segue o mesmo ritmo do cronograma (pula dias de pausa, 1 ep/dia nos dias
+  // lentos) — antes espalhava por igual entre início e fim e caía episódio dentro de pausa
+  const kindE = it.watchKind || scheduleKind(it);
+  if ((kindE === 'anim' || kindE === 'live') && it.watchStart !== it.watchEnd) {
+    const rateE = kindE === 'anim' ? 3 : 2;
+    const dd = new Date(start);
+    let cnt = 0, guardE = 0;
+    while (dd <= end && guardE++ < 3660) {
+      if (!isPauseDay(dd)) {
+        const r = isSlowDay(dd) ? 1 : rateE;
+        if (episodeIdx < cnt + r) return fmtDateISO(dd);
+        cnt += r;
+      }
+      dd.setDate(dd.getDate() + 1);
+    }
+    return it.watchEnd;
+  }
   const totalDays = Math.round((end - start) / 86400000) + 1;
   const dayIdx = Math.min(totalDays - 1, Math.floor(episodeIdx * totalDays / totalEps));
   const d = new Date(start);
@@ -4321,6 +4338,7 @@ function isShortItem(text) {
 const PAUSE_WINDOWS = [
   ['2026-10-10', '2026-10-14'],
   ['2026-10-31', '2026-10-31'], // adiado 1 dia (pedido em 01/11): os episódios de 31/10 passam pra 01/11 e tudo anda 1 dia
+  ['2026-12-01', '2026-12-16'], // Maratona Doomsday (pedido em 02/11): a lista para e volta em 17/12, dia da estreia
   ['2027-01-16', '2027-01-23'],
 ];
 function isPauseDay(d) {
