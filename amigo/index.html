@@ -59,7 +59,7 @@ window.V40_APK_VERSION = '40.6';
       var d = new Date();
       var iso = d.getFullYear() + '-' + String(d.getMonth() + 1).padStart(2, '0') + '-' + String(d.getDate()).padStart(2, '0');
       localStorage.setItem('amigo-start', iso);
-      ["ucm-expand-phases-v1", "ucm-fix-2109", "ucm-fix-completedat-v1", "ucm-fix-doomsday-rename-v1", "ucm-fix-doomsday-undo-v1", "ucm-fix-epdone-v2", "ucm-fix-extras-v1", "ucm-fix-full-v5", "ucm-fix-guardioes-trio2-v1", "ucm-fix-k53-text-v1", "ucm-fix-order-v1", "ucm-fix-pace-v3", "ucm-fix-qf2015-order-v1", "ucm-fix-seuamigao-punho-v1", "ucm-fix-slowgta-v1", "ucm-fix-trio1-phases-v1", "ucm-gotg-removed-v1", "ucm-pause-1031-v1", "ucm-rate3-v1", "ucm-trio1-rate-pos43-v1"].forEach(function (f) { localStorage.setItem(f, '1'); });
+      ["ucm-expand-phases-v1", "ucm-fix-2109", "ucm-fix-completedat-v1", "ucm-fix-doomsday-rename-v1", "ucm-fix-doomsday-undo-v1", "ucm-fix-epdone-v2", "ucm-fix-extras-v1", "ucm-fix-full-v5", "ucm-fix-guardioes-trio2-v1", "ucm-fix-k53-text-v1", "ucm-fix-order-v1", "ucm-fix-pace-v3", "ucm-fix-qf2015-order-v1", "ucm-fix-seuamigao-punho-v1", "ucm-fix-slowgta-v1", "ucm-fix-trio1-phases-v1", "ucm-gotg-removed-v1", "ucm-pause-1031-v1", "ucm-rate3-v1", "ucm-skip-aa-t2e19-v1", "ucm-trio1-rate-pos43-v1"].forEach(function (f) { localStorage.setItem(f, '1'); });
       localStorage.setItem('ucm-last-auto-backup', new Date().toISOString());
       window.__amigoFirstRun = true;
     }
@@ -917,7 +917,7 @@ if ('serviceWorker' in navigator) {
     .progress-fill { transition: none; }
   }
 </style>
-<link rel="stylesheet" href="../v40/v40.css?b=202611021643">
+<link rel="stylesheet" href="../v40/v40.css?b=202611022109">
 </head>
 <body>
 <div class="sticky-progress" id="stickyProgress">
@@ -1169,6 +1169,25 @@ const FIXED_DATES = {
   k172: ['2026-12-01', '2026-12-16'],
 };
 // itens que o usuário tirou da lista de vez (somem de qualquer aparelho/sincronização).
+// episódios PULADOS a pedido (índice 0-based dentro do item): contam como vistos (sem nota), não
+// ocupam lugar no cronograma, não entram na Liga dos Episódios e aparecem como "⏭️ pulado".
+// k53 = Vingadores Unidos: T2E19, T2E20, T2E21 (índices 44, 45, 46) — pulados em 02/11/2026.
+const SKIPPED_EPS = { k53: [44, 45, 46] };
+function isSkippedEp(key, e) { return !!(SKIPPED_EPS[key] && SKIPPED_EPS[key].includes(e)); }
+function applySkippedEps() {
+  let changed = false;
+  Object.keys(SKIPPED_EPS).forEach(k => {
+    const it = items.find(i => i.key === k);
+    if (!it || it.done) return;
+    const n = extractEpsCount(it.text) || 0;
+    if (!Array.isArray(it.epDone)) it.epDone = new Array(n).fill(false);
+    SKIPPED_EPS[k].forEach(e => {
+      if (!it.epDone[e]) { it.epDone[e] = true; changed = true; }
+      if (Array.isArray(it.epRatings) && typeof it.epRatings[e] === 'number') { it.epRatings[e] = null; changed = true; }
+    });
+  });
+  return changed;
+}
 const REMOVED_KEYS = ['k168', 'k171', 'k170', 'k173']; // Hulk e os Agentes de S.M.A.S.H.; Vingadores Unidos T5 e Guardiões da Galáxia animado (T1–T2 = k173, T3 = k170) — tirados a pedido em 02/11/2026
 
 function seasonEpLabel(flatIdx, seasonSizes, firstSeason) {
@@ -1889,10 +1908,13 @@ function enforceTrioAnchor() {
   let gotgSplit = false;
   try { gotgSplit = localStorage.getItem('ucm-gotg-removed-v1') === '1'; } catch(e) {}
   const splitNow = ensureGuardiansSplit();
-  const needRate = !rate3 || !pause1031 || stale1031 || !gotgSplit || splitNow;
+  const skipNow = applySkippedEps();
+  let skipFlag = false;
+  try { skipFlag = localStorage.getItem('ucm-skip-aa-t2e19-v1') === '1'; } catch(e) {}
+  const needRate = !rate3 || !pause1031 || stale1031 || !gotgSplit || splitNow || skipNow || !skipFlag;
   if (false) {
     recomputeSchedule(usm.id, AMIGO_START);
-    try { localStorage.setItem('ucm-rate3-v1', '1'); localStorage.setItem('ucm-pause-1031-v1', '1'); localStorage.setItem('ucm-gotg-removed-v1', '1'); } catch(e) {}
+    try { localStorage.setItem('ucm-rate3-v1', '1'); localStorage.setItem('ucm-pause-1031-v1', '1'); localStorage.setItem('ucm-gotg-removed-v1', '1'); localStorage.setItem('ucm-skip-aa-t2e19-v1', '1'); } catch(e) {}
     return true;
   }
   return removed || corrected || rated || cleaned;
@@ -2810,6 +2832,9 @@ function showInterleavedModal(clickedItem) {
     const dateStr = dateIso ? dateIso.split('-').reverse().slice(0,2).join('/') : '';
     const checked = show.epDone[epFlatIdx] ? 'checked' : '';
     const statusClass = epRowStatusClass(dateIso, show.epDone[epFlatIdx]);
+    if (isSkippedEp(show.key, epFlatIdx)) {
+      return `<div class="interleaved-row" style="opacity:.45;"><span style="width:20px;text-align:center;">⏭️</span><span class="iv-num">${i+1}.</span><span class="iv-title" style="text-decoration:line-through;">${escapeHtml(label)}</span><span class="iv-date">pulado</span></div>`;
+    }
     return `<label class="interleaved-row${statusClass}">
       <input type="checkbox" data-show="${showIdx}" data-ep="${epFlatIdx}" ${checked}>
       <span class="iv-num">${i+1}.</span>
@@ -4185,7 +4210,7 @@ document.getElementById('tabLista').classList.add('tab-visible');
 
 // versão do app (acompanha o CACHE_NAME do sw.js): aparece entre parênteses nos botões de
 // recarregar de todas as abas
-const APP_VERSION = 'v40.7.10';
+const APP_VERSION = 'v40.7.11';
 (function () {
   const home = document.getElementById('btnReloadHome');
   if (home) home.textContent = '🔄 Recarregar (' + APP_VERSION + ')';
@@ -4791,8 +4816,14 @@ function tryInterleaveTrio(pending, idx, current, RATE_ANIM, forceAnchor) {
   while (i < totalEps) {
     if (!isPauseDay(dayCursor)) {
       const rate = trioRateFor(fmtDateISO(dayCursor));
-      for (let k = 0; k < rate && i < totalEps; k++, i++) {
-        epDatesPerShow[order[i]].push(fmtDateISO(dayCursor));
+      let k = 0;
+      while (k < rate && i < totalEps) {
+        const sh = order[i];
+        // episódio pulado: fica com a data do dia, mas não ocupa vaga no ritmo
+        const skip = isSkippedEp(cfg.keys[sh], epDatesPerShow[sh].length);
+        epDatesPerShow[sh].push(fmtDateISO(dayCursor));
+        i++;
+        if (!skip) k++;
       }
     }
     dayCursor.setDate(dayCursor.getDate() + 1);
@@ -5050,18 +5081,18 @@ initCloudSync();
 </script>
 <div class="toast-container" id="toastContainer"></div>
 <div class="marathon-screen" id="marathonScreen"></div>
-<script src="../v40/v40-catalog.js?b=202611021643"></script>
-<script src="../v40/v40-core.js?b=202611021643"></script>
-<script src="../v40/v40-liga.js?b=202611021643"></script>
-<script src="../v40/v40-stats.js?b=202611021643"></script>
-<script src="../v40/v40-fun.js?b=202611021643"></script>
-<script src="../v40/v40-data.js?b=202611021643"></script>
-<script src="../v40/v40-content.js?b=202611021643"></script>
-<script src="../v40/v40-sync.js?b=202611021643"></script>
-<script src="../v40/v40-pedidos.js?b=202611021643"></script>
-<script src="../v40/v40-eps.js?b=202611021643"></script>
-<script src="../v40/v40-guard.js?b=202611021643"></script>
-<script src="../v40/v40-extra.js?b=202611021643"></script>
-<script src="../v40/v40-system.js?b=202611021643"></script>
+<script src="../v40/v40-catalog.js?b=202611022109"></script>
+<script src="../v40/v40-core.js?b=202611022109"></script>
+<script src="../v40/v40-liga.js?b=202611022109"></script>
+<script src="../v40/v40-stats.js?b=202611022109"></script>
+<script src="../v40/v40-fun.js?b=202611022109"></script>
+<script src="../v40/v40-data.js?b=202611022109"></script>
+<script src="../v40/v40-content.js?b=202611022109"></script>
+<script src="../v40/v40-sync.js?b=202611022109"></script>
+<script src="../v40/v40-pedidos.js?b=202611022109"></script>
+<script src="../v40/v40-eps.js?b=202611022109"></script>
+<script src="../v40/v40-guard.js?b=202611022109"></script>
+<script src="../v40/v40-extra.js?b=202611022109"></script>
+<script src="../v40/v40-system.js?b=202611022109"></script>
 </body>
 </html>

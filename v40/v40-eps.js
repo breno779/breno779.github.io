@@ -58,7 +58,8 @@
       log = log || getLog();
       for (let e = 0; e < b.length; e++) {
         const was = a[e] === '1', is = b[e] === '1';
-        if (!was && is && !log.some(x => x.k === k && x.e === e)) log.push({ k, e, d: today() });
+        const skipped = typeof isSkippedEp === 'function' && isSkippedEp(k, e);
+        if (!was && is && !skipped && !log.some(x => x.k === k && x.e === e)) log.push({ k, e, d: today() });
         if (was && !is) log = log.filter(x => !(x.k === k && x.e === e && x.d >= START));
       }
     });
@@ -110,6 +111,7 @@
   function epTeam(entry) {
     const it = items.find(i => i.key === entry.k);
     if (!it || !isSerie(it)) return null;
+    if (typeof isSkippedEp === 'function' && isSkippedEp(entry.k, entry.e)) return null; // ⏭️ pulado: não joga
     const base = V40.teamBase ? V40.teamBase(V40.shortName(it)) : V40.shortName(it);
     const pid = 'E:' + entry.k + ':' + entry.e;
     const poster = V40.posterUrl ? V40.posterUrl(it, 'w185') : null;
