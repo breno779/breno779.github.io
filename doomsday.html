@@ -908,7 +908,7 @@ if ('serviceWorker' in navigator) {
     .progress-fill { transition: none; }
   }
 </style>
-<link rel="stylesheet" href="v40/v40.css?b=202611032009">
+<link rel="stylesheet" href="v40/v40.css?b=202611032010">
 </head>
 <body>
 <div class="sticky-progress" id="stickyProgress">
@@ -1940,8 +1940,8 @@ function enforceTrioAnchor() {
   {
     const k53i = items.find(i => i.key === 'k53');
     let v = items.find(i => i.key === 'k174');
-    if (k53i && !v && !trash.some(i => i.key === 'k174')) {
-      const def = DEFAULT_ITEMS.find(d => d.key === 'k174');
+    const def = DEFAULT_ITEMS.find(d => d.key === 'k174');
+    if (def && k53i && !v && !trash.some(i => i.key === 'k174')) {
       v = { id: items.concat(trash).reduce((m, i) => Math.max(m, i.id || 0), 0) + 1, key: 'k174', phase: k53i.phase, text: def.text, done: false, order: (k53i.order ?? 0) + 0.25, watchStart: '2026-11-03', watchEnd: '2026-11-03', watchKind: 'filme' };
       items.push(v); videoNow = true;
     }
@@ -5193,18 +5193,18 @@ initCloudSync();
 </script>
 <div class="toast-container" id="toastContainer"></div>
 <div class="marathon-screen" id="marathonScreen"></div>
-<script src="v40/v40-catalog.js?b=202611032009"></script>
-<script src="v40/v40-core.js?b=202611032009"></script>
-<script src="v40/v40-liga.js?b=202611032009"></script>
-<script src="v40/v40-stats.js?b=202611032009"></script>
-<script src="v40/v40-fun.js?b=202611032009"></script>
-<script src="v40/v40-data.js?b=202611032009"></script>
-<script src="v40/v40-content.js?b=202611032009"></script>
-<script src="v40/v40-sync.js?b=202611032009"></script>
-<script src="v40/v40-pedidos.js?b=202611032009"></script>
-<script src="v40/v40-eps.js?b=202611032009"></script>
-<script src="v40/v40-guard.js?b=202611032009"></script>
-<script src="v40/v40-extra.js?b=202611032009"></script>
-<script src="v40/v40-system.js?b=202611032009"></script>
+<script src="v40/v40-catalog.js?b=202611032010"></script>
+<script src="v40/v40-core.js?b=202611032010"></script>
+<script src="v40/v40-liga.js?b=202611032010"></script>
+<script src="v40/v40-stats.js?b=202611032010"></script>
+<script src="v40/v40-fun.js?b=202611032010"></script>
+<script src="v40/v40-data.js?b=202611032010"></script>
+<script src="v40/v40-content.js?b=202611032010"></script>
+<script src="v40/v40-sync.js?b=202611032010"></script>
+<script src="v40/v40-pedidos.js?b=202611032010"></script>
+<script src="v40/v40-eps.js?b=202611032010"></script>
+<script src="v40/v40-guard.js?b=202611032010"></script>
+<script src="v40/v40-extra.js?b=202611032010"></script>
+<script src="v40/v40-system.js?b=202611032010"></script>
 </body>
 </html>

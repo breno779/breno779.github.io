@@ -1887,8 +1887,8 @@ function enforceTrioAnchor() {
   {
     const k53i = items.find(i => i.key === 'k53');
     let v = items.find(i => i.key === 'k174');
-    if (k53i && !v && !trash.some(i => i.key === 'k174')) {
-      const def = DEFAULT_ITEMS.find(d => d.key === 'k174');
+    const def = DEFAULT_ITEMS.find(d => d.key === 'k174');
+    if (def && k53i && !v && !trash.some(i => i.key === 'k174')) {
       v = { id: items.concat(trash).reduce((m, i) => Math.max(m, i.id || 0), 0) + 1, key: 'k174', phase: k53i.phase, text: def.text, done: false, order: (k53i.order ?? 0) + 0.25, watchStart: '2026-11-03', watchEnd: '2026-11-03', watchKind: 'filme' };
       items.push(v); videoNow = true;
     }
