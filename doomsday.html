@@ -908,7 +908,7 @@ if ('serviceWorker' in navigator) {
     .progress-fill { transition: none; }
   }
 </style>
-<link rel="stylesheet" href="v40/v40.css?b=202611022213">
+<link rel="stylesheet" href="v40/v40.css?b=202611031914">
 </head>
 <body>
 <div class="sticky-progress" id="stickyProgress">
@@ -1147,6 +1147,9 @@ const TRIOS = [
     // 36 episódios seguidos de Ultimate Homem-Aranha primeiro (T1 completa + 10 da T2), depois
     // os 3 entram juntos na intercalação (proporcional ao que sobra de cada um).
     phases: [[36, 0, 0], [68, 104, 52]],
+    // a pedido (03/11/2026): a partir de 04/11 o dia vira 2 de Ultimate + 1 de Vingadores Unidos
+    // (antes era o contrário). Tudo antes de 04/11 continua na ordem de sempre.
+    rebalance: { fromDate: '2026-11-04', pattern: [0, 1, 0] },
   },
   // (2º grupo — Homem-Aranha 2017 + Guardiões T3 + Vingadores Unidos T5 — desfeito: Guardiões e
   // Vingadores T5 saíram da lista; o Homem-Aranha (2017) segue sozinho, como série normal)
@@ -4223,7 +4226,7 @@ document.getElementById('tabLista').classList.add('tab-visible');
 
 // versão do app (acompanha o CACHE_NAME do sw.js): aparece entre parênteses nos botões de
 // recarregar de todas as abas
-const APP_VERSION = 'v40.7.15';
+const APP_VERSION = 'v40.7.16';
 (function () {
   const home = document.getElementById('btnReloadHome');
   if (home) home.textContent = '🔄 Recarregar (' + APP_VERSION + ')';
@@ -4784,6 +4787,39 @@ function weightedInterleave(counts) {
 // séries que ainda não entraram ficam com 0), e as fases são concatenadas em sequência. Sem
 // cfg.phases, cai no comportamento simples (as 3 juntas desde o início, proporcional ao total).
 function computeTrioOrder(cfg) {
+  if (cfg.rebalance) {
+    // ordem de sempre até a data; dali pra frente segue o padrão (ex.: [0,1,0] = Ultimate,
+    // Vingadores, Ultimate por dia). Episódio pulado vai junto sem ocupar vaga no padrão.
+    const rb = cfg.rebalance;
+    const plain = Object.assign({}, cfg, { rebalance: null });
+    const base = computeTrioOrder(plain);
+    const dates = trioDatesFrom(plain, new Date(cfg.forceAnchor + 'T12:00:00')).epDatesPerShow;
+    const cnt = cfg.keys.map(() => 0);
+    let p = base.length;
+    for (let i = 0; i < base.length; i++) {
+      const sh = base[i];
+      if (dates[sh][cnt[sh]] >= rb.fromDate) { p = i; break; }
+      cnt[sh]++;
+    }
+    const total = cfg.seasonSizes.map(z => z.reduce((a, b) => a + b, 0));
+    const next = cnt.slice();
+    const out = base.slice(0, p);
+    const emit = sh => {
+      out.push(sh); next[sh]++;
+      // pulados logo em seguida da mesma série vão juntos (não contam no padrão)
+      while (next[sh] < total[sh] && isSkippedEp(cfg.keys[sh], next[sh])) { out.push(sh); next[sh]++; }
+    };
+    // pulados que estejam bem no começo do trecho
+    cfg.keys.forEach((k, sh) => { while (next[sh] < total[sh] && isSkippedEp(k, next[sh])) { out.push(sh); next[sh]++; } });
+    let guard = 0;
+    while (cfg.keys.some((k, sh) => next[sh] < total[sh]) && guard++ < 10000) {
+      for (const sh of rb.pattern) {
+        if (next[sh] < total[sh]) emit(sh);
+        else { const other = cfg.keys.findIndex((k, j) => next[j] < total[j]); if (other >= 0) emit(other); }
+      }
+    }
+    return out;
+  }
   if (cfg.lateJoin) {
     // ordem de sempre das outras séries; a série "lateJoin" entra só depois do ponto em que as
     // outras chegam nos episódios de "after" (lançamento real), intercalada no que sobra
@@ -5110,18 +5146,18 @@ initCloudSync();
 </script>
 <div class="toast-container" id="toastContainer"></div>
 <div class="marathon-screen" id="marathonScreen"></div>
-<script src="v40/v40-catalog.js?b=202611022213"></script>
-<script src="v40/v40-core.js?b=202611022213"></script>
-<script src="v40/v40-liga.js?b=202611022213"></script>
-<script src="v40/v40-stats.js?b=202611022213"></script>
-<script src="v40/v40-fun.js?b=202611022213"></script>
-<script src="v40/v40-data.js?b=202611022213"></script>
-<script src="v40/v40-content.js?b=202611022213"></script>
-<script src="v40/v40-sync.js?b=202611022213"></script>
-<script src="v40/v40-pedidos.js?b=202611022213"></script>
-<script src="v40/v40-eps.js?b=202611022213"></script>
-<script src="v40/v40-guard.js?b=202611022213"></script>
-<script src="v40/v40-extra.js?b=202611022213"></script>
-<script src="v40/v40-system.js?b=202611022213"></script>
+<script src="v40/v40-catalog.js?b=202611031914"></script>
+<script src="v40/v40-core.js?b=202611031914"></script>
+<script src="v40/v40-liga.js?b=202611031914"></script>
+<script src="v40/v40-stats.js?b=202611031914"></script>
+<script src="v40/v40-fun.js?b=202611031914"></script>
+<script src="v40/v40-data.js?b=202611031914"></script>
+<script src="v40/v40-content.js?b=202611031914"></script>
+<script src="v40/v40-sync.js?b=202611031914"></script>
+<script src="v40/v40-pedidos.js?b=202611031914"></script>
+<script src="v40/v40-eps.js?b=202611031914"></script>
+<script src="v40/v40-guard.js?b=202611031914"></script>
+<script src="v40/v40-extra.js?b=202611031914"></script>
+<script src="v40/v40-system.js?b=202611031914"></script>
 </body>
 </html>
