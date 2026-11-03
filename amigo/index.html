@@ -917,7 +917,7 @@ if ('serviceWorker' in navigator) {
     .progress-fill { transition: none; }
   }
 </style>
-<link rel="stylesheet" href="../v40/v40.css?b=202611032010">
+<link rel="stylesheet" href="../v40/v40.css?b=202611032015">
 </head>
 <body>
 <div class="sticky-progress" id="stickyProgress">
@@ -1943,6 +1943,16 @@ function enforceTrioAnchor() {
   try { gotgSplit = localStorage.getItem('ucm-gotg-removed-v1') === '1'; } catch(e) {}
   const splitNow = ensureGuardiansSplit();
   const skipNow = applySkippedEps();
+  // marcador da Maratona Doomsday (k172, data fixa) fica DEPOIS do Homem-Aranha (2017), que começa
+  // antes da maratona — só a posição na lista muda, nenhuma data (item de data fixa não ocupa dias)
+  {
+    const m172 = items.find(i => i.key === 'k172'), s54 = items.find(i => i.key === 'k54');
+    if (m172 && s54 && m172.phase === s54.phase && (m172.order ?? 0) < (s54.order ?? 0)) {
+      const after = items.filter(i => i.phase === s54.phase && (i.order ?? 0) > (s54.order ?? 0)).map(i => i.order ?? 0);
+      const nxt = after.length ? Math.min(...after) : (s54.order ?? 0) + 1;
+      m172.order = ((s54.order ?? 0) + nxt) / 2;
+    }
+  }
   // vídeo-resumo de Vingadores Unidos (k174): entra logo depois da série, com data fixa
   let videoNow = false;
   {
@@ -4275,7 +4285,7 @@ document.getElementById('tabLista').classList.add('tab-visible');
 
 // versão do app (acompanha o CACHE_NAME do sw.js): aparece entre parênteses nos botões de
 // recarregar de todas as abas
-const APP_VERSION = 'v40.7.19';
+const APP_VERSION = 'v40.7.20';
 (function () {
   const home = document.getElementById('btnReloadHome');
   if (home) home.textContent = '🔄 Recarregar (' + APP_VERSION + ')';
@@ -5211,18 +5221,18 @@ initCloudSync();
 </script>
 <div class="toast-container" id="toastContainer"></div>
 <div class="marathon-screen" id="marathonScreen"></div>
-<script src="../v40/v40-catalog.js?b=202611032010"></script>
-<script src="../v40/v40-core.js?b=202611032010"></script>
-<script src="../v40/v40-liga.js?b=202611032010"></script>
-<script src="../v40/v40-stats.js?b=202611032010"></script>
-<script src="../v40/v40-fun.js?b=202611032010"></script>
-<script src="../v40/v40-data.js?b=202611032010"></script>
-<script src="../v40/v40-content.js?b=202611032010"></script>
-<script src="../v40/v40-sync.js?b=202611032010"></script>
-<script src="../v40/v40-pedidos.js?b=202611032010"></script>
-<script src="../v40/v40-eps.js?b=202611032010"></script>
-<script src="../v40/v40-guard.js?b=202611032010"></script>
-<script src="../v40/v40-extra.js?b=202611032010"></script>
-<script src="../v40/v40-system.js?b=202611032010"></script>
+<script src="../v40/v40-catalog.js?b=202611032015"></script>
+<script src="../v40/v40-core.js?b=202611032015"></script>
+<script src="../v40/v40-liga.js?b=202611032015"></script>
+<script src="../v40/v40-stats.js?b=202611032015"></script>
+<script src="../v40/v40-fun.js?b=202611032015"></script>
+<script src="../v40/v40-data.js?b=202611032015"></script>
+<script src="../v40/v40-content.js?b=202611032015"></script>
+<script src="../v40/v40-sync.js?b=202611032015"></script>
+<script src="../v40/v40-pedidos.js?b=202611032015"></script>
+<script src="../v40/v40-eps.js?b=202611032015"></script>
+<script src="../v40/v40-guard.js?b=202611032015"></script>
+<script src="../v40/v40-extra.js?b=202611032015"></script>
+<script src="../v40/v40-system.js?b=202611032015"></script>
 </body>
 </html>
