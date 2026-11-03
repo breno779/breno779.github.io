@@ -1112,7 +1112,9 @@ const FIXED_DATES = {
 // ocupam lugar no cronograma, não entram na Liga dos Episódios e aparecem como "⏭️ pulado".
 // k53 = Vingadores Unidos: T2E19, T2E20, T2E21 (índices 44, 45, 46) e T3E7, T3E8, T3E14, T3E18,
 // T3E20, T3E21, T3E22 (índices 58, 59, 65, 69, 71, 72, 73) — pulados a pedido em 02/11/2026.
-const SKIPPED_EPS = { k53: [44, 45, 46, 58, 59, 65, 69, 71, 72, 73] };
+// T4 (26 eps contando "...Assemble" como E1): E5 Prison Break, E6 The Incredible Herc, E7 Show Your
+// Work, E8 Sneakers, E9 Why I Hate Halloween, E15 New Year's Resolution (índices 82–86 e 92).
+const SKIPPED_EPS = { k53: [44, 45, 46, 58, 59, 65, 69, 71, 72, 73, 82, 83, 84, 85, 86, 92] };
 function isSkippedEp(key, e) { return !!(SKIPPED_EPS[key] && SKIPPED_EPS[key].includes(e)); }
 function applySkippedEps() {
   let changed = false;
