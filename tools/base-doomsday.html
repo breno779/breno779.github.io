@@ -1146,7 +1146,16 @@ function applySkippedEps() {
   });
   Object.keys(SKIP_REST_FROM).forEach(k => {
     const it = items.find(i => i.key === k);
-    if (!it || it.done) return;
+    if (!it) return;
+    if (it.done) {
+      // marcada como concluída antes da outra série do grupo terminar: isso desfazia o grupo
+      // intercalado e bagunçava as datas (Ultimate virava série solta e o próximo item começava
+      // antes da hora). Volta pra "em andamento" — ela fecha sozinha quando a outra terminar.
+      const cfgD = TRIOS.find(c => c.keys.includes(k));
+      const othersD = cfgD ? cfgD.keys.filter(x => x !== k).map(x => items.find(i => i.key === x)) : [];
+      if (othersD.some(o => o && !o.done)) { it.done = false; delete it.completedAt; changed = true; }
+      else return;
+    }
     const n = extractEpsCount(it.text) || 0;
     if (!Array.isArray(it.epDone)) it.epDone = new Array(n).fill(false);
     for (let e = SKIP_REST_FROM[k]; e < n; e++) if (!it.epDone[e]) { it.epDone[e] = true; changed = true; }
