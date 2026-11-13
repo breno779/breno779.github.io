@@ -134,6 +134,67 @@
     return list;
   }
 
+  // ---------- ⚽ elenco (personagens) pra escalar os times da simulação de futebol ----------
+  // desc: { type: 'ep', it, s, n } (episódio) · { type: 'season', it, season } · { type: 'movie', it }
+  // Devolve nomes de personagens (mais importantes primeiro). TMDB (com a chave do aparelho) dá o
+  // elenco do episódio/filme; sem chave, o TVmaze dá o elenco da série + convidados do episódio.
+  const CASTK = 'v40fut-cast';
+  function castCache() { try { return JSON.parse(localStorage.getItem(CASTK) || '{}') || {}; } catch (e) { return {}; } }
+  function castSave(c) { try { const k = Object.keys(c); if (k.length > 600) k.sort((a, b) => c[a].at - c[b].at).slice(0, k.length - 600).forEach(x => delete c[x]); localStorage.setItem(CASTK, JSON.stringify(c)); } catch (e) {} }
+  const cleanCh = list => {
+    const out = [];
+    (list || []).forEach(x => {
+      let n = String(x || '').replace(/\((voice|uncredited|archive footage|singing voice)[^)]*\)/gi, '').split(/;/)[0].split(/\s+\/\s+/).pop().trim();  // "Peter Parker / Spider-Man" → herói
+      n = n.replace(/^(The )?Voice of /i, '').replace(/\s{2,}/g, ' ');
+      if (n && n.length < 40 && !/^(himself|herself|themselves|additional voices?|various)$/i.test(n) && !out.some(o => o.toLowerCase() === n.toLowerCase())) out.push(n);
+    });
+    return out;
+  };
+  V40.futCast = async function (desc) {
+    const it = desc && desc.it;
+    if (!it || !it.key) return [];
+    const id = [desc.type, it.key, desc.s || desc.season || '', desc.n || ''].join('|');
+    const cache = castCache();
+    if (cache[id] && cache[id].v && cache[id].v.length && (Date.now() - cache[id].at) < 60 * 86400000) return cache[id].v;
+    const c = V40.catOf ? V40.catOf(it) : null;
+    const info = V40.extInfo(it) || {};
+    let names = [];
+    try {
+      if (tmdbKey() && info.tmdbId) {
+        if (desc.type === 'movie' && info.tmdbKind !== 'tv') {
+          const r = await getJSON(tmdbUrl(`/movie/${info.tmdbId}/credits`, { language: 'pt-BR' }), 'tmdb');
+          names = cleanCh((r && r.cast || []).slice(0, 30).map(x => x.character));
+        } else if (desc.type === 'ep') {
+          const r = await getJSON(tmdbUrl(`/tv/${info.tmdbId}/season/${desc.s}/episode/${desc.n}/credits`, { language: 'pt-BR' }), 'tmdb');
+          names = cleanCh([].concat((r && r.cast) || [], (r && r.guest_stars) || []).map(x => x.character));
+        } else if (desc.type === 'season' || desc.type === 'movie') {
+          const sn = typeof desc.season === 'number' ? desc.season : 1;
+          const r = await getJSON(tmdbUrl(`/tv/${info.tmdbId}/season/${sn}/aggregate_credits`, { language: 'pt-BR' }), 'tmdb');
+          names = cleanCh((r && r.cast || []).sort((a, b) => (b.total_episode_count || 0) - (a.total_episode_count || 0)).slice(0, 30).map(x => (x.roles && x.roles[0] && x.roles[0].character) || ''));
+        }
+      }
+    } catch (e) {}
+    if (names.length < 6 && c && desc.type !== 'movie') {
+      try {
+        const show = await tvmazeFindShow([c.en].concat((c.x && c.x.q) || []), c.year);
+        if (show) {
+          const main = cleanCh((await tvmazeCast(show.id)).map(x => x.ch));
+          let guests = [];
+          if (desc.type === 'ep') {
+            const ep = await getJSON(`${TVMAZE}/shows/${show.id}/episodebynumber?season=${desc.s}&number=${desc.n}`, 'tvmaze');
+            if (ep && ep.id) {
+              const g = await getJSON(`${TVMAZE}/episodes/${ep.id}/guestcast`, 'tvmaze');
+              guests = cleanCh((Array.isArray(g) ? g : []).map(x => x.character && x.character.name));
+            }
+          }
+          names = cleanCh(names.concat(main, guests));
+        }
+      } catch (e) {}
+    }
+    if (names.length) { cache[id] = { at: Date.now(), v: names }; castSave(cache); }
+    return names;
+  };
+
   // ---------- um episódio específico (Liga dos Episódios): título + resumo, pt-BR se der ----------
   V40.epDetails = async function (it, sNum, nNum) {
     const c = V40.catOf ? V40.catOf(it) : null;
