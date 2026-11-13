@@ -918,19 +918,22 @@
     if (!ed) return;
     const first = libSolve(ed).games.find(g => !g.done && g.a && g.b);
     if (!first) return;
-    let n = 0, guardN = 0;
+    let n = 0, guardN = 0, lastOne = null;
     while (guardN++ < 200) {
       ed = V40.get(LIB_KEY, null);
       const cur = libSolve(ed).games.find(g => !g.done && g.a && g.b);
       if (!cur || (n > 0 && (!all || cur.phase !== first.phase))) break;
       const A = byP[cur.a], B = byP[cur.b];
       const [la, lb] = await V40.futPrepare(cur.a, V40.teamCastDesc(A), cur.b, V40.teamCastDesc(B));
-      libPick(cur.key, null, V40.futSim(A ? V40.teamStrength(A) : null, B ? V40.teamStrength(B) : null, !cur.draw, la, lb), true);
+      const sm = V40.futSim(A ? V40.teamStrength(A) : null, B ? V40.teamStrength(B) : null, !cur.draw, la, lb);
+      libPick(cur.key, null, sm, true);
+      lastOne = { sm, A, B };
       n++;
     }
     V40.sound('tick');
     if (n > 1) V40.toast(`⚽ ${n} jogos simulados.`);
     V40.renderLiga();
+    if (!all && lastOne && lastOne.A && lastOne.B) V40.futWatch(lastOne.sm, lastOne.A, lastOne.B);
   }
   function libUndo() {
     const ed = V40.get(LIB_KEY, null);
@@ -970,7 +973,9 @@
       const A = teams.find(x => x.pid === sim1.dataset.ta), B = teams.find(x => x.pid === sim1.dataset.tb);
       if (!A || !B) return;
       busy(sim1);
-      l4Result(A.pid, B.pid, null, await simMatch(A, B, false));
+      const sm = await simMatch(A, B, false);
+      l4Result(A.pid, B.pid, null, sm);
+      V40.futWatch(sm, A, B);
     });
     const simD = document.getElementById('v40L4SimDay');
     if (simD) simD.addEventListener('click', async () => {

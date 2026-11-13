@@ -720,3 +720,17 @@ body.v40-compact .item:not(.v40-open) .v40-sbar-track { height: 6px; }
 .v40-fut-lu { margin-top: 8px; font-size: 0.74rem; }
 .v40-fut-lu > div { margin-top: 6px; }
 .v40-fut-sc { display: block; font-family: 'JetBrains Mono', monospace; font-size: 0.66rem; color: var(--gold, #e8b84a); text-align: center; }
+
+/* v40.8 — 📺 jogo animado (campinho de botão) */
+.v40-fw { display: flex; flex-direction: column; align-items: center; gap: 6px; }
+.v40-fw canvas { border-radius: 10px; box-shadow: 0 6px 24px rgba(0,0,0,.4); max-width: 100%; }
+.v40-fw-hud { display: grid; grid-template-columns: 1fr auto 1fr; gap: 10px; width: 100%; align-items: center; font-weight: 700; font-size: .85rem; }
+.v40-fw-hud .t.a { text-align: right; color: #ff6b6b; }
+.v40-fw-hud .t.b { color: #7aa2ff; }
+.v40-fw-hud b { font-family: 'JetBrains Mono', monospace; font-size: 1.7rem; color: var(--gold, #e8b84a); }
+.v40-fw-clock { font-family: 'JetBrains Mono', monospace; font-size: .9rem; }
+.v40-fw-feed { width: 100%; min-height: 4.6em; font-size: .78rem; display: flex; flex-direction: column; gap: 2px; }
+.v40-fw-feed div:first-child { font-weight: 700; }
+.v40-fw-ctl { display: flex; gap: 6px; flex-wrap: wrap; justify-content: center; }
+.v40-fw-ctl button.on { outline: 2px solid var(--gold, #e8b84a); }
+.v40-fut-watch { margin-top: 4px; }

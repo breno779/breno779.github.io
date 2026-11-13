@@ -396,9 +396,11 @@
       const A = wk.teams.find(t => t.pid === es.dataset.ta), B = wk.teams.find(t => t.pid === es.dataset.tb);
       if (!A || !B) return;
       busy(es);
-      epRecord(wk.w, A.pid, B.pid, null, await epSimMatch(A, B, false));
+      const sm = await epSimMatch(A, B, false);
+      epRecord(wk.w, A.pid, B.pid, null, sm);
       V40.sound && V40.sound('tick');
       V40.renderLiga();
+      V40.futWatch(sm, A, B);
     });
     const ew = document.getElementById('v40EpSimWeek');
     if (ew) ew.addEventListener('click', async () => {
@@ -431,10 +433,10 @@
       const S = copaSolve(ed2);
       if (S.champion && !ed2.champion) { ed2.champion = S.champion; V40.confetti && V40.confetti(true); V40.sound && V40.sound('trophy'); }
       V40.set(COPA, ed2);
-      return true;
+      return { sm: sim, A, B };
     };
     const cs1 = document.getElementById('v40EpCopaSim');
-    if (cs1) cs1.addEventListener('click', async () => { if (!V40.guard()) return; busy(cs1); await copaSimOne(); V40.renderLiga(); });
+    if (cs1) cs1.addEventListener('click', async () => { if (!V40.guard()) return; busy(cs1); const r = await copaSimOne(); V40.renderLiga(); if (r) V40.futWatch(r.sm, r.A, r.B); });
     const csa = document.getElementById('v40EpCopaSimAll');
     if (csa) csa.addEventListener('click', async () => { if (!V40.guard()) return; busy(csa); let g = 0; while (g++ < 100 && await copaSimOne()) {} V40.renderLiga(); });
     const cs = document.getElementById('v40EpCopaStart');
