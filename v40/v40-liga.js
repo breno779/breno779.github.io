@@ -635,6 +635,7 @@
         </div>
         <div class="v40-fut-btns">
           <button class="v40-primary" id="v40L4Sim" data-ta="${V40.esc(m[0].pid)}" data-tb="${V40.esc(m[1].pid)}">▶️ Simular jogo</button>
+          <button id="v40L4SimQ" data-ta="${V40.esc(m[0].pid)}" data-tb="${V40.esc(m[1].pid)}">⚡ Direto pro resultado</button>
           ${daily.left > 1 ? `<button id="v40L4SimDay">⏩ Simular os ${daily.left} jogos de hoje</button>` : ''}
         </div>
         <div style="display:flex;gap:8px;margin-top:10px;flex-wrap:wrap;">
@@ -855,7 +856,7 @@
           ${cur.draw ? `<button class="v40-l4-draw" data-lib="${cur.key}" data-side="d">=</button>` : '<div class="v40-vs">VS</div>'}
           ${teamCard(B, `data-lib="${cur.key}" data-side="b"`)}
         </div>
-        <div class="v40-fut-btns"><button class="v40-primary" id="v40LibSim">▶️ Simular jogo</button><button id="v40LibSimPhase">⏩ Simular ${cur.phase === 'grupos' ? 'a fase de grupos' : 'a fase'} inteira</button></div></div>`;
+        <div class="v40-fut-btns"><button class="v40-primary" id="v40LibSim">▶️ Simular jogo</button><button id="v40LibSimQ">⚡ Direto pro resultado</button><button id="v40LibSimPhase">⏩ Simular ${cur.phase === 'grupos' ? 'a fase de grupos' : 'a fase'} inteira</button></div></div>`;
     }
     const seedTag = pid => { const k = ed.seeds.indexOf(pid); return k >= 0 ? `<small class="v40-muted">${k + 1}º</small> ` : ''; };
     const groupsHtml = S.groups ? `<div class="stat-card"><h4>🗂 Fase de grupos</h4><div class="v40-lib-groups">${S.groups.map(gr => `
@@ -909,7 +910,7 @@
     if (!quiet) V40.renderLiga();
   }
   // ⚽ simula o jogo atual da Copa do Infinito (ou a fase inteira)
-  async function libSim(all, btn) {
+  async function libSim(all, btn, noWatch) {
     if (!V40.guard()) return;
     const teams = V40.ligaTeams();
     const byP = {}; teams.forEach(t => { byP[t.pid] = t; });
@@ -933,7 +934,7 @@
     V40.sound('tick');
     if (n > 1) V40.toast(`⚽ ${n} jogos simulados.`);
     V40.renderLiga();
-    if (!all && lastOne && lastOne.A && lastOne.B) V40.futWatch(lastOne.sm, lastOne.A, lastOne.B);
+    if (!all && !noWatch && lastOne && lastOne.A && lastOne.B) V40.futWatch(lastOne.sm, lastOne.A, lastOne.B);
   }
   function libUndo() {
     const ed = V40.get(LIB_KEY, null);
@@ -966,16 +967,18 @@
     };
     V40._simMatch = simMatch;
     const busy = btn => { btn.disabled = true; btn.textContent = '⏳ Escalando os times…'; };
-    const sim1 = document.getElementById('v40L4Sim');
-    if (sim1) sim1.addEventListener('click', async () => {
-      if (!V40.guard()) return;
-      const teams = V40.ligaTeams();
-      const A = teams.find(x => x.pid === sim1.dataset.ta), B = teams.find(x => x.pid === sim1.dataset.tb);
-      if (!A || !B) return;
-      busy(sim1);
-      const sm = await simMatch(A, B, false);
-      l4Result(A.pid, B.pid, null, sm);
-      V40.futWatch(sm, A, B);
+    [['v40L4Sim', true], ['v40L4SimQ', false]].forEach(([id, watch]) => {
+      const sim1 = document.getElementById(id);
+      if (sim1) sim1.addEventListener('click', async () => {
+        if (!V40.guard()) return;
+        const teams = V40.ligaTeams();
+        const A = teams.find(x => x.pid === sim1.dataset.ta), B = teams.find(x => x.pid === sim1.dataset.tb);
+        if (!A || !B) return;
+        busy(sim1);
+        const sm = await simMatch(A, B, false);
+        l4Result(A.pid, B.pid, null, sm);
+        if (watch) V40.futWatch(sm, A, B);
+      });
     });
     const simD = document.getElementById('v40L4SimDay');
     if (simD) simD.addEventListener('click', async () => {
@@ -1012,6 +1015,7 @@
       V40.renderLiga();
     });
     const lsim = document.getElementById('v40LibSim'); if (lsim) lsim.addEventListener('click', () => libSim(false, lsim));
+    const lsq = document.getElementById('v40LibSimQ'); if (lsq) lsq.addEventListener('click', () => libSim(false, lsq, true));
     const lsp = document.getElementById('v40LibSimPhase'); if (lsp) lsp.addEventListener('click', () => libSim(true, lsp));
     const lu = document.getElementById('v40LibUndo'); if (lu) lu.addEventListener('click', libUndo);
     const lr = document.getElementById('v40LibReset');

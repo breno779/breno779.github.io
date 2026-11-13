@@ -350,7 +350,7 @@
         <div class="v40-l4-match">${card(m[0], `data-ep="a" data-ta="${m[0].pid}" data-tb="${m[1].pid}" data-w="${wk.w}"`)}
           <button class="v40-l4-draw" data-ep="d" data-ta="${m[0].pid}" data-tb="${m[1].pid}" data-w="${wk.w}">=</button>
           ${card(m[1], `data-ep="b" data-ta="${m[0].pid}" data-tb="${m[1].pid}" data-w="${wk.w}"`)}</div>
-        <div class="v40-fut-btns"><button class="v40-primary" id="v40EpSim" data-ta="${m[0].pid}" data-tb="${m[1].pid}" data-w="${wk.w}">▶️ Simular jogo</button>${s.total - s.played > 1 ? `<button id="v40EpSimWeek" data-w="${wk.w}">⏩ Simular os ${s.total - s.played} jogos da semana</button>` : ''}</div>
+        <div class="v40-fut-btns"><button class="v40-primary" id="v40EpSim" data-ta="${m[0].pid}" data-tb="${m[1].pid}" data-w="${wk.w}">▶️ Simular jogo</button><button id="v40EpSimQ" data-ta="${m[0].pid}" data-tb="${m[1].pid}" data-w="${wk.w}">⚡ Direto pro resultado</button>${s.total - s.played > 1 ? `<button id="v40EpSimWeek" data-w="${wk.w}">⏩ Simular os ${s.total - s.played} jogos da semana</button>` : ''}</div>
         <div style="display:flex;gap:8px;margin-top:10px;"><button id="v40EpUndo" data-w="${wk.w}" ${st.log.length ? '' : 'disabled'}>↺ Desfazer último</button></div>
       </div>` : `<div class="stat-card"><h4>⚽ Semana ${fmtW(wk.w)}</h4>${st.lastSim && st.res[st.lastSim.k] ? (() => { const bw = {}; wk.teams.forEach(t => { bw[t.pid] = t; }); const A = bw[st.lastSim.a], B = bw[st.lastSim.b]; return A && B ? `<div class="v40-narr">📣 ${V40.esc(V40.futNarr(st.lastSim.s, A, B))}</div>${V40.futBoardHtml(st.lastSim.s, A, B)}` : ''; })() : ''}<p>${s.total ? '✅ Todos os jogos desta semana foram disputados.' : 'Só 1 episódio nesta semana até agora — os jogos aparecem quando tiver 2 ou mais.'}${!s.closed && s.total ? ' O campeão sai quando a semana acabar (domingo).' : ''}</p></div>`;
     const table = `<div class="stat-card"><h4>📋 Tabela da semana ${fmtW(wk.w)} ${s.closed ? '· encerrada' : ''}</h4>${tableRows(s)}</div>`;
@@ -370,7 +370,7 @@
       copa = `<div class="stat-card"><h4>🏆 Copa dos Campeões</h4>
         ${S.champion ? `<div class="v40-ko-champ" style="padding:10px;border-radius:10px;"><div class="v40-champ-crown">👑</div><div class="v40-muted">MELHOR EPISÓDIO</div><div class="v40-big">${nm(S.champion)}</div></div>` : ''}
         ${ed.lastSim && ed.res[ed.lastSim.key] && all[ed.lastSim.a] && all[ed.lastSim.b] ? `<div class="v40-narr">📣 ${V40.esc(V40.futNarr(ed.lastSim.s, all[ed.lastSim.a], all[ed.lastSim.b]))}</div>${V40.futBoardHtml(ed.lastSim.s, all[ed.lastSim.a], all[ed.lastSim.b])}` : ''}
-        ${cur ? `<div class="v40-fut-btns"><button class="v40-primary" id="v40EpCopaSim">▶️ Simular jogo</button><button id="v40EpCopaSimAll">⏩ Simular a Copa até o fim</button></div><p><b>${cur.label}</b> — simule ou toque no vencedor:</p><div class="v40-l4-match">${card(all[cur.a] || { name: '?', icon: '❔', d: '' }, `data-epk="${cur.key}" data-side="a"`)}<div class="v40-vs">VS</div>${card(all[cur.b] || { name: '?', icon: '❔', d: '' }, `data-epk="${cur.key}" data-side="b"`)}</div>` : ''}
+        ${cur ? `<div class="v40-fut-btns"><button class="v40-primary" id="v40EpCopaSim">▶️ Simular jogo</button><button id="v40EpCopaSimQ">⚡ Direto pro resultado</button><button id="v40EpCopaSimAll">⏩ Simular a Copa até o fim</button></div><p><b>${cur.label}</b> — simule ou toque no vencedor:</p><div class="v40-l4-match">${card(all[cur.a] || { name: '?', icon: '❔', d: '' }, `data-epk="${cur.key}" data-side="a"`)}<div class="v40-vs">VS</div>${card(all[cur.b] || { name: '?', icon: '❔', d: '' }, `data-epk="${cur.key}" data-side="b"`)}</div>` : ''}
         <div class="v40-ko-bracket" style="margin-top:8px;">${[...new Set(S.games.map(g => g.size))].map(sz => `<div class="v40-ko-round"><div class="v40-ko-rname">${roundName(sz)}</div>${S.games.filter(g => g.size === sz).map(g => `<div class="v40-ko-m">${(ed.score || {})[g.key] ? `<small class="v40-fut-sc">${V40.futTxt(ed.score[g.key])}</small>` : ''}<span class="${g.done && g.w && g.w === g.a ? 'win' : (g.played ? 'lose' : '')}">${g.a === undefined ? '<i class="v40-muted">a definir</i>' : nm(g.a)}</span><span class="${g.done && g.w && g.w === g.b ? 'win' : (g.played ? 'lose' : '')}">${g.b === undefined ? '<i class="v40-muted">a definir</i>' : nm(g.b)}</span></div>`).join('')}</div>`).join('')}</div>
         <div style="display:flex;gap:8px;margin-top:8px;"><button id="v40EpCopaUndo" ${ed.log.length ? '' : 'disabled'}>↺ Desfazer</button><button id="v40EpCopaReset" class="v40-danger">🔄 Recomeçar</button></div></div>`;
     }
@@ -389,7 +389,8 @@
     const u = document.getElementById('v40EpUndo');
     if (u) u.addEventListener('click', () => { const st = wres(u.dataset.w); const k = st.log.pop(); if (k) { delete st.res[k]; if (st.score) delete st.score[k]; st.lastSim = null; saveW(u.dataset.w, st); V40.renderLiga(); } });
     const busy = btn => { btn.disabled = true; btn.textContent = '⏳ Escalando os times…'; };
-    const es = document.getElementById('v40EpSim');
+    [['v40EpSim', true], ['v40EpSimQ', false]].forEach(([id, watch]) => {
+    const es = document.getElementById(id);
     if (es) es.addEventListener('click', async () => {
       if (!V40.guard()) return;
       const wk = V40.epsWeeks().find(x => x.w === es.dataset.w); if (!wk) return;
@@ -400,7 +401,8 @@
       epRecord(wk.w, A.pid, B.pid, null, sm);
       V40.sound && V40.sound('tick');
       V40.renderLiga();
-      V40.futWatch(sm, A, B);
+      if (watch) V40.futWatch(sm, A, B);
+    });
     });
     const ew = document.getElementById('v40EpSimWeek');
     if (ew) ew.addEventListener('click', async () => {
@@ -437,6 +439,8 @@
     };
     const cs1 = document.getElementById('v40EpCopaSim');
     if (cs1) cs1.addEventListener('click', async () => { if (!V40.guard()) return; busy(cs1); const r = await copaSimOne(); V40.renderLiga(); if (r) V40.futWatch(r.sm, r.A, r.B); });
+    const csq = document.getElementById('v40EpCopaSimQ');
+    if (csq) csq.addEventListener('click', async () => { if (!V40.guard()) return; busy(csq); await copaSimOne(); V40.renderLiga(); });
     const csa = document.getElementById('v40EpCopaSimAll');
     if (csa) csa.addEventListener('click', async () => { if (!V40.guard()) return; busy(csa); let g = 0; while (g++ < 100 && await copaSimOne()) {} V40.renderLiga(); });
     const cs = document.getElementById('v40EpCopaStart');
