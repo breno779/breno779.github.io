@@ -155,7 +155,7 @@
     if (!it || !it.key) return [];
     const id = [desc.type, it.key, desc.s || desc.season || '', desc.n || ''].join('|');
     const cache = castCache();
-    if (cache[id] && cache[id].v && cache[id].v.length && (Date.now() - cache[id].at) < 60 * 86400000) return cache[id].v;
+    if (cache[id] && cache[id].v && (Date.now() - cache[id].at) < (cache[id].v.length ? 60 : 1) * 86400000) return cache[id].v;
     const c = V40.catOf ? V40.catOf(it) : null;
     const info = V40.extInfo(it) || {};
     let names = [];
@@ -191,7 +191,7 @@
         }
       } catch (e) {}
     }
-    if (names.length) { cache[id] = { at: Date.now(), v: names }; castSave(cache); }
+    if (names.length || navigator.onLine) { cache[id] = { at: Date.now(), v: names }; castSave(cache); }  // vazio fica guardado 1 dia (não trava cada jogo esperando a rede)
     return names;
   };
 

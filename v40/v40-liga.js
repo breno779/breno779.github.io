@@ -470,8 +470,9 @@
       const ks = k.split('§')[0] === aPid ? sim : V40.futFlip(sim);
       st.score[k] = V40.futPack(ks);
       st.lastSim = { k, a: aPid, b: bPid, s: sim };
+      V40.futStore('l4|' + k, sim, aPid, bPid);
       r = sim.w;
-    } else { delete st.score[k]; st.lastSim = null; }
+    } else { delete st.score[k]; st.lastSim = null; V40.futForget('l4|' + k); }
     // r é do ponto de vista do botão: 'a' = venceu aPid, 'b' = venceu bPid, 'd' = empate
     let val = 'd';
     if (r !== 'd') { const winner = r === 'a' ? aPid : bPid; val = k.split('§')[0] === winner ? 'a' : 'b'; }
@@ -612,7 +613,7 @@
       const r = st.res[k];
       const sc = (st.score || {})[k];
       const res = (sc ? `<b>${V40.futTxt(sc)}</b> · ` : '') + (r === 'd' ? 'empate' : (r === 'a' ? 'venceu ' + V40.esc(A.name) : 'venceu ' + V40.esc(B.name)));
-      return `<div class="v40-row"><span style="flex:1">${V40.isClassic(A, B) ? `<small class="v40-classic-tag" style="--c1:${A.franchise.c[0]};--c2:${A.franchise.c[1]}">${A.franchise.emoji} clássico</small> ` : ''}${A.icon} ${V40.esc(A.name)} <b>×</b> ${B.icon} ${V40.esc(B.name)}<br><small class="v40-muted">${res}</small></span></div>`;
+      return `<div class="v40-row"><span style="flex:1">${V40.isClassic(A, B) ? `<small class="v40-classic-tag" style="--c1:${A.franchise.c[0]};--c2:${A.franchise.c[1]}">${A.franchise.emoji} clássico</small> ` : ''}${A.icon} ${V40.esc(A.name)} <b>×</b> ${B.icon} ${V40.esc(B.name)}<br><small class="v40-muted">${res}</small></span>${V40.futReplayBtn('l4|' + k, k.split('§')[0] === A.pid ? A : B, k.split('§')[0] === A.pid ? B : A, sc, r)}</div>`;
     }).join('');
     const extraHtml = tieTitle ? `<div class="stat-card v40-champ-card"><h4>🏆 Jogo extra pelo título</h4>
         <p class="v40-muted">O campeonato acabou com ${tieTitle.length} times empatados em tudo na liderança. ${tieTitle.length === 2 ? 'Toque no campeão (sem empate):' : 'Escolha o campeão:'}</p>
@@ -625,7 +626,7 @@
     return `${extraHtml}
       <div class="stat-card">
         <h4>⚽ Jogo ${Math.min(prog.played + 1, prog.total)} de ${prog.total}</h4>
-        ${narr}${finished ? '' : dailyBar}
+        ${st.narr ? `<div class="v40-narr">📣 ${V40.esc(st.narr)}</div>` : ''}${finished ? '' : dailyBar}
         ${!m && !finished && teams.length >= 2 ? `<div class="v40-daydone">✅ <b>Rodada de hoje completa!</b><br><span class="v40-muted">Limite de hoje: ${daily.size} jogos (1 rodada${daily.size > daily.rodada ? ', ou mais pra acabar junto com a lista' : ''}). Volta amanhã.</span></div><button id="v40L4Undo" ${st.log.length ? '' : 'disabled'}>↺ Desfazer último</button>` : ''}
         ${m ? `${V40.isClassic(m[0], m[1]) ? classicBanner(m[0].franchise) : ''}<p class="v40-muted" style="margin-top:-4px;">▶️ Simule o jogo (a nota é a força de cada time), ou decida na mão: toque no vencedor ou no = pra empate.</p>
         <div class="v40-l4-match${V40.isClassic(m[0], m[1]) ? ' classic' : ''}" ${V40.isClassic(m[0], m[1]) ? `style="--c1:${m[0].franchise.c[0]};--c2:${m[0].franchise.c[1]}"` : ''}>
@@ -641,7 +642,7 @@
         <div style="display:flex;gap:8px;margin-top:10px;flex-wrap:wrap;">
           <button id="v40L4Skip" data-k="${V40.esc(pairKey(m[0].pid, m[1].pid))}">⏭ Pular este jogo</button>
           <button id="v40L4Undo" ${st.log.length ? '' : 'disabled'}>↺ Desfazer último</button>
-        </div>` : (teams.length < 2 ? '<p>Precisa de pelo menos 2 times em campo.</p>' : !finished ? '' : `<p>🎉 Todos os jogos foram disputados! Hora da <button class="v40-link" data-goto="mata">♾️ Copa do Infinito ›</button></p><button id="v40L4Undo" ${st.log.length ? '' : 'disabled'}>↺ Desfazer último</button>`)}
+        </div>${ls ? `<details class="v40-help" style="margin-top:10px;"><summary>⚽ Último jogo (placar e gols)</summary>${ls}</details>` : ''}` : (teams.length < 2 ? '<p>Precisa de pelo menos 2 times em campo.</p>' : !finished ? '' : `<p>🎉 Todos os jogos foram disputados! Hora da <button class="v40-link" data-goto="mata">♾️ Copa do Infinito ›</button></p><button id="v40L4Undo" ${st.log.length ? '' : 'disabled'}>↺ Desfazer último</button>`)}
         <div class="v40-l4-bar" style="margin-top:10px;"><i style="width:${prog.played / Math.max(1, prog.total) * 100}%"></i></div>
         <p class="v40-muted">Rodada ${prog.rodada} · ${prog.n} times · cada time enfrenta todos os outros uma vez. Quem jogou menos entra em campo primeiro. Limite por dia: 1 rodada (metade dos times), ou o necessário pra acabar junto com a lista. Time novo (temporada ou filme que você concluir) entra com 0 pontos e os jogos dele vão aparecendo.</p>
       </div>
@@ -868,7 +869,7 @@
     const bracket = phases.map(ph => {
       const gs = koGames.filter(g => g.phase === ph);
       return `<div class="v40-ko-round"><div class="v40-ko-rname">${koRoundName(gs[0].size)}</div>${gs.map(m => `
-        <div class="v40-ko-m">${(ed.score || {})[m.key] ? `<small class="v40-fut-sc">${V40.futTxt(ed.score[m.key])}</small>` : ''}<span class="${m.done && m.w && m.w === m.a ? 'win' : (m.played ? 'lose' : '')}">${m.a === undefined ? '<i class="v40-muted">a definir</i>' : seedTag(m.a) + nm(m.a)}</span>
+        <div class="v40-ko-m">${(ed.score || {})[m.key] || (m.played && m.a && m.b) ? `<small class="v40-fut-sc">${(ed.score || {})[m.key] ? V40.futTxt(ed.score[m.key]) : ''} ${by[m.a] && by[m.b] ? V40.futReplayBtn('lib|' + m.key, by[m.a], by[m.b], (ed.score || {})[m.key], m.w === m.a ? 'a' : m.w === m.b ? 'b' : 'd') : ''}</small>` : ''}<span class="${m.done && m.w && m.w === m.a ? 'win' : (m.played ? 'lose' : '')}">${m.a === undefined ? '<i class="v40-muted">a definir</i>' : seedTag(m.a) + nm(m.a)}</span>
         <span class="${m.done && m.w && m.w === m.b ? 'win' : (m.played ? 'lose' : '')}">${m.b === undefined ? '<i class="v40-muted">a definir</i>' : seedTag(m.b) + nm(m.b)}</span></div>`).join('')}</div>`;
     }).join('');
     return `${stage}${groupsHtml}
@@ -928,6 +929,7 @@
       const [la, lb] = await V40.futPrepare(cur.a, V40.teamCastDesc(A), cur.b, V40.teamCastDesc(B));
       const sm = V40.futSim(A ? V40.teamStrength(A) : null, B ? V40.teamStrength(B) : null, !cur.draw, la, lb);
       libPick(cur.key, null, sm, true);
+      V40.futStore('lib|' + cur.key, sm, cur.a, cur.b);
       lastOne = { sm, A, B };
       n++;
     }

@@ -734,3 +734,6 @@ body.v40-compact .item:not(.v40-open) .v40-sbar-track { height: 6px; }
 .v40-fw-ctl { display: flex; gap: 6px; flex-wrap: wrap; justify-content: center; }
 .v40-fw-ctl button.on { outline: 2px solid var(--gold, #e8b84a); }
 .v40-fut-watch { margin-top: 4px; }
+
+/* v40.8.2 — 📺 rever qualquer jogo */
+.v40-fut-watch.sm { padding: 2px 8px; font-size: .85rem; margin-left: 6px; flex: 0 0 auto; align-self: center; }

@@ -300,7 +300,7 @@
       if (!A || !B) return '';
       const cls = x => v === 'd' ? '' : ((v === 'a') === (x === 'a') ? 'style="font-weight:800;color:var(--gold,#e8b84a)"' : 'style="opacity:.6"');
       const sc = (st.score || {})[k];
-      return `<div class="v40-row" style="font-size:.8rem;"><span style="width:2.2em" class="v40-muted">${i + 1}.</span><span style="flex:1" ${cls('a')}>${V40.esc(A.name)}${nota(A)}</span><b style="margin:0 6px">${sc ? V40.futTxt(sc) : (v === 'd' ? '=' : (v === 'a' ? '✓ ×' : '× ✓'))}</b><span style="flex:1;text-align:right" ${cls('b')}>${V40.esc(B.name)}${nota(B)}</span></div>`;
+      return `<div class="v40-row" style="font-size:.8rem;"><span style="width:2.2em" class="v40-muted">${i + 1}.</span><span style="flex:1" ${cls('a')}>${V40.esc(A.name)}${nota(A)}</span><b style="margin:0 6px">${sc ? V40.futTxt(sc) : (v === 'd' ? '=' : (v === 'a' ? '✓ ×' : '× ✓'))}</b><span style="flex:1;text-align:right" ${cls('b')}>${V40.esc(B.name)}${nota(B)}</span>${V40.futReplayBtn('ep|' + w + '|' + k, A, B, sc, v)}</div>`;
     }).join('');
     V40.modal(`<h3>🗓 Semana ${fmtW(w)}</h3>
       ${s.champion ? `<p>👑 Campeão: <b>${s.champion.icon} ${V40.esc(s.champion.name)}</b> · ${s.champion.P} pts</p>` : `<p class="v40-muted">${s.closed ? 'Semana encerrada.' : 'Semana ainda com jogos pendentes.'}</p>`}
@@ -323,7 +323,8 @@
       r = sim.w;
       st.score[k] = V40.futPack(k.split('§')[0] === a ? sim : V40.futFlip(sim));
       st.lastSim = { k, a, b: c, s: sim };
-    } else { delete st.score[k]; st.lastSim = null; }
+      V40.futStore('ep|' + w + '|' + k, sim, a, c);
+    } else { delete st.score[k]; st.lastSim = null; V40.futForget('ep|' + w + '|' + k); }
     let val = 'd';
     if (r !== 'd') { const winner = r === 'a' ? a : c; val = k.split('§')[0] === winner ? 'a' : 'b'; }
     st.res[k] = val; st.log.push(k);
@@ -371,7 +372,7 @@
         ${S.champion ? `<div class="v40-ko-champ" style="padding:10px;border-radius:10px;"><div class="v40-champ-crown">👑</div><div class="v40-muted">MELHOR EPISÓDIO</div><div class="v40-big">${nm(S.champion)}</div></div>` : ''}
         ${ed.lastSim && ed.res[ed.lastSim.key] && all[ed.lastSim.a] && all[ed.lastSim.b] ? `<div class="v40-narr">📣 ${V40.esc(V40.futNarr(ed.lastSim.s, all[ed.lastSim.a], all[ed.lastSim.b]))}</div>${V40.futBoardHtml(ed.lastSim.s, all[ed.lastSim.a], all[ed.lastSim.b])}` : ''}
         ${cur ? `<div class="v40-fut-btns"><button class="v40-primary" id="v40EpCopaSim">▶️ Simular jogo</button><button id="v40EpCopaSimQ">⚡ Direto pro resultado</button><button id="v40EpCopaSimAll">⏩ Simular a Copa até o fim</button></div><p><b>${cur.label}</b> — simule ou toque no vencedor:</p><div class="v40-l4-match">${card(all[cur.a] || { name: '?', icon: '❔', d: '' }, `data-epk="${cur.key}" data-side="a"`)}<div class="v40-vs">VS</div>${card(all[cur.b] || { name: '?', icon: '❔', d: '' }, `data-epk="${cur.key}" data-side="b"`)}</div>` : ''}
-        <div class="v40-ko-bracket" style="margin-top:8px;">${[...new Set(S.games.map(g => g.size))].map(sz => `<div class="v40-ko-round"><div class="v40-ko-rname">${roundName(sz)}</div>${S.games.filter(g => g.size === sz).map(g => `<div class="v40-ko-m">${(ed.score || {})[g.key] ? `<small class="v40-fut-sc">${V40.futTxt(ed.score[g.key])}</small>` : ''}<span class="${g.done && g.w && g.w === g.a ? 'win' : (g.played ? 'lose' : '')}">${g.a === undefined ? '<i class="v40-muted">a definir</i>' : nm(g.a)}</span><span class="${g.done && g.w && g.w === g.b ? 'win' : (g.played ? 'lose' : '')}">${g.b === undefined ? '<i class="v40-muted">a definir</i>' : nm(g.b)}</span></div>`).join('')}</div>`).join('')}</div>
+        <div class="v40-ko-bracket" style="margin-top:8px;">${[...new Set(S.games.map(g => g.size))].map(sz => `<div class="v40-ko-round"><div class="v40-ko-rname">${roundName(sz)}</div>${S.games.filter(g => g.size === sz).map(g => `<div class="v40-ko-m">${(ed.score || {})[g.key] || (g.played && g.a && g.b) ? `<small class="v40-fut-sc">${(ed.score || {})[g.key] ? V40.futTxt(ed.score[g.key]) : ''} ${all[g.a] && all[g.b] ? V40.futReplayBtn('epc|' + g.key, all[g.a], all[g.b], (ed.score || {})[g.key], g.w === g.a ? 'a' : g.w === g.b ? 'b' : 'd') : ''}</small>` : ''}<span class="${g.done && g.w && g.w === g.a ? 'win' : (g.played ? 'lose' : '')}">${g.a === undefined ? '<i class="v40-muted">a definir</i>' : nm(g.a)}</span><span class="${g.done && g.w && g.w === g.b ? 'win' : (g.played ? 'lose' : '')}">${g.b === undefined ? '<i class="v40-muted">a definir</i>' : nm(g.b)}</span></div>`).join('')}</div>`).join('')}</div>
         <div style="display:flex;gap:8px;margin-top:8px;"><button id="v40EpCopaUndo" ${ed.log.length ? '' : 'disabled'}>↺ Desfazer</button><button id="v40EpCopaReset" class="v40-danger">🔄 Recomeçar</button></div></div>`;
     }
     const otherWeeks = weeks.filter(x => x.w !== wk.w).reverse().slice(0, 8);
@@ -432,6 +433,7 @@
       ed2.res[cur.key] = sim.w; ed2.log.push(cur.key);
       ed2.score[cur.key] = V40.futPack(sim);
       ed2.lastSim = { key: cur.key, a: cur.a, b: cur.b, s: sim };
+      V40.futStore('epc|' + cur.key, sim, cur.a, cur.b);
       const S = copaSolve(ed2);
       if (S.champion && !ed2.champion) { ed2.champion = S.champion; V40.confetti && V40.confetti(true); V40.sound && V40.sound('trophy'); }
       V40.set(COPA, ed2);

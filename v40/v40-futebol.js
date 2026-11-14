@@ -127,17 +127,17 @@
   // busca o elenco dos dois times (com tempo limite) e já escala
   const withTimeout = (p, ms) => Promise.race([p, new Promise(r => setTimeout(() => r(null), ms))]);
   V40.futPrepare = async function (idA, descA, idB, descB) {
-    const get = d => (V40.futCast && d ? withTimeout(V40.futCast(d).catch(() => []), 6000) : Promise.resolve([]));
+    const get = d => (V40.futCast && d ? withTimeout(V40.futCast(d).catch(() => []), 3500) : Promise.resolve([]));
     const [pa, pb] = await Promise.all([get(descA), get(descB)]);
     return [V40.futLineup(idA, pa || []), V40.futLineup(idB, pb || [])];
   };
   // 📺 ver o jogo: campinho de botão visto de cima, cada jogador um círculo (tipo "simular partida")
   const REPLAY = {};
   let replayN = 0;
-  V40.futWatchBtn = function (s, A, B) {
+  V40.futWatchBtn = function (s, A, B, small) {
     const id = 'r' + (++replayN);
     REPLAY[id] = { s, A: { name: A.name, icon: A.icon }, B: { name: B.name, icon: B.icon } };
-    return `<button class="v40-fut-watch" data-futwatch="${id}">📺 Ver o jogo</button>`;
+    return small ? `<button class="v40-fut-watch sm" data-futwatch="${id}" title="Ver o jogo">📺</button>` : `<button class="v40-fut-watch" data-futwatch="${id}">📺 Ver o jogo</button>`;
   };
   document.addEventListener('click', e => {
     const b = e.target.closest && e.target.closest('[data-futwatch]');
@@ -310,6 +310,38 @@
       box.querySelectorAll('[data-fwsp]').forEach(x => x.classList.toggle('on', x === b));
     }));
   };
+  // 🎞 guarda os jogos simulados (só neste aparelho, os 600 mais recentes) pra rever qualquer um
+  const SIMK = 'v40fut-sims-' + (window.V40_LIST || 'oficial');
+  function simsGet() { try { return JSON.parse(localStorage.getItem(SIMK) || '{}') || {}; } catch (e) { return {}; } }
+  V40.futStore = function (id, s, a, b) {
+    try {
+      const all = simsGet();
+      all[id] = { s: { ga: s.ga, gb: s.gb, ev: s.ev, la: s.la, lb: s.lb, ra: s.ra, rb: s.rb, et: s.et, pen: s.pen, w: s.w }, a, b, at: Date.now() };
+      const ks = Object.keys(all);
+      if (ks.length > 600) ks.sort((x, y) => all[x].at - all[y].at).slice(0, ks.length - 600).forEach(k => delete all[k]);
+      localStorage.setItem(SIMK, JSON.stringify(all));
+    } catch (e) {}
+  };
+  V40.futForget = function (id) { try { const all = simsGet(); delete all[id]; localStorage.setItem(SIMK, JSON.stringify(all)); } catch (e) {} };
+  // botão 📺 pra qualquer jogo: o simulado é revisto igualzinho; o decidido na mão (ou antigo)
+  // vira um jogo com o placar que ficou (gols em minutos sorteados)
+  V40.futReplayBtn = function (id, A, B, score, r) {
+    if (!A || !B) return '';
+    const st = simsGet()[id];
+    let s = null;
+    if (st && st.s) s = st.a === A.pid || st.b === B.pid ? st.s : V40.futFlip(st.s);
+    else {
+      const g = V40.futGoals(score, r);
+      const ev = [];
+      mins(g[0], 1, 90).forEach(m => ev.push([m, 'a', null]));
+      mins(g[1], 1, 90).forEach(m => ev.push([m, 'b', null]));
+      ev.sort((x, y) => x[0] - y[0]);
+      s = { ga: g[0], gb: g[1], ev, ra: 7, rb: 7, w: g[0] > g[1] ? 'a' : g[0] < g[1] ? 'b' : 'd' };
+      if (Array.isArray(score) && score.length > 2) s.pen = [score[2], score[3]];
+    }
+    return V40.futWatchBtn(s, A, B, true);
+  };
+
   // de onde vem o elenco de um time da Liga do Multiverso
   V40.teamCastDesc = function (t) {
     if (!t || !t.items || !t.items[0]) return null;
