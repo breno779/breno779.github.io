@@ -129,7 +129,21 @@
   V40.futPrepare = async function (idA, descA, idB, descB) {
     const get = d => (V40.futCast && d ? withTimeout(V40.futCast(d).catch(() => []), 3500) : Promise.resolve([]));
     const [pa, pb] = await Promise.all([get(descA), get(descB)]);
-    return [V40.futLineup(idA, pa || []), V40.futLineup(idB, pb || [])];
+    let la = V40.futLineup(idA, pa || []), lb = V40.futLineup(idB, pb || []);
+    // os dois times entram com o MESMO número de jogadores (o maior dos dois, até 11): quem tem
+    // elenco menor completa com o resto do elenco e, se ainda faltar, com figurantes
+    if (la.length || lb.length) {
+      const n = Math.min(11, Math.max(la.length, lb.length, 5));
+      const fill = (l, pool) => {
+        const out = l.slice();
+        (pool || []).forEach(x => { if (out.length < n && !out.includes(x)) out.push(x); });
+        let k = 1;
+        while (out.length < n) out.push(`Figurante ${k++}`);
+        return out.slice(0, n);
+      };
+      la = fill(la, pa); lb = fill(lb, pb);
+    }
+    return [la, lb];
   };
   // 📺 ver o jogo: campinho de botão visto de cima, cada jogador um círculo (tipo "simular partida")
   const REPLAY = {};
