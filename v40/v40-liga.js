@@ -1047,7 +1047,7 @@
     const heroRows = V40.heroLeague();
     const hist = recordHistory(V40.leagueTable(all), heroRows);
     const hist4 = recordL4History(table, prog.rodada);
-    const tabs = [['titulos', '📋 Tabela'], ['jogos', '⚽ Jogos'], ['mata', '♾️ Copa do Infinito'], ['eps', '📺 Episódios'], ['numeros', '📊 Números'], ['herois', '🦸 Heróis'], ['fases', '🗂 Por fase'], ['duelo', '🥊 Duelo'], ['historico', '📈 Histórico']];
+    const tabs = [['titulos', '📋 Tabela'], ['jogos', '⚽ Jogos'], ['mata', '♾️ Copa do Infinito'], ['eps', '📺 Episódios'], ['mundial', '🌀 Super Mundial'], ['numeros', '📊 Números'], ['herois', '🦸 Heróis'], ['fases', '🗂 Por fase'], ['duelo', '🥊 Duelo'], ['historico', '📈 Histórico']];
     let body = '';
     if (V40.ligaTab === 'titulos') body = l4TableHtml(table, prog, hist4);
     else if (V40.ligaTab === 'jogos') body = l4GamesHtml(teams, prog);
@@ -1055,6 +1055,7 @@
     else if (V40.ligaTab === 'mata') body = libHtml(teams, table, prog);
     else if (V40.ligaTab === 'numeros') body = numbersHtml(teams, table, prog);
     else if (V40.ligaTab === 'eps') body = V40.epsLeagueHtml ? V40.epsLeagueHtml() : '';
+    else if (V40.ligaTab === 'mundial') body = V40.mundialHtml ? V40.mundialHtml() : '';
     else if (V40.ligaTab === 'fases') body = phasesHtml(all);
     else if (V40.ligaTab === 'duelo') body = duelHtml(all);
     else body = historyHtml(heroRows, hist);
@@ -1069,6 +1070,7 @@
     wireLiga(el, all, table, heroRows);
     wireL4(el);
     if (V40.ligaTab === 'eps' && V40.wireEps) V40.wireEps(el);
+    if (V40.ligaTab === 'mundial' && V40.wireMundial) V40.wireMundial(el);
     ensureTabReloadBtn('tabLiga');
   };
 
