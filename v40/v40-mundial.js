@@ -29,19 +29,31 @@
     out.push({ id: 'copa', label: '♾️ Campeão da Copa do Infinito', team: lib && lib.champion && by[lib.champion] ? by[lib.champion] : null });
     // 🏆 Copa dos Campeões (episódios)
     const ec = V40.get('eps-copa', null);
-    let epT = null;
+    // o episódio campeão não joga sozinho: quem entra é a TEMPORADA dele (time da Liga do Multiverso)
+    let epT = null, epName = null;
     if (ec && ec.champion) {
       const info = (ec.info || []).find(c => c.pid === ec.champion);
-      epT = Object.assign({ pid: ec.champion, ep: true }, info || { name: ec.champion, icon: '📺' });
+      epName = info ? info.name : ec.champion;
+      const p = String(ec.champion).split(':'), key = p[1], e = +p[2];
+      epT = teams.find(t => t.kind === 'serie' && (t.units || []).some(u => u.it && u.it.key === key && e >= (u.from || 0) && (u.to == null || e < u.to))) || null;
     }
-    out.push({ id: 'eps', label: '🏆 Campeão da Copa dos Campeões', team: epT });
+    out.push({ id: 'eps', label: '🏆 Temporada do melhor episódio (Copa dos Campeões)', team: epT, note: epName ? `melhor episódio: ${epName}${epT ? '' : ' — a temporada dele ainda não está completa na Liga'}` : null });
     // 🎟️ convidado: melhor da Liga que ainda não está
-    let guest = null;
-    if (ligaDone && out.every(s => s.team)) {
-      const inn = new Set(out.map(s => s.team.pid));
-      guest = table.find(t => !inn.has(t.pid)) || null;
-    }
-    out.push({ id: 'guest', label: '🎟️ Convidado (melhor da Liga que ainda não está)', team: guest });
+    // 🎟️ convidados: completam as 4 vagas com os melhores da Liga que ainda não estão
+    // (se um time ganhou duas competições, ele ocupa uma vaga só e entra mais um convidado)
+    if (ligaDone && out.every(x => x.team)) {
+      const seen = new Set();
+      out.forEach(x => { if (seen.has(x.team.pid)) { x.dup = true; } seen.add(x.team.pid); });
+      const uniq = out.filter(x => !x.dup);
+      let gi = 1;
+      while (uniq.length < 4) {
+        const g = table.find(t => !seen.has(t.pid));
+        if (!g) break;
+        seen.add(g.pid);
+        const slot = { id: 'guest' + gi, label: `🎟️ Convidado${gi > 1 ? ' ' + gi : ''} (melhor da Liga que ainda não está)`, team: g };
+        out.push(slot); uniq.push(slot); gi++;
+      }
+    } else out.push({ id: 'guest1', label: '🎟️ Convidado (melhor da Liga que ainda não está)', team: null });
     return out;
   }
   V40.mundialSlots = slots;
@@ -72,14 +84,14 @@
   V40.mundialHtml = function () {
     const sl = slots();
     const ed = V40.get(KEY, null);
-    const ready = sl.every(s => s.team);
+    const ready = sl.filter(s => s.team && !s.dup).length >= 4;
     const rules = `<details class="v40-help"><summary>📜 Regulamento</summary><ol style="margin:6px 0 0 18px;padding:0;font-size:0.8rem;">
-      <li>Jogam os campeões de todas as competições: Liga do Multiverso, Copa do Infinito e Copa dos Campeões (o melhor episódio).</li>
-      <li>A 4ª vaga é de um convidado: o melhor colocado da Liga do Multiverso que ainda não está no Mundial (se um time ganhou duas competições, entra mais um convidado).</li>
+      <li>Jogam os campeões de todas as competições: Liga do Multiverso, Copa do Infinito e a <b>temporada</b> do melhor episódio (campeão da Copa dos Campeões). Episódio sozinho não joga: quem representa é a temporada dele.</li>
+      <li>A 4ª vaga é de um convidado: o melhor colocado da Liga do Multiverso que ainda não está no Mundial (se um time ocupa duas vagas, entra mais um convidado).</li>
       <li>Semifinais (1º × 4º e 2º × 3º, na ordem das vagas) e Grande Final, em jogo único. Empate: prorrogação e pênaltis.</li>
       <li>Simulação de futebol: a nota é a força de cada time e os personagens são os jogadores.</li>
       <li>Abre quando as 3 competições tiverem campeão — ou seja, no fim da lista.</li></ol></details>`;
-    const slotRows = sl.map(s => `<div class="v40-row"><span style="flex:1">${s.label}<br><small class="${s.team ? '' : 'v40-muted'}">${s.team ? `${s.team.icon || ''} <b>${V40.esc(s.team.name)}</b>` : '⏳ ainda não definido'}</small></span></div>`).join('');
+    const slotRows = sl.map(s => `<div class="v40-row"><span style="flex:1">${s.label}<br><small class="${s.team ? '' : 'v40-muted'}">${s.team ? `${s.team.icon || ''} <b>${V40.esc(s.team.name)}</b>${s.dup ? ' <i class="v40-muted">(já classificado em outra vaga)</i>' : ''}` : '⏳ ainda não definido'}</small>${s.note ? `<br><small class="v40-muted">${V40.esc(s.note)}</small>` : ''}</span></div>`).join('');
     let body = '';
     if (!ed) {
       body = `<div class="stat-card"><h4>🎫 Vagas</h4>${slotRows}
@@ -139,8 +151,9 @@
     if (st) st.addEventListener('click', () => {
       if (V40.guard && !V40.guard()) return;
       const sl = slots();
-      if (!sl.every(s => s.team)) return;
-      const teams = sl.map(s => ({ pid: s.team.pid, name: s.team.name, icon: s.team.icon, ep: !!s.team.ep }));
+      const ok = sl.filter(s => s.team && !s.dup);
+      if (ok.length < 4) return;
+      const teams = ok.slice(0, 4).map(s => ({ pid: s.team.pid, name: s.team.name, icon: s.team.icon, ep: false }));
       const n = (V40.get('mundial-campeoes', []) || []).length + 1;
       V40.set(KEY, { n, created: new Date().toISOString(), seeds: teams.map(t => t.pid), teams, res: {}, log: [], score: {}, champion: null });
       V40.renderLiga();
