@@ -115,8 +115,10 @@
     const prev = (all[teamId] || []).filter(n => pool.includes(n));
     const shuffle = a => { for (let i = a.length - 1; i > 0; i--) { const j = Math.floor(Math.random() * (i + 1)); [a[i], a[j]] = [a[j], a[i]]; } return a; };
     // no máximo metade (arredondada pra baixo) repete do jogo anterior
-    const keep = shuffle(prev.slice()).slice(0, Math.floor(size / 2));
-    const fresh = shuffle(pool.filter(n => !prev.includes(n)));
+    // o protagonista (1º do elenco) sempre joga; do resto, no máximo metade repete
+    const star = pool[0];
+    const keep = [star].concat(shuffle(prev.filter(n => n !== star)).slice(0, Math.max(0, Math.floor(size / 2) - 1)));
+    const fresh = shuffle(pool.filter(n => !prev.includes(n) && n !== star));
     let lineup = keep.concat(fresh.slice(0, size - keep.length));
     if (lineup.length < size) lineup = lineup.concat(shuffle(prev.filter(n => !lineup.includes(n))).slice(0, size - lineup.length));
     lineup.sort((a, b) => pool.indexOf(a) - pool.indexOf(b));
@@ -171,8 +173,12 @@
   }
   V40.futWatch = function (s, A, B) {
     if (!s) return;
-    const la = (s.la && s.la.length ? s.la : Array.from({ length: 11 }, (_, i) => A.name + ' ' + (i + 1))).slice(0, 11);
-    const lb = (s.lb && s.lb.length ? s.lb : Array.from({ length: 11 }, (_, i) => B.name + ' ' + (i + 1))).slice(0, 11);
+    const fb = (T, n) => { const p = V40.futCastSync(T); const out = p.slice(0, n); let k = 1; while (out.length < n) out.push(`Figurante ${k++}`); return out; };
+    const nA = s.la && s.la.length ? s.la.length : (s.lb && s.lb.length ? s.lb.length : 11), nB = s.lb && s.lb.length ? s.lb.length : nA;
+    const la = (s.la && s.la.length ? s.la : fb(A, nA)).slice(0, 11);
+    const lb = (s.lb && s.lb.length ? s.lb : fb(B, nB)).slice(0, 11);
+    // gol sem autor (jogo antigo): sorteia um personagem do time
+    (s.ev || []).forEach(e => { if (!e[2]) { const l = e[1] === 'a' ? la : lb; e[2] = l[Math.floor(Math.random() * Math.min(l.length, 6))]; } });
     const box = V40.modal(`<div class="v40-fw">
       <div class="v40-fw-hud"><span class="t a">${V40.esc((A.icon || '') + ' ' + A.name)}</span><b id="v40FwScore">0 × 0</b><span class="t b">${V40.esc(B.name + ' ' + (B.icon || ''))}</span></div>
       <div class="v40-fw-clock"><span id="v40FwClock">0'</span> <span id="v40FwTick" class="v40-muted"></span></div>
@@ -325,6 +331,19 @@
       box.querySelectorAll('[data-fwsp]').forEach(x => x.classList.toggle('on', x === b));
     }));
   };
+  // elenco sem rede (pra rever jogos antigos/decididos na mão): elenco fixo dos filmes ou o que já foi buscado
+  V40.futCastSync = function (t) {
+    try {
+      const d = t && (t.ep ? null : V40.teamCastDesc && t.units ? V40.teamCastDesc(t) : null);
+      const it = d ? d.it : (t && t.items && t.items[0]);
+      const key = it ? it.key : (t && /^E:/.test(t.pid || '') ? String(t.pid).split(':')[1] : (t && /^T:i?/.test(t.pid || '') ? null : null));
+      const cache = JSON.parse(localStorage.getItem('v40fut-cast') || '{}') || {};
+      if (d) { const id = [d.type, d.it.key, d.season || '', ''].join('|'); if (cache[id] && cache[id].v && cache[id].v.length) return cache[id].v; }
+      if (key && V40.FILM_CAST && V40.FILM_CAST[key]) return V40.FILM_CAST[key];
+      if (key) { const hit = Object.keys(cache).find(k => k.split('|')[1] === key && cache[k].v && cache[k].v.length); if (hit) return cache[hit].v; }
+    } catch (e) {}
+    return [];
+  };
   // 🎞 guarda os jogos simulados (só neste aparelho, os 600 mais recentes) pra rever qualquer um
   const SIMK = 'v40fut-sims-' + (window.V40_LIST || 'oficial');
   function simsGet() { try { return JSON.parse(localStorage.getItem(SIMK) || '{}') || {}; } catch (e) { return {}; } }
@@ -351,7 +370,11 @@
       mins(g[0], 1, 90).forEach(m => ev.push([m, 'a', null]));
       mins(g[1], 1, 90).forEach(m => ev.push([m, 'b', null]));
       ev.sort((x, y) => x[0] - y[0]);
-      s = { ga: g[0], gb: g[1], ev, ra: 7, rb: 7, w: g[0] > g[1] ? 'a' : g[0] < g[1] ? 'b' : 'd' };
+      const pick = pool => { const p = pool.slice(); for (let i = p.length - 1; i > 0; i--) { const j = Math.floor(Math.random() * (i + 1)); [p[i], p[j]] = [p[j], p[i]]; } return p.slice(0, 11).sort((x, y) => pool.indexOf(x) - pool.indexOf(y)); };
+      const pa = V40.futCastSync(A), pb = V40.futCastSync(B);
+      const la = pa.length ? pick(pa) : null, lb = pb.length ? pick(pb) : null;
+      ev.forEach(e => { const l = e[1] === 'a' ? la : lb; if (l && l.length) e[2] = l[Math.floor(Math.random() * Math.min(l.length, 6))]; });
+      s = { ga: g[0], gb: g[1], ev, ra: 7, rb: 7, la, lb, w: g[0] > g[1] ? 'a' : g[0] < g[1] ? 'b' : 'd' };
       if (Array.isArray(score) && score.length > 2) s.pen = [score[2], score[3]];
     }
     return V40.futWatchBtn(s, A, B, true);
@@ -362,6 +385,9 @@
     if (!t || !t.items || !t.items[0]) return null;
     const it = t.items[0];
     if (t.kind === 'serie') return { type: 'season', it, season: typeof t.season === 'number' ? t.season : 1 };
+    // episódio avulso (ex.: What If…? T2E7): elenco daquele episódio
+    const c = V40.catOf ? V40.catOf(it) : null;
+    if (c && c.type === 'ep' && c.x && c.x.s && c.x.e) return { type: 'ep', it, s: +c.x.s, n: +c.x.e };
     return { type: 'movie', it };
   };
   // força de um time da Liga do Multiverso: média das notas (episódios da temporada, ou nota do filme)
