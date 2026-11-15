@@ -367,7 +367,11 @@
   V40.futEnsure = function (id, A, B, score, r) {
     if (!A || !B) return null;
     const st = simsGet()[id];
-    if (st && st.s) return st.a === A.pid || st.b === B.pid ? st.s : V40.futFlip(st.s);
+    if (st && st.s) {
+      const o = st.a === A.pid || st.b === B.pid ? st.s : V40.futFlip(st.s);
+      // só vale se bate com o placar que ficou (se o jogo foi desfeito/decidido na mão depois, reconstrói)
+      if (Array.isArray(score) && o.ga === score[0] && o.gb === score[1]) return o;
+    }
     const rnd = seeded(id + '|' + A.pid + '|' + B.pid);
     const g = V40.futGoals(score, r);
     const mm = (n, f, t) => Array.from({ length: n }, () => f + Math.floor(rnd() * (t - f + 1))).sort((x, y) => x - y);
@@ -413,6 +417,31 @@
       return `<div class="v40-row"><span style="width:2.2em;text-align:center;">${medal}</span><span style="flex:1"><b>${V40.esc(p.n)}</b><br><small class="v40-muted">${p.t.icon || ''} ${V40.esc(p.t.name)}</small></span><b style="font-family:'JetBrains Mono',monospace;">${p.g} ⚽</b></div>`;
     }).join('');
     return `<div class="stat-card"><h4>🥇 ${title || 'Artilheiros'}</h4>${rows}${L.length > max ? `<p class="v40-muted" style="margin:6px 0 0;">+${L.length - max} jogadores com gol.</p>` : ''}<p class="v40-muted" style="margin:6px 0 0;font-size:.72rem;">Conta todos os ${n} jogos que já teve (os gols são os mesmos do 📺 rever jogo).</p></div>`;
+  };
+  // ☁️ os jogos simulados vão pra nuvem junto com a sincronização (4 partes, pra caber), e voltam em qualquer aparelho
+  const SHARDS = 4;
+  const shardOf = id => { let h = 0; for (let i = 0; i < id.length; i++) h = (h * 31 + id.charCodeAt(i)) >>> 0; return h % SHARDS; };
+  let futSyncing = false;
+  V40.futSyncCloud = async function (db, docBase) {
+    if (futSyncing || !db || !docBase) return;
+    futSyncing = true;
+    try {
+      const local = simsGet();
+      let got = 0, changed = false;
+      const parts = await Promise.all(Array.from({ length: SHARDS }, (_, i) => db.collection('syncs').doc(docBase + '-fut' + i).get().catch(() => null)));
+      const remote = {};
+      parts.forEach(sn => { try { if (sn && sn.exists) Object.assign(remote, JSON.parse(sn.data().sims || '{}')); } catch (e) {} });
+      Object.keys(remote).forEach(id => { const r = remote[id], l = local[id]; if (r && r.s && (!l || (r.at || 0) > (l.at || 0))) { local[id] = r; got++; } });
+      const dirty = new Set();
+      Object.keys(local).forEach(id => { const r = remote[id], l = local[id]; if (!r || (l.at || 0) > (r.at || 0)) dirty.add(shardOf(id)); });
+      if (got) { try { localStorage.setItem(SIMK, JSON.stringify(local)); changed = true; } catch (e) {} }
+      for (const i of dirty) {
+        const part = {};
+        Object.keys(local).forEach(id => { if (shardOf(id) === i) part[id] = local[id]; });
+        await db.collection('syncs').doc(docBase + '-fut' + i).set({ sims: JSON.stringify(part), at: new Date().toISOString() });
+      }
+      if (changed && document.getElementById('tabLiga') && V40.renderLiga) { try { V40.renderLiga(); } catch (e) {} }
+    } catch (e) {} finally { futSyncing = false; }
   };
   V40.futForget = function (id) { try { const all = simsGet(); delete all[id]; localStorage.setItem(SIMK, JSON.stringify(all)); } catch (e) {} };
   // botão 📺 pra qualquer jogo: o simulado é revisto igualzinho; o decidido na mão (ou antigo)

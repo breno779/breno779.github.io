@@ -227,6 +227,7 @@
       saveState();
       V40.saveSyncBase(p.items);
       try { V40.shareCovers && V40.shareCovers(db); } catch (e) {}
+      try { V40.futSyncCloud && V40.futSyncCloud(db, docMain()); } catch (e) {}
       setStatus('✅ Enviado ' + V40.nowHM());
       if (!silent) V40.toast('☁️ Enviado pra nuvem');
       await maybeCloudBackup(db);
@@ -240,6 +241,7 @@
   V40.syncFetch = async function () {
     const db = await V40.firestore();
     const snap = await db.collection(COL).doc(docMain()).get();
+    try { V40.futSyncCloud && V40.futSyncCloud(db, docMain()); } catch (e) {}
     return snap.exists ? snap.data() : null;
   };
 
