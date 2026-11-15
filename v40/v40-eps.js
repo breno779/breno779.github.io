@@ -89,6 +89,32 @@
     return { s: seasons ? +seasons[0] : (m ? +m[1] : 1), n: (x.from || 1) + e };
   }
   function epCode(it, e) { const r = epSN(it, e); return `T${r.s}E${String(r.n).padStart(2, '0')}`; }
+  // código "T2E05" de qualquer episódio de qualquer série (usado na lista de episódios e no "Próximo").
+  // 1º: o que o TVmaze confirmou pra esse item · 2º: catálogo (temporadas + tamanhos) · senão null
+  V40.epCodeFor = function (it, e) {
+    try {
+      const info = V40.extInfo ? V40.extInfo(it) : null;
+      if (info && info.epCheck === 'ok' && Array.isArray(info.epCodes) && info.epCodes[e]) {
+        const m = /T(\d+)E(\d+)/.exec(info.epCodes[e]);
+        if (m) return `T${+m[1]}E${String(+m[2]).padStart(2, '0')}`;
+      }
+      const c = V40.catOf ? V40.catOf(it) : null;
+      const x = (c && c.x) || {};
+      const seasons = Array.isArray(x.s) ? x.s : (x.s != null ? [x.s] : null);
+      const sizes = V40.seasonSizesOf ? V40.seasonSizesOf(it) : null;
+      if (seasons && seasons.length > 1 && !(sizes && sizes.length === seasons.length)) return null;  // várias temporadas sem saber o tamanho de cada
+      if (!seasons && !/\bT\d+\b/.test(it.text) && !(c && c.type === 'ep')) return null;
+      return epCode(it, e);
+    } catch (er) { return null; }
+  };
+  // título do episódio (português se tiver)
+  V40.epTitleFor = function (it, e) {
+    try {
+      const info = V40.extInfo ? V40.extInfo(it) : null;
+      if (!info || info.epCheck !== 'ok') return null;
+      return (info.epNamesPtSel && info.epNamesPtSel[e]) || (V40.ptText && info.epNames && info.epNames[e] ? (V40.ptText(info.epNames[e]) || info.epNames[e]) : (info.epNames && info.epNames[e])) || null;
+    } catch (er) { return null; }
+  };
 
   // episódio que não veio junto da série (ex.: contagem diferente no TVmaze): busca ele sozinho
   const EPK = 'v40ep-cache';

@@ -2448,7 +2448,8 @@ function buildItemRow(it) {
           const nextDate = episodeDateFor(it, nextEp, eps);
           const nextEl = document.createElement('div');
           nextEl.className = 'next-ep-line';
-          nextEl.textContent = `▶ Próximo: Episódio ${nextEp + 1}` + (nextDate ? ` em ${nextDate.split('-').reverse().join('/')}` : '');
+          const nextCode = window.V40 && V40.epCodeFor ? V40.epCodeFor(it, nextEp) : null;
+          nextEl.textContent = `▶ Próximo: ${nextCode || `Episódio ${nextEp + 1}`}` + (nextDate ? ` em ${nextDate.split('-').reverse().join('/')}` : '');
           mainCol.appendChild(nextEl);
         }
 
@@ -2796,8 +2797,10 @@ function showSingleSeriesModal(it) {
     const dateStr = dateIso ? dateIso.split('-').reverse().slice(0,2).join('/') : '';
     const checked = it.epDone[e] ? 'checked' : '';
     const statusClass = epRowStatusClass(dateIso, it.epDone[e]);
-    const epName = EPISODE_TITLES[it.key] ? EPISODE_TITLES[it.key][e] : null;
-    const epLabel = epName ? `Episódio ${e+1} — ${escapeHtml(epName)}` : `Episódio ${e+1}`;
+    const epName = (EPISODE_TITLES[it.key] ? EPISODE_TITLES[it.key][e] : null) || (window.V40 && V40.epTitleFor ? V40.epTitleFor(it, e) : null);
+    const epCodeL = window.V40 && V40.epCodeFor ? V40.epCodeFor(it, e) : null;
+    const epBase = epCodeL || `Episódio ${e+1}`;
+    const epLabel = epName ? `${epBase} — ${escapeHtml(epName)}` : epBase;
     rows += `<label class="interleaved-row${statusClass}">
       <input type="checkbox" data-ep="${e}" ${checked}>
       <span class="iv-num">${e+1}.</span>
