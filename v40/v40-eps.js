@@ -198,7 +198,16 @@
     const closed = week.w < mondayOf(today()) && played >= total && n >= 1;
     return { list, played, total, closed, champion: closed ? list[0] : null };
   };
-  function nextMatch(week) {
+  // jogos pendentes de hoje = os que têm pelo menos um episódio visto hoje
+  function todayPending(week) {
+    const st = wres(week.w), td = today(), T = week.teams;
+    let n = 0;
+    for (let i = 0; i < T.length; i++) for (let j = i + 1; j < T.length; j++) {
+      if ((T[i].d === td || T[j].d === td) && !st.res[pairKey(T[i].pid, T[j].pid)]) n++;
+    }
+    return n;
+  }
+  function nextMatch(week, onlyToday) {
     const st = wres(week.w);
     const J = {};
     week.teams.forEach(t => { J[t.pid] = 0; });
@@ -208,6 +217,7 @@
     for (let i = 0; i < T.length; i++) for (let j = i + 1; j < T.length; j++) {
       const k = pairKey(T[i].pid, T[j].pid);
       if (st.res[k]) continue;
+      if (onlyToday && T[i].d !== today() && T[j].d !== today()) continue;
       const sc = (J[T[i].pid] + J[T[j].pid]) * 1000 + ((i * 131 + j * 977 + st.log.length * 7919) % 997);
       if (sc < bs) { bs = sc; best = [T[i], T[j]]; }
     }
@@ -377,7 +387,7 @@
         <div class="v40-l4-match">${card(m[0], `data-ep="a" data-ta="${m[0].pid}" data-tb="${m[1].pid}" data-w="${wk.w}"`)}
           <button class="v40-l4-draw" data-ep="d" data-ta="${m[0].pid}" data-tb="${m[1].pid}" data-w="${wk.w}">=</button>
           ${card(m[1], `data-ep="b" data-ta="${m[0].pid}" data-tb="${m[1].pid}" data-w="${wk.w}"`)}</div>
-        <div class="v40-fut-btns"><button class="v40-primary" id="v40EpSim" data-ta="${m[0].pid}" data-tb="${m[1].pid}" data-w="${wk.w}">▶️ Simular jogo</button><button id="v40EpSimQ" data-ta="${m[0].pid}" data-tb="${m[1].pid}" data-w="${wk.w}">⚡ Direto pro resultado</button>${s.total - s.played > 1 ? `<button id="v40EpSimWeek" data-w="${wk.w}">⏩ Simular os ${s.total - s.played} jogos da semana</button>` : ''}</div>
+        <div class="v40-fut-btns"><button class="v40-primary" id="v40EpSim" data-ta="${m[0].pid}" data-tb="${m[1].pid}" data-w="${wk.w}">▶️ Simular jogo</button><button id="v40EpSimQ" data-ta="${m[0].pid}" data-tb="${m[1].pid}" data-w="${wk.w}">⚡ Direto pro resultado</button>${(() => { const tp = todayPending(wk); return tp > 0 && tp < s.total - s.played ? `<button class="v40-epsimweek" data-w="${wk.w}" data-today="1">⏩ Simular só os de hoje (${tp} jogos)</button>` : ''; })()}${s.total - s.played > 1 ? `<button class="v40-epsimweek" data-w="${wk.w}">⏩ Simular a semana inteira (${s.total - s.played} jogos)</button>` : ''}</div>
         <div style="display:flex;gap:8px;margin-top:10px;"><button id="v40EpUndo" data-w="${wk.w}" ${st.log.length ? '' : 'disabled'}>↺ Desfazer último</button></div>
       </div>` : `<div class="stat-card"><h4>⚽ Semana ${fmtW(wk.w)}</h4>${st.lastSim && st.res[st.lastSim.k] ? (() => { const bw = {}; wk.teams.forEach(t => { bw[t.pid] = t; }); const A = bw[st.lastSim.a], B = bw[st.lastSim.b]; return A && B ? `<div class="v40-narr">📣 ${V40.esc(V40.futNarr(st.lastSim.s, A, B))}</div>${V40.futBoardHtml(st.lastSim.s, A, B)}` : ''; })() : ''}<p>${s.total ? '✅ Todos os jogos desta semana foram disputados.' : 'Só 1 episódio nesta semana até agora — os jogos aparecem quando tiver 2 ou mais.'}${!s.closed && s.total ? ' O campeão sai quando a semana acabar (domingo).' : ''}</p></div>`;
     const table = `<div class="stat-card"><h4>📋 Tabela da semana ${fmtW(wk.w)} ${s.closed ? '· encerrada' : ''}</h4>${tableRows(s)}</div>`;
@@ -431,14 +441,14 @@
       if (watch) V40.futWatch(sm, A, B);
     });
     });
-    const ew = document.getElementById('v40EpSimWeek');
-    if (ew) ew.addEventListener('click', async () => {
+    document.querySelectorAll('.v40-epsimweek').forEach(ew => ew.addEventListener('click', async () => {
       if (!V40.guard()) return;
       const wk = V40.epsWeeks().find(x => x.w === ew.dataset.w); if (!wk) return;
+      const onlyToday = !!ew.dataset.today;
       busy(ew);
       let n = 0, g = 0;
       while (g++ < 500) {
-        const m = nextMatch(wk);
+        const m = nextMatch(wk, onlyToday);
         if (!m) break;
         epRecord(wk.w, m[0].pid, m[1].pid, null, await epSimMatch(m[0], m[1], false));
         n++; ew.textContent = `⏳ ${n} jogo(s)…`;
@@ -446,7 +456,7 @@
       V40.sound && V40.sound('tick');
       V40.toast && V40.toast(`⚽ ${n} jogo(s) simulado(s)!`);
       V40.renderLiga();
-    });
+    }));
     const copaSimOne = async () => {
       const ed = V40.get(COPA, null); if (!ed) return false;
       const cur = copaSolve(ed).games.find(g => !g.done && g.a && g.b);
