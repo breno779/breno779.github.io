@@ -729,7 +729,7 @@ body.v40-compact .item:not(.v40-open) .v40-sbar-track { height: 6px; }
 .v40-fw-hud .t.b { color: #7aa2ff; }
 .v40-fw-hud b { font-family: 'JetBrains Mono', monospace; font-size: 1.7rem; color: var(--gold, #e8b84a); }
 .v40-fw-clock { font-family: 'JetBrains Mono', monospace; font-size: .9rem; }
-.v40-fw-feed { width: 100%; min-height: 4.6em; font-size: .78rem; display: flex; flex-direction: column; gap: 2px; }
+.v40-fw-feed { width: 100%; min-height: 4.6em; max-height: 9.5em; overflow-y: auto; font-size: .78rem; display: flex; flex-direction: column; gap: 2px; }
 .v40-fw-feed div:first-child { font-weight: 700; }
 .v40-fw-ctl { display: flex; gap: 6px; flex-wrap: wrap; justify-content: center; }
 .v40-fw-ctl button.on { outline: 2px solid var(--gold, #e8b84a); }

@@ -210,7 +210,7 @@
     const pa = 0.5 + Math.max(-0.25, Math.min(0.25, (s.ra - s.rb) * 0.07));
     let sa = 0, sb = 0;
     const feed = box.querySelector('#v40FwFeed');
-    const say = t => { const d = document.createElement('div'); d.textContent = t; feed.prepend(d); while (feed.children.length > 4) feed.lastChild.remove(); };
+    const say = t => { const d = document.createElement('div'); d.textContent = t; feed.prepend(d); };  // guarda tudo (a caixa rola)
     say('Apita o árbitro! Começa o jogo.');
     const team = sd => (sd === 'a' ? PA : PB);
     function passTo(sd, forward) {
@@ -276,7 +276,8 @@
       goals.forEach(g => { if (!g.done) { g.done = true; if (g.side === 'a') sa++; else sb++; } });
       box.querySelector('#v40FwScore').textContent = `${sa} × ${sb}`;
       if (s.pen) say(`🥅 Pênaltis: ${s.pen[0]} × ${s.pen[1]} — ${(s.pen[0] > s.pen[1] ? A : B).name} passa!`);
-      say(`🏁 Fim de jogo: ${A.name} ${sa} × ${sb} ${B.name}`);
+      const gl = (s.ev || []).map(([m, sd, n]) => `${m}' ${n || (sd === 'a' ? A : B).name}`).join(' · ');
+      say(`🏁 Fim de jogo: ${A.name} ${sa} × ${sb} ${B.name}${gl ? ` — gols: ${gl}` : ''}`);
     }
     function draw() {
       const now = performance.now();
