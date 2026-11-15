@@ -541,8 +541,8 @@
     let pace = null;
     try { pace = V40.ligaPace(teams); } catch (e) {}
     const today = st.day && st.day.d === V40.today() ? st.day.keys.length : 0;
-    // a partir de 15/11/2026 (pedido): 1 rodada obrigatória por dia, podendo jogar até 3
-    if (V40.today() >= '2026-11-15') {
+    // a partir de 14/11/2026 (pedido): 1 rodada obrigatória por dia, podendo jogar até 3
+    if (V40.today() >= '2026-11-14') {
       const size = 3 * rodada, min = rodada;
       return { size, min, rodada, pace, flex: true, done: Math.min(today, size), left: Math.max(0, size - today), minLeft: Math.max(0, min - today) };
     }
@@ -650,7 +650,7 @@
           <button id="v40L4Undo" ${st.log.length ? '' : 'disabled'}>↺ Desfazer último</button>
         </div>${ls ? `<details class="v40-help" style="margin-top:10px;"><summary>⚽ Último jogo (placar e gols)</summary>${ls}</details>` : ''}` : (teams.length < 2 ? '<p>Precisa de pelo menos 2 times em campo.</p>' : !finished ? '' : `<p>🎉 Todos os jogos foram disputados! Hora da <button class="v40-link" data-goto="mata">♾️ Copa do Infinito ›</button></p><button id="v40L4Undo" ${st.log.length ? '' : 'disabled'}>↺ Desfazer último</button>`)}
         <div class="v40-l4-bar" style="margin-top:10px;"><i style="width:${prog.played / Math.max(1, prog.total) * 100}%"></i></div>
-        <p class="v40-muted">Rodada ${prog.rodada} · ${prog.n} times · cada time enfrenta todos os outros uma vez. Quem jogou menos entra em campo primeiro. Por dia (desde 15/11/2026): 1 rodada obrigatória (metade dos times), podendo jogar até 3 rodadas. Time novo (temporada ou filme que você concluir) entra com 0 pontos e os jogos dele vão aparecendo.</p>
+        <p class="v40-muted">Rodada ${prog.rodada} · ${prog.n} times · cada time enfrenta todos os outros uma vez. Quem jogou menos entra em campo primeiro. Por dia (desde 14/11/2026): 1 rodada obrigatória (metade dos times), podendo jogar até 3 rodadas. Time novo (temporada ou filme que você concluir) entra com 0 pontos e os jogos dele vão aparecendo.</p>
       </div>
       ${last ? `<div class="stat-card"><h4>🗒 Últimos resultados</h4>${last}</div>` : ''}`;
   }
