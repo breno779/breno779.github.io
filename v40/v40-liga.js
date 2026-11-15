@@ -490,7 +490,8 @@
     if (quiet) return;
     V40.sound('tick');
     const lim = V40.ligaDaily();
-    if (lim.left === 0) { V40.set('liga4-rodadas-cheias', (V40.get('liga4-rodadas-cheias', 0) || 0) + 1); V40.toast('✅ Rodada do dia completa! Amanhã tem mais.'); try { checkAchievements(); } catch (e) {} }
+    if (lim.flex && lim.done === lim.min) { V40.set('liga4-rodadas-cheias', (V40.get('liga4-rodadas-cheias', 0) || 0) + 1); V40.toast(`✅ Rodada obrigatória feita! Dá pra jogar mais ${lim.left} hoje, se quiser.`); try { checkAchievements(); } catch (e) {} }
+    else if (lim.left === 0) { if (!lim.flex) V40.set('liga4-rodadas-cheias', (V40.get('liga4-rodadas-cheias', 0) || 0) + 1); V40.toast(lim.flex ? '🛑 Limite de hoje atingido (3 rodadas). Amanhã tem mais.' : '✅ Rodada do dia completa! Amanhã tem mais.'); try { checkAchievements(); } catch (e) {} }
     else if (st.log.length % 10 === 0) { try { checkAchievements(); } catch (e) {} }
     V40.renderLiga();
   }
@@ -539,9 +540,14 @@
     const rodada = Math.max(1, Math.floor(n / 2));
     let pace = null;
     try { pace = V40.ligaPace(teams); } catch (e) {}
-    const size = Math.max(rodada, pace ? pace.perDay : 0);
     const today = st.day && st.day.d === V40.today() ? st.day.keys.length : 0;
-    return { size, rodada, pace, done: Math.min(today, size), left: Math.max(0, size - today) };
+    // a partir de 15/11/2026 (pedido): 1 rodada obrigatória por dia, podendo jogar até 3
+    if (V40.today() >= '2026-11-15') {
+      const size = 3 * rodada, min = rodada;
+      return { size, min, rodada, pace, flex: true, done: Math.min(today, size), left: Math.max(0, size - today), minLeft: Math.max(0, min - today) };
+    }
+    const size = Math.max(rodada, pace ? pace.perDay : 0);
+    return { size, min: size, rodada, pace, done: Math.min(today, size), left: Math.max(0, size - today), minLeft: Math.max(0, size - today) };
   };
   function l4Undo() {
     const st = l4();
@@ -621,13 +627,13 @@
     const ls = st.lastSim && by[st.lastSim.a] && by[st.lastSim.b] && st.res[st.lastSim.k] ? V40.futBoardHtml(st.lastSim.s, by[st.lastSim.a], by[st.lastSim.b]) : '';
     const narr = (st.narr ? `<div class="v40-narr">📣 ${V40.esc(st.narr)}</div>` : '') + ls;
     const pc = daily.pace;
-    const dailyBar = `<div class="v40-daily"><span>📅 Jogos de hoje: <b>${daily.done}/${daily.size}</b>${daily.size > daily.rodada ? ` <small class="v40-muted">(${Math.round(daily.size / daily.rodada * 10) / 10} rodadas)</small>` : ''}</span><div class="v40-l4-bar"><i style="width:${daily.done / daily.size * 100}%"></i></div>${pc && pc.end ? `<small class="v40-muted">🎯 Pra acabar junto com a lista (${V40.fmtBR(pc.end, true)}): ~${pc.perDay} jogos/dia · faltam ~${pc.remaining} jogos contando os ${pc.projN} times do fim</small>` : ''}</div>`;
+    const dailyBar = `<div class="v40-daily"><span>📅 Jogos de hoje: <b>${daily.done}/${daily.flex ? daily.min : daily.size}</b>${daily.flex ? ` <small class="v40-muted">${daily.minLeft ? 'rodada obrigatória' : '✓ obrigatória feita'} · máximo ${daily.size} (3 rodadas)</small>` : (daily.size > daily.rodada ? ` <small class="v40-muted">(${Math.round(daily.size / daily.rodada * 10) / 10} rodadas)</small>` : '')}</span><div class="v40-l4-bar"><i style="width:${Math.min(100, daily.done / (daily.flex ? daily.min : daily.size) * 100)}%"></i></div>${daily.flex && !daily.minLeft ? `<div class="v40-l4-bar" style="margin-top:4px;opacity:.7"><i style="width:${daily.done / daily.size * 100}%"></i></div>` : ''}${pc && pc.end ? `<small class="v40-muted">🎯 Pra acabar junto com a lista (${V40.fmtBR(pc.end, true)}): ~${pc.perDay} jogos/dia · faltam ~${pc.remaining} jogos contando os ${pc.projN} times do fim</small>` : ''}</div>`;
     const finished = prog.played >= prog.total;
     return `${extraHtml}
       <div class="stat-card">
         <h4>⚽ Jogo ${Math.min(prog.played + 1, prog.total)} de ${prog.total}</h4>
         ${st.narr ? `<div class="v40-narr">📣 ${V40.esc(st.narr)}</div>` : ''}${finished ? '' : dailyBar}
-        ${!m && !finished && teams.length >= 2 ? `<div class="v40-daydone">✅ <b>Rodada de hoje completa!</b><br><span class="v40-muted">Limite de hoje: ${daily.size} jogos (1 rodada${daily.size > daily.rodada ? ', ou mais pra acabar junto com a lista' : ''}). Volta amanhã.</span></div><button id="v40L4Undo" ${st.log.length ? '' : 'disabled'}>↺ Desfazer último</button>` : ''}
+        ${!m && !finished && teams.length >= 2 ? `<div class="v40-daydone">✅ <b>${daily.flex ? 'Limite de hoje atingido!' : 'Rodada de hoje completa!'}</b><br><span class="v40-muted">${daily.flex ? `Hoje: ${daily.size} jogos (3 rodadas, o máximo por dia).` : `Limite de hoje: ${daily.size} jogos (1 rodada${daily.size > daily.rodada ? ', ou mais pra acabar junto com a lista' : ''}).`} Volta amanhã.</span></div><button id="v40L4Undo" ${st.log.length ? '' : 'disabled'}>↺ Desfazer último</button>` : ''}
         ${m ? `${V40.isClassic(m[0], m[1]) ? classicBanner(m[0].franchise) : ''}<p class="v40-muted" style="margin-top:-4px;">▶️ Simule o jogo (a nota é a força de cada time), ou decida na mão: toque no vencedor ou no = pra empate.</p>
         <div class="v40-l4-match${V40.isClassic(m[0], m[1]) ? ' classic' : ''}" ${V40.isClassic(m[0], m[1]) ? `style="--c1:${m[0].franchise.c[0]};--c2:${m[0].franchise.c[1]}"` : ''}>
           ${teamCard(m[0], `data-l4="a" data-ta="${V40.esc(m[0].pid)}" data-tb="${V40.esc(m[1].pid)}"`)}
@@ -637,14 +643,14 @@
         <div class="v40-fut-btns">
           <button class="v40-primary" id="v40L4Sim" data-ta="${V40.esc(m[0].pid)}" data-tb="${V40.esc(m[1].pid)}">▶️ Simular jogo</button>
           <button id="v40L4SimQ" data-ta="${V40.esc(m[0].pid)}" data-tb="${V40.esc(m[1].pid)}">⚡ Direto pro resultado</button>
-          ${daily.left > 1 ? `<button id="v40L4SimDay">⏩ Simular os ${daily.left} jogos de hoje</button>` : ''}
+          ${daily.flex ? `${daily.minLeft > 1 ? `<button class="v40-l4simday" data-n="${daily.minLeft}">⏩ Simular a rodada obrigatória (${daily.minLeft} jogos)</button>` : ''}${daily.left > daily.minLeft ? `<button class="v40-l4simday" data-n="${daily.left}">⏩ Simular até o máximo de hoje (${daily.left} jogos)</button>` : ''}` : (daily.left > 1 ? `<button class="v40-l4simday" data-n="${daily.left}">⏩ Simular os ${daily.left} jogos de hoje</button>` : '')}
         </div>
         <div style="display:flex;gap:8px;margin-top:10px;flex-wrap:wrap;">
           <button id="v40L4Skip" data-k="${V40.esc(pairKey(m[0].pid, m[1].pid))}">⏭ Pular este jogo</button>
           <button id="v40L4Undo" ${st.log.length ? '' : 'disabled'}>↺ Desfazer último</button>
         </div>${ls ? `<details class="v40-help" style="margin-top:10px;"><summary>⚽ Último jogo (placar e gols)</summary>${ls}</details>` : ''}` : (teams.length < 2 ? '<p>Precisa de pelo menos 2 times em campo.</p>' : !finished ? '' : `<p>🎉 Todos os jogos foram disputados! Hora da <button class="v40-link" data-goto="mata">♾️ Copa do Infinito ›</button></p><button id="v40L4Undo" ${st.log.length ? '' : 'disabled'}>↺ Desfazer último</button>`)}
         <div class="v40-l4-bar" style="margin-top:10px;"><i style="width:${prog.played / Math.max(1, prog.total) * 100}%"></i></div>
-        <p class="v40-muted">Rodada ${prog.rodada} · ${prog.n} times · cada time enfrenta todos os outros uma vez. Quem jogou menos entra em campo primeiro. Limite por dia: 1 rodada (metade dos times), ou o necessário pra acabar junto com a lista. Time novo (temporada ou filme que você concluir) entra com 0 pontos e os jogos dele vão aparecendo.</p>
+        <p class="v40-muted">Rodada ${prog.rodada} · ${prog.n} times · cada time enfrenta todos os outros uma vez. Quem jogou menos entra em campo primeiro. Por dia (desde 15/11/2026): 1 rodada obrigatória (metade dos times), podendo jogar até 3 rodadas. Time novo (temporada ou filme que você concluir) entra com 0 pontos e os jogos dele vão aparecendo.</p>
       </div>
       ${last ? `<div class="stat-card"><h4>🗒 Últimos resultados</h4>${last}</div>` : ''}`;
   }
@@ -982,13 +988,13 @@
         if (watch) V40.futWatch(sm, A, B);
       });
     });
-    const simD = document.getElementById('v40L4SimDay');
-    if (simD) simD.addEventListener('click', async () => {
+    document.querySelectorAll('.v40-l4simday').forEach(simD => simD.addEventListener('click', async () => {
       if (!V40.guard()) return;
       const teams = V40.ligaTeams();
+      const target = +simD.dataset.n || 0;
       busy(simD);
       let n = 0, guardN = 0;
-      while (V40.ligaDaily(teams).left > 0 && guardN++ < 500) {
+      while (n < target && V40.ligaDaily(teams).left > 0 && guardN++ < 500) {
         const m = nextMatch(teams);
         if (!m) break;
         l4Result(m[0].pid, m[1].pid, null, await simMatch(m[0], m[1], false), true);
@@ -997,10 +1003,10 @@
       }
       V40.sound('tick');
       const lim = V40.ligaDaily();
-      if (lim.left === 0) { V40.set('liga4-rodadas-cheias', (V40.get('liga4-rodadas-cheias', 0) || 0) + 1); try { checkAchievements(); } catch (e) {} }
+      if (lim.flex ? (lim.done >= lim.min && lim.done - n < lim.min) : lim.left === 0) { V40.set('liga4-rodadas-cheias', (V40.get('liga4-rodadas-cheias', 0) || 0) + 1); try { checkAchievements(); } catch (e) {} }
       V40.toast(`⚽ ${n} jogo(s) simulado(s)! Veja os placares em "Últimos resultados".`);
       V40.renderLiga();
-    });
+    }));
     const sk = document.getElementById('v40L4Skip');
     if (sk) sk.addEventListener('click', () => { skipped.add(sk.dataset.k); V40.renderLiga(); });
     const un = document.getElementById('v40L4Undo');

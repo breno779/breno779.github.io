@@ -355,11 +355,12 @@
         if (teams.length >= 2) {
           const d = V40.ligaDaily(teams), prog = V40.ligaProgress(teams);
           const fin = prog.played >= prog.total;
-          html += `<button class="v40-liga-home ${d.left ? '' : 'ok'}" id="v40HomeLiga">
+          const need = d.minLeft != null ? d.minLeft : d.left, goal = d.min || d.size;
+          html += `<button class="v40-liga-home ${need ? '' : 'ok'}" id="v40HomeLiga">
             <span class="ic">⚽</span>
-            <span class="mid"><b>${fin ? 'Liga do Multiverso completa!' : d.left ? 'Rodada do dia da Liga' : 'Rodada do dia completa ✓'}</b>
-              <span class="v40-xpbar"><span style="width:${fin ? 100 : 100 * d.done / d.size}%"></span></span>
-              <small>${fin ? 'Hora da ♾️ Copa do Infinito' : `${d.done}/${d.size} jogos hoje · ${prog.played}/${prog.total} no campeonato`}</small></span>
+            <span class="mid"><b>${fin ? 'Liga do Multiverso completa!' : need ? 'Rodada do dia da Liga' : 'Rodada do dia completa ✓'}</b>
+              <span class="v40-xpbar"><span style="width:${fin ? 100 : Math.min(100, 100 * d.done / goal)}%"></span></span>
+              <small>${fin ? 'Hora da ♾️ Copa do Infinito' : `${d.done}/${goal} jogos hoje${d.flex && !need && d.left ? ` · dá pra jogar mais ${d.left}` : ''} · ${prog.played}/${prog.total} no campeonato`}</small></span>
             <span class="st">${fin ? '♾️' : d.left ? '›' : '✅'}</span>
           </button>`;
         }

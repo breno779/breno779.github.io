@@ -229,7 +229,7 @@
     p.titles.filter(x => !x.done).forEach(x => parts.push(V40.shortName(x.it)));
     let txt = parts.length ? '📺 Hoje: ' + parts.join(' + ') : '😴 Nada programado hoje';
     try {
-      if (V40.ligaDaily) { const dl = V40.ligaDaily(); if (dl.size) txt += ` · ⚽ ${dl.size} jogos da Liga`; }
+      if (V40.ligaDaily) { const dl = V40.ligaDaily(); if (dl.size) txt += ` · ⚽ ${dl.min || dl.size} jogos da Liga`; }
     } catch (e) {}
     return txt;
   }
