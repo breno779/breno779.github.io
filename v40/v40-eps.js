@@ -397,7 +397,7 @@
     const ed = V40.get(COPA, null);
     let copa = '';
     if (!ed) {
-      copa = `<div class="stat-card"><h4>🏆 Copa dos Campeões</h4>${ch.length >= 2 ? `<p class="v40-muted">${ch.length} campeões de semana classificados. O ideal é começar no fim da lista, com todas as semanas.</p><button class="v40-primary" id="v40EpCopaStart" style="width:100%;">▶️ Começar a Copa dos Campeões</button>` : '<p class="v40-muted">Precisa de pelo menos 2 campeões de semana.</p>'}</div>`;
+      copa = `<div class="stat-card"><h4>🏆 Copa dos Campeões</h4>${ch.length >= 2 ? `<p class="v40-muted">${ch.length} campeões de semana classificados. ${(() => { const f = V40.finals && V40.finals(); return f ? `📅 Marcada pra <b>${V40.fmtBR(f.camp, true)}</b>, com todas as semanas.` : 'O ideal é começar no fim da lista.'; })()}</p>${(() => { const f = V40.finals && V40.finals(); const early = f && V40.today() < f.camp; return `<button class="v40-primary" id="v40EpCopaStart" style="width:100%;" ${early ? 'disabled' : ''}>${early ? `🔒 Abre em ${V40.fmtBR(f.camp, true)}` : '▶️ Começar a Copa dos Campeões'}</button>`; })()}${V40.finalsHtml ? V40.finalsHtml('camp') : ''}` : '<p class="v40-muted">Precisa de pelo menos 2 campeões de semana.</p>'}</div>`;
     } else {
       const S = copaSolve(ed);
       const all = {}; ch.forEach(c => { all[c.pid] = c; });
@@ -413,7 +413,11 @@
     }
     const otherWeeks = weeks.filter(x => x.w !== wk.w).reverse().slice(0, 8);
     const hist = otherWeeks.length ? `<details class="v40-cfg-group" open><summary>🗓 Outras semanas</summary><div>${otherWeeks.map(x => { const ss = V40.epsStandings(x); return `<button class="v40-row v40-epweek" data-epweek="${x.w}" style="width:100%;text-align:left;background:none;border:0;color:inherit;cursor:pointer;"><span style="flex:1">${fmtW(x.w)} · ${x.teams.length} episódios<br><small class="v40-muted">${ss.played}/${ss.total} jogos${ss.champion ? ' · 👑 ' + V40.esc(ss.champion.name) : ''}</small></span><span class="v40-muted">ver tabela ›</span></button>`; }).join('')}</div></details>` : '';
-    return `<div class="stat-card"><h4>📺 Liga dos Episódios</h4><p class="v40-muted" style="margin:0;">Os episódios que você vê na semana se enfrentam. O campeão de cada semana vai pra Copa dos Campeões.</p>${rules}</div>${game}${table}${past}${copa}${hist}`;
+    const wkGames = w => { const sw = wres(w.w), bw = {}; w.teams.forEach(t => { bw[t.pid] = t; }); return (sw.log || []).filter((k, i, a) => a.indexOf(k) === i && sw.res[k]).map(k => { const [a, b] = k.split('§'); return { id: 'ep|' + w.w + '|' + k, A: bw[a], B: bw[b], sc: (sw.score || {})[k], r: sw.res[k] }; }); };
+    const scorers = V40.futScorersHtml(wkGames(wk), `Artilheiros da semana ${fmtW(wk.w)}`)
+      + `<details class="v40-help"><summary>🥇 Artilharia geral (todas as semanas)</summary>${V40.futScorersHtml([].concat(...weeks.map(wkGames)), 'Artilharia geral da Liga dos Episódios', 20)}</details>`;
+    const copaSc = ed ? (() => { const m = {}; champions(weeks).forEach(c => { m[c.pid] = c; }); (ed.info || []).forEach(c => { m[c.pid] = m[c.pid] || c; }); return V40.futScorersHtml(copaSolve(ed).games.filter(g => g.played && g.a && g.b).map(g => ({ id: 'epc|' + g.key, A: m[g.a], B: m[g.b], sc: (ed.score || {})[g.key], r: g.w === g.a ? 'a' : g.w === g.b ? 'b' : 'd' })), 'Artilheiros da Copa dos Campeões'); })() : '';
+    return `<div class="stat-card"><h4>📺 Liga dos Episódios</h4><p class="v40-muted" style="margin:0;">Os episódios que você vê na semana se enfrentam. O campeão de cada semana vai pra Copa dos Campeões.</p>${rules}</div>${game}${table}${scorers}${past}${copa}${copaSc}${hist}`;
   };
   V40.wireEps = function (el) {
     el.querySelectorAll('[data-epweek]').forEach(b => b.addEventListener('click', () => V40.openEpsWeek(b.dataset.epweek)));

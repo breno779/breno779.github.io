@@ -352,31 +352,75 @@
       const all = simsGet();
       all[id] = { s: { ga: s.ga, gb: s.gb, ev: s.ev, la: s.la, lb: s.lb, ra: s.ra, rb: s.rb, et: s.et, pen: s.pen, w: s.w }, a, b, at: Date.now() };
       const ks = Object.keys(all);
-      if (ks.length > 600) ks.sort((x, y) => all[x].at - all[y].at).slice(0, ks.length - 600).forEach(k => delete all[k]);
+      if (ks.length > 2500) ks.sort((x, y) => all[x].at - all[y].at).slice(0, ks.length - 2500).forEach(k => delete all[k]);
       localStorage.setItem(SIMK, JSON.stringify(all));
     } catch (e) {}
+  };
+  // 🎲 sorteio com semente (o mesmo jogo dá sempre os mesmos autores dos gols, em qualquer aparelho)
+  function seeded(str) {
+    let h = 1779033703 ^ str.length;
+    for (let i = 0; i < str.length; i++) { h = Math.imul(h ^ str.charCodeAt(i), 3432918353); h = (h << 13) | (h >>> 19); }
+    return function () { h = Math.imul(h ^ (h >>> 16), 2246822507); h = Math.imul(h ^ (h >>> 13), 3266489909); h ^= h >>> 16; return (h >>> 0) / 4294967296; };
+  }
+  // o jogo completo (gols, minutos, autores) de qualquer partida que já teve:
+  // simulado = o que foi jogado; decidido na mão/antigo = reconstruído a partir do placar que ficou
+  V40.futEnsure = function (id, A, B, score, r) {
+    if (!A || !B) return null;
+    const st = simsGet()[id];
+    if (st && st.s) return st.a === A.pid || st.b === B.pid ? st.s : V40.futFlip(st.s);
+    const rnd = seeded(id + '|' + A.pid + '|' + B.pid);
+    const g = V40.futGoals(score, r);
+    const mm = (n, f, t) => Array.from({ length: n }, () => f + Math.floor(rnd() * (t - f + 1))).sort((x, y) => x - y);
+    const ev = [];
+    mm(g[0], 1, 90).forEach(m => ev.push([m, 'a', null]));
+    mm(g[1], 1, 90).forEach(m => ev.push([m, 'b', null]));
+    ev.sort((x, y) => x[0] - y[0]);
+    const pick = pool => { const p = pool.slice(); for (let i = p.length - 1; i > 0; i--) { const j = Math.floor(rnd() * (i + 1)); [p[i], p[j]] = [p[j], p[i]]; } const l = p.slice(0, 11).sort((x, y) => pool.indexOf(x) - pool.indexOf(y)); if (pool[0] && !l.includes(pool[0])) { l.pop(); l.unshift(pool[0]); } return l; };
+    const pa = V40.futCastSync(A), pb = V40.futCastSync(B);
+    const la = pa.length ? pick(pa) : null, lb = pb.length ? pick(pb) : null;
+    const scorer = l => { if (!l || !l.length) return null; const w = l.map((_, i) => 1 / (1 + i * 0.18)); let x = rnd() * w.reduce((a, b) => a + b, 0); for (let i = 0; i < l.length; i++) { x -= w[i]; if (x <= 0) return l[i]; } return l[0]; };
+    ev.forEach(e => { e[2] = scorer(e[1] === 'a' ? la : lb); });
+    const s = { ga: g[0], gb: g[1], ev, ra: 7, rb: 7, la, lb, w: g[0] > g[1] ? 'a' : g[0] < g[1] ? 'b' : (r === 'a' || r === 'b' ? r : 'd'), rebuilt: true };
+    if (Array.isArray(score) && score.length > 2) s.pen = [score[2], score[3]];
+    return s;
+  };
+  // 🥇 artilharia de TODOS os jogos que já teve: games = [{ id, A, B, sc, r }]
+  V40.futScorers = function (games) {
+    const tally = {};
+    (games || []).forEach(gm => {
+      if (!gm || !gm.A || !gm.B || !gm.r) return;
+      const s = V40.futEnsure(gm.id, gm.A, gm.B, gm.sc, gm.r);
+      if (!s || !Array.isArray(s.ev)) return;
+      s.ev.forEach(e => {
+        if (!e[2]) return;
+        const T = e[1] === 'a' ? gm.A : gm.B;
+        const k = T.pid + '¦' + e[2];
+        tally[k] = tally[k] || { n: e[2], t: T, g: 0 };
+        tally[k].g++;
+      });
+    });
+    return Object.values(tally).sort((x, y) => y.g - x.g || x.n.localeCompare(y.n));
+  };
+  V40.futScorersHtml = function (games, title, max) {
+    const L = V40.futScorers(games);
+    max = max || 15;
+    const n = (games || []).filter(g => g && g.A && g.B && g.r).length;
+    if (!L.length) return `<div class="stat-card"><h4>🥇 ${title || 'Artilheiros'}</h4><p class="v40-muted" style="margin:0;">${n ? 'Nenhum gol com autor ainda (0×0 ou elencos ainda carregando).' : 'Ainda não teve jogo.'}</p></div>`;
+    let pos = 0, prev = null;
+    const rows = L.slice(0, max).map((p, i) => {
+      if (p.g !== prev) { pos = i + 1; prev = p.g; }
+      const medal = pos === 1 ? '🥇' : pos === 2 ? '🥈' : pos === 3 ? '🥉' : pos + 'º';
+      return `<div class="v40-row"><span style="width:2.2em;text-align:center;">${medal}</span><span style="flex:1"><b>${V40.esc(p.n)}</b><br><small class="v40-muted">${p.t.icon || ''} ${V40.esc(p.t.name)}</small></span><b style="font-family:'JetBrains Mono',monospace;">${p.g} ⚽</b></div>`;
+    }).join('');
+    return `<div class="stat-card"><h4>🥇 ${title || 'Artilheiros'}</h4>${rows}${L.length > max ? `<p class="v40-muted" style="margin:6px 0 0;">+${L.length - max} jogadores com gol.</p>` : ''}<p class="v40-muted" style="margin:6px 0 0;font-size:.72rem;">Conta todos os ${n} jogos que já teve (os gols são os mesmos do 📺 rever jogo).</p></div>`;
   };
   V40.futForget = function (id) { try { const all = simsGet(); delete all[id]; localStorage.setItem(SIMK, JSON.stringify(all)); } catch (e) {} };
   // botão 📺 pra qualquer jogo: o simulado é revisto igualzinho; o decidido na mão (ou antigo)
   // vira um jogo com o placar que ficou (gols em minutos sorteados)
   V40.futReplayBtn = function (id, A, B, score, r) {
     if (!A || !B) return '';
-    const st = simsGet()[id];
-    let s = null;
-    if (st && st.s) s = st.a === A.pid || st.b === B.pid ? st.s : V40.futFlip(st.s);
-    else {
-      const g = V40.futGoals(score, r);
-      const ev = [];
-      mins(g[0], 1, 90).forEach(m => ev.push([m, 'a', null]));
-      mins(g[1], 1, 90).forEach(m => ev.push([m, 'b', null]));
-      ev.sort((x, y) => x[0] - y[0]);
-      const pick = pool => { const p = pool.slice(); for (let i = p.length - 1; i > 0; i--) { const j = Math.floor(Math.random() * (i + 1)); [p[i], p[j]] = [p[j], p[i]]; } return p.slice(0, 11).sort((x, y) => pool.indexOf(x) - pool.indexOf(y)); };
-      const pa = V40.futCastSync(A), pb = V40.futCastSync(B);
-      const la = pa.length ? pick(pa) : null, lb = pb.length ? pick(pb) : null;
-      ev.forEach(e => { const l = e[1] === 'a' ? la : lb; if (l && l.length) e[2] = l[Math.floor(Math.random() * Math.min(l.length, 6))]; });
-      s = { ga: g[0], gb: g[1], ev, ra: 7, rb: 7, la, lb, w: g[0] > g[1] ? 'a' : g[0] < g[1] ? 'b' : 'd' };
-      if (Array.isArray(score) && score.length > 2) s.pen = [score[2], score[3]];
-    }
+    const s = V40.futEnsure(id, A, B, score, r);
+    if (!s) return '';
     return V40.futWatchBtn(s, A, B, true);
   };
 

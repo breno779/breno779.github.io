@@ -90,12 +90,13 @@
       <li>A 4ª vaga é de um convidado: o melhor colocado da Liga do Multiverso que ainda não está no Mundial (se um time ocupa duas vagas, entra mais um convidado).</li>
       <li>Semifinais (1º × 4º e 2º × 3º, na ordem das vagas) e Grande Final, em jogo único. Empate: prorrogação e pênaltis.</li>
       <li>Simulação de futebol: a nota é a força de cada time e os personagens são os jogadores.</li>
-      <li>Abre quando as 3 competições tiverem campeão — ou seja, no fim da lista.</li></ol></details>`;
+      <li>Marcado pro último dia da lista (e precisa que as 3 competições tenham campeão).</li></ol></details>`;
     const slotRows = sl.map(s => `<div class="v40-row"><span style="flex:1">${s.label}<br><small class="${s.team ? '' : 'v40-muted'}">${s.team ? `${s.team.icon || ''} <b>${V40.esc(s.team.name)}</b>${s.dup ? ' <i class="v40-muted">(já classificado em outra vaga)</i>' : ''}` : '⏳ ainda não definido'}</small>${s.note ? `<br><small class="v40-muted">${V40.esc(s.note)}</small>` : ''}</span></div>`).join('');
     let body = '';
     if (!ed) {
       body = `<div class="stat-card"><h4>🎫 Vagas</h4>${slotRows}
-        ${ready ? `<button class="v40-primary" id="v40MunStart" style="margin-top:10px;width:100%;">🌀 Começar o Super Mundial</button>` : `<p class="v40-muted" style="margin-top:8px;">O Mundial abre quando as 3 competições tiverem campeão.</p>`}</div>`;
+        ${(() => { const f = V40.finals && V40.finals(); const early = f && V40.today() < f.mundial; return ready && !early ? `<button class="v40-primary" id="v40MunStart" style="margin-top:10px;width:100%;">🌀 Começar o Super Mundial</button>` : `<p class="v40-muted" style="margin-top:8px;">${f ? `📅 Marcado pro último dia da lista: <b>${V40.fmtBR(f.mundial, true)}</b>.` : ''} ${ready ? '' : 'Precisa que as 3 competições tenham campeão.'}</p>`; })()}
+        ${V40.finalsHtml ? V40.finalsHtml('mundial') : ''}</div>`;
     } else {
       const S = solve(ed);
       const all = {}; (ed.teams || []).forEach(t => { all[t.pid] = t; });
@@ -108,7 +109,7 @@
         <div style="display:flex;gap:8px;margin-top:10px;"><button id="v40MunUndo" ${ed.log.length ? '' : 'disabled'}>↺ Desfazer último</button></div>
         ${ls ? `<details class="v40-help" style="margin-top:10px;"><summary>⚽ Último jogo</summary>${ls}</details>` : ''}</div>` : (S.champion ? `<div class="stat-card">${ls}<div style="display:flex;gap:8px;flex-wrap:wrap;"><button id="v40MunUndo">↺ Desfazer último</button><button id="v40MunReset">🔄 Nova edição</button></div></div>` : '');
       const bracket = `<div class="stat-card"><h4>🗺 Chave</h4><div class="v40-ko-bracket">${['Semifinais', 'Final'].map((rn, i) => `<div class="v40-ko-round"><div class="v40-ko-rname">${rn}</div>${S.games.filter(g => (i === 0) === g.key.startsWith('sf')).map(g => `<div class="v40-ko-m">${(ed.score || {})[g.key] ? `<small class="v40-fut-sc">${V40.futTxt(ed.score[g.key])} ${all[g.a] && all[g.b] ? V40.futReplayBtn('mun|' + ed.n + '|' + g.key, all[g.a], all[g.b], ed.score[g.key], ed.res[g.key]) : ''}</small>` : ''}<span class="${g.done && g.w === g.a ? 'win' : (g.done ? 'lose' : '')}">${nm(g.a)}</span><span class="${g.done && g.w === g.b ? 'win' : (g.done ? 'lose' : '')}">${nm(g.b)}</span></div>`).join('')}</div>`).join('')}</div></div>`;
-      body = champ + card + bracket;
+      body = champ + card + bracket + V40.futScorersHtml(S.games.filter(g => g.done && g.a && g.b).map(g => ({ id: 'mun|' + ed.n + '|' + g.key, A: all[g.a], B: all[g.b], sc: (ed.score || {})[g.key], r: ed.res[g.key] })), `Artilheiros do Super Mundial · edição ${ed.n}`);
     }
     const hist = V40.get('mundial-campeoes', []);
     const histHtml = hist.length ? `<div class="stat-card"><h4>🏛 Campeões do Mundial</h4>${hist.slice().reverse().map(h => `<div class="v40-row"><span style="flex:1">${h.icon || ''} <b>${V40.esc(h.name)}</b><br><small class="v40-muted">edição ${h.n} · ${h.d ? h.d.split('-').reverse().join('/') : ''}</small></span></div>`).join('')}</div>` : '';

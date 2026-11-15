@@ -519,6 +519,25 @@
   }
   // 🎯 ritmo pra Liga acabar junto com a lista: a Liga até 2 dias antes do fim da lista e a
   // Copa do Infinito nos 2 últimos dias (dia 1: grupos/1ª fase · dia 2: mata-mata até a final). Conta os times que ainda vão entrar (tudo lançado até lá).
+  // 🗓 calendário das finais (última semana da lista), marcado a pedido em 14/11/2026:
+  //  Liga do Multiverso até D-4 · Copa dos Campeões D-3 · Copa do Infinito D-2 e D-1 · 🌀 Super Mundial no último dia
+  V40.finals = function () {
+    const end = V40.endDate && V40.endDate();
+    if (!end) return null;
+    return { end, liga: V40.addDays(end, -4), camp: V40.addDays(end, -3), inf1: V40.addDays(end, -2), inf2: V40.addDays(end, -1), mundial: end };
+  };
+  V40.finalsHtml = function (hl) {
+    const f = V40.finals();
+    if (!f) return '';
+    const row = (id, d, txt) => `<div class="v40-row" style="${hl === id ? 'font-weight:800;color:var(--gold,#e8b84a);' : ''}"><span style="width:6.2em;font-family:'JetBrains Mono',monospace;">${V40.fmtBR(d, true)}</span><span style="flex:1">${txt}</span></div>`;
+    return `<details class="v40-help"><summary>🗓 Calendário das finais</summary>
+      ${row('liga', f.liga, '🏅 Último dia da Liga do Multiverso')}
+      ${row('camp', f.camp, '🏆 Copa dos Campeões (episódios)')}
+      ${row('inf', f.inf1, '♾️ Copa do Infinito — dia 1')}
+      ${row('inf', f.inf2, '♾️ Copa do Infinito — dia 2 (até a final)')}
+      ${row('mundial', f.mundial, '🌀 Super Mundial do Multiverso da Loucura (último dia da lista)')}
+      <p class="v40-muted" style="margin:6px 0 0;">As datas acompanham o fim da lista: se a lista andar, o calendário anda junto.</p></details>`;
+  };
   V40.ligaPace = function (teams) {
     const st = l4();
     const end = V40.endDate && V40.endDate();
@@ -528,10 +547,10 @@
     const playedAll = st.log.filter(k => st.res[k]).length;
     const todayDone = st.day && st.day.d === V40.today() ? st.day.keys.length : 0;
     const remaining = Math.max(0, totalProj - (playedAll - todayDone));   // conta a partir do começo de hoje
-    let days = end ? Math.max(1, V40.daysBetween(V40.today(), end) - 1) : 365;  // de hoje até 2 dias antes do fim
+    let days = end ? Math.max(1, V40.daysBetween(V40.today(), end) - 3) : 365;  // de hoje até 4 dias antes do fim (depois: finais)
     const perDay = Math.ceil(remaining / days);
-    const copa1 = end ? V40.addDays(end, -1) : null;
-    return { end, projN, totalProj, remaining, days, perDay, copa1, copa2: end };
+    const copa1 = end ? V40.addDays(end, -2) : null;
+    return { end, projN, totalProj, remaining, days, perDay, copa1, copa2: end ? V40.addDays(end, -1) : null, ligaEnd: end ? V40.addDays(end, -4) : null };
   };
   // ⚽ limite por dia: 1 rodada (metade dos times) — ou mais, se for preciso pra acabar junto com a lista
   V40.ligaDaily = function (teams) {
@@ -627,7 +646,7 @@
     const ls = st.lastSim && by[st.lastSim.a] && by[st.lastSim.b] && st.res[st.lastSim.k] ? V40.futBoardHtml(st.lastSim.s, by[st.lastSim.a], by[st.lastSim.b]) : '';
     const narr = (st.narr ? `<div class="v40-narr">📣 ${V40.esc(st.narr)}</div>` : '') + ls;
     const pc = daily.pace;
-    const dailyBar = `<div class="v40-daily"><span>📅 Jogos de hoje: <b>${daily.done}/${daily.flex ? daily.min : daily.size}</b>${daily.flex ? ` <small class="v40-muted">${daily.minLeft ? 'rodada obrigatória' : '✓ obrigatória feita'} · máximo ${daily.size} (3 rodadas)</small>` : (daily.size > daily.rodada ? ` <small class="v40-muted">(${Math.round(daily.size / daily.rodada * 10) / 10} rodadas)</small>` : '')}</span><div class="v40-l4-bar"><i style="width:${Math.min(100, daily.done / (daily.flex ? daily.min : daily.size) * 100)}%"></i></div>${daily.flex && !daily.minLeft ? `<div class="v40-l4-bar" style="margin-top:4px;opacity:.7"><i style="width:${daily.done / daily.size * 100}%"></i></div>` : ''}${pc && pc.end ? `<small class="v40-muted">🎯 Pra acabar junto com a lista (${V40.fmtBR(pc.end, true)}): ~${pc.perDay} jogos/dia · faltam ~${pc.remaining} jogos contando os ${pc.projN} times do fim</small>` : ''}</div>`;
+    const dailyBar = `<div class="v40-daily"><span>📅 Jogos de hoje: <b>${daily.done}/${daily.flex ? daily.min : daily.size}</b>${daily.flex ? ` <small class="v40-muted">${daily.minLeft ? 'rodada obrigatória' : '✓ obrigatória feita'} · máximo ${daily.size} (3 rodadas)</small>` : (daily.size > daily.rodada ? ` <small class="v40-muted">(${Math.round(daily.size / daily.rodada * 10) / 10} rodadas)</small>` : '')}</span><div class="v40-l4-bar"><i style="width:${Math.min(100, daily.done / (daily.flex ? daily.min : daily.size) * 100)}%"></i></div>${daily.flex && !daily.minLeft ? `<div class="v40-l4-bar" style="margin-top:4px;opacity:.7"><i style="width:${daily.done / daily.size * 100}%"></i></div>` : ''}${pc && pc.end ? `<small class="v40-muted">🎯 Pra acabar até ${V40.fmtBR(pc.ligaEnd || pc.end, true)} (depois vêm as finais): ~${pc.perDay} jogos/dia · faltam ~${pc.remaining} jogos contando os ${pc.projN} times do fim</small>` : ''}</div>`;
     const finished = prog.played >= prog.total;
     return `${extraHtml}
       <div class="stat-card">
@@ -652,7 +671,8 @@
         <div class="v40-l4-bar" style="margin-top:10px;"><i style="width:${prog.played / Math.max(1, prog.total) * 100}%"></i></div>
         <p class="v40-muted">Rodada ${prog.rodada} · ${prog.n} times · cada time enfrenta todos os outros uma vez. Quem jogou menos entra em campo primeiro. Por dia (desde 14/11/2026): 1 rodada obrigatória (metade dos times), podendo jogar até 3 rodadas. Time novo (temporada ou filme que você concluir) entra com 0 pontos e os jogos dele vão aparecendo.</p>
       </div>
-      ${last ? `<div class="stat-card"><h4>🗒 Últimos resultados</h4>${last}</div>` : ''}`;
+      ${last ? `<div class="stat-card"><h4>🗒 Últimos resultados</h4>${last}</div>` : ''}
+      ${V40.futScorersHtml(st.log.filter((k, i, a) => a.indexOf(k) === i && st.res[k]).map(k => { const [a, b] = k.split('§'); return { id: 'l4|' + k, A: by[a], B: by[b], sc: (st.score || {})[k], r: st.res[k] }; }), 'Artilheiros da Liga do Multiverso')}`;
   }
   // ---------- 📊 números do campeonato ----------
   V40.ligaStats = function (teams) {
@@ -836,9 +856,10 @@
         ${slotsNow < 2 ? `<p>Precisa de pelo menos 2 times no campeonato. Agora: ${teams.length}.</p>` : `
         <p class="v40-muted" style="margin-top:-4px;"><b>${slotsNow} vagas</b> (${teams.length} times${slotsNow < 32 ? ` · a próxima vaga abre com o ${Math.max(52, teams.length + 1)}º time` : ' · máximo'}) · ${slotsNow === 32 ? 'com fase de grupos' : 'mata-mata direto'} · ${prog.played} de ${prog.total} jogos disputados</p>
         ${top.map((t, k) => `<div class="v40-l4row lib"><span class="lpos">${k + 1}º</span><span class="lname">${t.icon} ${V40.esc(t.name)}</span><span></span><span></span><span></span><span></span><span></span><span class="lpts">${t.P}</span></div>`).join('')}
-        <button class="v40-primary" id="v40LibStart" style="margin-top:10px;width:100%;">▶️ Começar a Copa do Infinito</button>
+        ${(() => { const f = V40.finals(); const early = f && V40.today() < f.inf1; return `<button class="v40-primary" id="v40LibStart" style="margin-top:10px;width:100%;" ${early ? 'disabled' : ''}>${early ? `🔒 Abre em ${V40.fmtBR(f.inf1, true)}` : '▶️ Começar a Copa do Infinito'}</button>`; })()}
         ${prog.played < prog.total ? `<p class="v40-muted">Ainda faltam ${prog.total - prog.played} jogos dos pontos corridos — o ideal é começar quando acabarem.</p>` : ''}
-        ${(() => { try { const pc = V40.ligaPace(teams); return pc.end ? `<p class="v40-muted">📅 Planejada pros 2 últimos dias da lista: <b>${V40.fmtBR(pc.copa1, true)}</b> ${slotsNow === 32 ? 'fase de grupos' : '1ª metade dos jogos'} · <b>${V40.fmtBR(pc.copa2, true)}</b> ${slotsNow === 32 ? 'oitavas até a final' : 'até a final'}.</p>` : ''; } catch (e) { return ''; } })()}`}
+        ${(() => { try { const pc = V40.ligaPace(teams); return pc.end ? `<p class="v40-muted">📅 Marcada pra <b>${V40.fmtBR(pc.copa1, true)}</b> ${slotsNow === 32 ? 'fase de grupos' : '1ª metade dos jogos'} · <b>${V40.fmtBR(pc.copa2, true)}</b> ${slotsNow === 32 ? 'oitavas até a final' : 'até a final'} (no dia seguinte é o 🌀 Super Mundial).</p>` : ''; } catch (e) { return ''; } })()}`}
+        ${V40.finalsHtml('inf')}
         ${rules}
       </div>${champs.length ? galleryHtml(champs) : ''}`;
     }
@@ -885,7 +906,8 @@
           <button id="v40LibUndo" ${(ed.log || []).length ? '' : 'disabled'}>↺ Desfazer último jogo</button>
           <button id="v40LibReset" class="v40-danger">🔄 Recomeçar</button>
           ${S.champion ? '<button id="v40LibNew">▶️ Nova edição</button>' : ''}
-        </div>${rules}</div>`;
+        </div>${rules}</div>
+      ${V40.futScorersHtml(S.games.filter(m => m.played && m.a && m.b).map(m => ({ id: 'lib|' + m.key, A: by[m.a], B: by[m.b], sc: (ed.score || {})[m.key], r: m.w === m.a ? 'a' : m.w === m.b ? 'b' : 'd' })), `Artilheiros da Copa do Infinito · edição ${ed.n}`)}`;
   }
   function libSyncChampion(ed) {
     const S = libSolve(ed);
@@ -1015,6 +1037,7 @@
     const ls = document.getElementById('v40LibStart');
     if (ls) ls.addEventListener('click', () => {
       if (!V40.guard()) return;
+      const fz = V40.finals(); if (fz && V40.today() < fz.inf1) { V40.toast(`🔒 A Copa do Infinito está marcada pra ${V40.fmtBR(fz.inf1, true)}.`); return; }
       const prog = V40.ligaProgress();
       if (prog.played < prog.total && !confirm(`Ainda faltam ${prog.total - prog.played} jogos dos pontos corridos. Começar a Copa do Infinito com a tabela de agora mesmo assim?`)) return;
       const table = V40.ligaStandings();
