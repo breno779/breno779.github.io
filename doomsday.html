@@ -35,6 +35,8 @@ window.V40_APK_VERSION = '40.6';
   }
   window.v40RateAt = function (d, kind) {
     var iso = isoOf(d);
+    // dias lentos (ex.: semana da prova + GTA VI, 19–26/11/2026): 1 ep/dia em tudo, inclusive no grupo intercalado
+    try { if (typeof isSlowDay === 'function' && isSlowDay(new Date(iso + 'T12:00:00'))) return 1; } catch (e) {}
     var o0 = window.__v40RateOverride;
     if (window.V40_LIST && !o0) { var raw = null; try { raw = localStorage.getItem('v40-rate-history'); } catch (e) {} if (!raw) return null; }
     var h = window.v40RateHistory().slice().sort(function (a, b) { return a.from < b.from ? -1 : 1; });
@@ -908,7 +910,7 @@ if ('serviceWorker' in navigator) {
     .progress-fill { transition: none; }
   }
 </style>
-<link rel="stylesheet" href="v40/v40.css?b=202611142345">
+<link rel="stylesheet" href="v40/v40.css?b=202611172256">
 </head>
 <body>
 <div class="sticky-progress" id="stickyProgress">
@@ -1129,7 +1131,7 @@ const HERO_GROUPS = [
 // ritmo dos trios intercalados: 3 eps/dia até 29/09/2026, 4 eps/dia a partir de 30/09/2026
 // (subiu por causa da entrada de Guardiões da Galáxia no trio 2 — combinação votada com o usuário).
 const TRIO_RATE_SWITCH_DATE = '2026-09-30';
-function trioRateFor(dateIso) { var v = window.v40RateAt ? v40RateAt(dateIso, 'anim') : null; if (v) return v; return 3; } // voltou pra 3 eps/dia (4 estava puxado demais)
+function trioRateFor(dateIso) { try { if (typeof isSlowDay === 'function' && isSlowDay(new Date(dateIso + 'T12:00:00'))) return 1; } catch (e) {} var v = window.v40RateAt ? v40RateAt(dateIso, 'anim') : null; if (v) return v; return 3; } // voltou pra 3 eps/dia (4 estava puxado demais); dias lentos (19–26/11, prova + GTA VI) = 1, ver v40RateAt
 
 // grupos intercalados: cada um é identificado pelas "key" dos 3 itens que o compõem (nessa
 // ordem). A ordem de intercalação em si (TRIO_ORDER de cada grupo) é calculada com
@@ -4277,7 +4279,7 @@ document.getElementById('tabLista').classList.add('tab-visible');
 
 // versão do app (acompanha o CACHE_NAME do sw.js): aparece entre parênteses nos botões de
 // recarregar de todas as abas
-const APP_VERSION = 'v40.8.13';
+const APP_VERSION = 'v40.8.14';
 (function () {
   const home = document.getElementById('btnReloadHome');
   if (home) home.textContent = '🔄 Recarregar (' + APP_VERSION + ')';
@@ -5208,21 +5210,21 @@ initCloudSync();
 </script>
 <div class="toast-container" id="toastContainer"></div>
 <div class="marathon-screen" id="marathonScreen"></div>
-<script src="v40/v40-catalog.js?b=202611142345"></script>
-<script src="v40/v40-core.js?b=202611142345"></script>
-<script src="v40/v40-futcast.js?b=202611142345"></script>
-<script src="v40/v40-futebol.js?b=202611142345"></script>
-<script src="v40/v40-liga.js?b=202611142345"></script>
-<script src="v40/v40-stats.js?b=202611142345"></script>
-<script src="v40/v40-fun.js?b=202611142345"></script>
-<script src="v40/v40-data.js?b=202611142345"></script>
-<script src="v40/v40-content.js?b=202611142345"></script>
-<script src="v40/v40-sync.js?b=202611142345"></script>
-<script src="v40/v40-pedidos.js?b=202611142345"></script>
-<script src="v40/v40-eps.js?b=202611142345"></script>
-<script src="v40/v40-mundial.js?b=202611142345"></script>
-<script src="v40/v40-guard.js?b=202611142345"></script>
-<script src="v40/v40-extra.js?b=202611142345"></script>
-<script src="v40/v40-system.js?b=202611142345"></script>
+<script src="v40/v40-catalog.js?b=202611172256"></script>
+<script src="v40/v40-core.js?b=202611172256"></script>
+<script src="v40/v40-futcast.js?b=202611172256"></script>
+<script src="v40/v40-futebol.js?b=202611172256"></script>
+<script src="v40/v40-liga.js?b=202611172256"></script>
+<script src="v40/v40-stats.js?b=202611172256"></script>
+<script src="v40/v40-fun.js?b=202611172256"></script>
+<script src="v40/v40-data.js?b=202611172256"></script>
+<script src="v40/v40-content.js?b=202611172256"></script>
+<script src="v40/v40-sync.js?b=202611172256"></script>
+<script src="v40/v40-pedidos.js?b=202611172256"></script>
+<script src="v40/v40-eps.js?b=202611172256"></script>
+<script src="v40/v40-mundial.js?b=202611172256"></script>
+<script src="v40/v40-guard.js?b=202611172256"></script>
+<script src="v40/v40-extra.js?b=202611172256"></script>
+<script src="v40/v40-system.js?b=202611172256"></script>
 </body>
 </html>

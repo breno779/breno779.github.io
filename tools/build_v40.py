@@ -24,7 +24,7 @@ from pathlib import Path
 ROOT = Path(__file__).resolve().parent.parent
 SRC = ROOT / 'tools' / 'base.html'
 BUILD = time.strftime('%Y%m%d%H%M')
-VERSION = 'v40.8.13'
+VERSION = 'v40.8.14'
 
 V40_SCRIPTS = ['v40-catalog.js', 'v40-core.js', 'v40-futcast.js', 'v40-futebol.js', 'v40-liga.js', 'v40-stats.js', 'v40-fun.js', 'v40-data.js',
                'v40-content.js', 'v40-sync.js', 'v40-pedidos.js', 'v40-eps.js', 'v40-mundial.js', 'v40-guard.js', 'v40-extra.js', 'v40-system.js']
@@ -57,6 +57,8 @@ window.V40_APK_VERSION = '__APKV__';
   }
   window.v40RateAt = function (d, kind) {
     var iso = isoOf(d);
+    // dias lentos (ex.: semana da prova + GTA VI, 19–26/11/2026): 1 ep/dia em tudo, inclusive no grupo intercalado
+    try { if (typeof isSlowDay === 'function' && isSlowDay(new Date(iso + 'T12:00:00'))) return 1; } catch (e) {}
     var o0 = window.__v40RateOverride;
     if (window.V40_LIST && !o0) { var raw = null; try { raw = localStorage.getItem('v40-rate-history'); } catch (e) {} if (!raw) return null; }
     var h = window.v40RateHistory().slice().sort(function (a, b) { return a.from < b.from ? -1 : 1; });
@@ -178,7 +180,7 @@ def common(s, mode, asset_prefix):
     s = sub_once(s, '</head>', f'<link rel="stylesheet" href="{asset_prefix}v40.css?b={BUILD}">\n</head>', 'css link')
     # ritmo + pausas
     s, n = re.subn(r"function trioRateFor\(dateIso\) \{ return (.+?); \}",
-                  lambda m: "function trioRateFor(dateIso) { var v = window.v40RateAt ? v40RateAt(dateIso, 'anim') : null; if (v) return v; return " + m.group(1) + "; }", s, count=1)
+                  lambda m: "function trioRateFor(dateIso) { try { if (typeof isSlowDay === 'function' && isSlowDay(new Date(dateIso + 'T12:00:00'))) return 1; } catch (e) {} var v = window.v40RateAt ? v40RateAt(dateIso, 'anim') : null; if (v) return v; return " + m.group(1) + "; }", s, count=1)
     if n != 1:
         print('ERRO: trio rate', file=sys.stderr); sys.exit(1)
     s = sub_once(s, "  return PAUSE_WINDOWS.some(([start, end]) => iso >= start && iso <= end);\n",
