@@ -1170,7 +1170,7 @@ function applySkippedEps() {
   });
   return changed;
 }
-const REMOVED_KEYS = ['k168', 'k171', 'k170', 'k173']; // Hulk e os Agentes de S.M.A.S.H.; Vingadores Unidos T5 e Guardiões da Galáxia animado (T1–T2 = k173, T3 = k170) — tirados a pedido em 02/11/2026
+const REMOVED_KEYS = ['k168', 'k171', 'k170', 'k173', 'k54']; // + Homem-Aranha (2017, animado) T1–T3 (k54), tirado a pedido em 19/11/2026 (semana do GTA VI); // Hulk e os Agentes de S.M.A.S.H.; Vingadores Unidos T5 e Guardiões da Galáxia animado (T1–T2 = k173, T3 = k170) — tirados a pedido em 02/11/2026
 
 function seasonEpLabel(flatIdx, seasonSizes, firstSeason) {
   let s = 0, remaining = flatIdx;
@@ -1928,6 +1928,7 @@ function enforceTrioAnchor() {
       const shows0 = cfg0.keys.map(k => items.find(i => i.key === k));
       if (shows0.every(Boolean)) {
         const exp = trioDatesFrom(cfg0, new Date(cfg0.forceAnchor + 'T12:00:00')).epDatesPerShow;
+        applyTrioFlex(cfg0, shows0, exp);
         trioStale = shows0.some((sh, si) => !sh.done && JSON.stringify(sh.epDates || []) !== JSON.stringify(exp[si]));
       }
     }
@@ -4873,6 +4874,19 @@ function findTrioConfig(pending, idx) {
 }
 // datas de cada episódio do grupo intercalado a partir de um dia de início (função pura — usada
 // no cronograma e na conferência de "datas desatualizadas" do enforceTrioAnchor)
+// 🎮 Ultimate Homem-Aranha "livre" (pedido em 19/11/2026, semana do GTA VI): a partir de hoje os
+// episódios que faltam não são obrigatórios em nenhum dia — o prazo é o último dia antes da
+// Maratona Doomsday. Assistir antes é lucro; não assistir não muda nada no resto da lista.
+const TRIO_FLEX = { key: 'k52', from: '2026-11-19', until: '2026-11-30' };
+function applyTrioFlex(cfg, shows, epDatesPerShow) {
+  const si = cfg.keys.indexOf(TRIO_FLEX.key);
+  if (si < 0 || !shows[si]) return;
+  const done = shows[si].epDone || [];
+  epDatesPerShow[si] = epDatesPerShow[si].map((d, e) => (!done[e] && d < TRIO_FLEX.until) ? TRIO_FLEX.until : d);
+}
+function isTrioFlexEp(it, e) {
+  return !!(it && it.key === TRIO_FLEX.key && !(it.epDone || [])[e] && Array.isArray(it.epDates) && it.epDates[e] === TRIO_FLEX.until && fmtDateISO(new Date()) < TRIO_FLEX.until);
+}
 function trioDatesFrom(cfg, startCursor) {
   const order = computeTrioOrder(cfg);
   const totalEps = order.length;
@@ -4928,7 +4942,10 @@ function tryInterleaveTrio(pending, idx, current, RATE_ANIM, forceAnchor) {
   // ordem de intercalação: computeTrioOrder() respeita cfg.phases quando existir (entrada
   // escalonada real, ex. trio 1) e usa cfg.seasonSizes (fonte estável, não o texto do item —
   // que pode ter sido preservado/editado pelo usuário) como fallback pro trio sem fases.
-  const { epDatesPerShow, dayCursor } = trioDatesFrom(cfg, startCursor);
+  const { epDatesPerShow, dayCursor: dc0 } = trioDatesFrom(cfg, startCursor);
+  applyTrioFlex(cfg, shows, epDatesPerShow);
+  let dayCursor = dc0;
+  if (cfg.keys.includes(TRIO_FLEX.key)) { const after = new Date(TRIO_FLEX.until + 'T12:00:00'); after.setDate(after.getDate() + 1); if (dayCursor < after) dayCursor = after; }
   shows.forEach((it, s) => {
     it.epDates = epDatesPerShow[s];
     it.watchStart = epDatesPerShow[s][0];
